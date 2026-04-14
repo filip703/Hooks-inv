@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers } from '../lib/courses'
+import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio } from '../lib/sounds'
 
 const RC = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Skogsbanan', 4: 'Parkbanan' }
 const RL = { 1: 'R1 Fre', 2: 'R2 Lör FM', 3: 'R3 Lör EM', 4: 'R4 Sön' }
@@ -33,6 +34,9 @@ export default function Home() {
   const [adminPid, setAdminPid] = useState(null)
   const [guideHole, setGuideHole] = useState(null)
   const [activeHole, setActiveHole] = useState(null)
+  const [notifications, setNotifications] = useState([])
+  const [showNotifs, setShowNotifs] = useState(false)
+  const [unread, setUnread] = useState(0)
   const [pep] = useState(pepTalks[Math.floor(Math.random() * pepTalks.length)])
   const chatEnd = useRef(null)
   const toastT = useRef(null)
@@ -59,16 +63,35 @@ export default function Home() {
     if (!supabase) return
     const c1 = supabase.channel('s1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_scores' }, p => {
       fetchAll()
-      if (p.new?.stableford_points >= 3) {
-        const pl = players.find(x => x.id === p.new.player_id)
-        if (pl) { const m = getShoutout(pl.name, pl.nickname, p.new.stableford_points); if (m) showToast(m, p.new.stableford_points >= 4 ? 'eagle' : 'birdie') }
+      if (p.new?.player_id !== user?.id) {
+        if (p.new?.stableford_points >= 3) {
+          const pl = players.find(x => x.id === p.new.player_id)
+          if (pl) { const m = getShoutout(pl.name, pl.nickname, p.new.stableford_points); if (m) showToast(m, p.new.stableford_points >= 4 ? 'eagle' : 'birdie') }
+        } else if (p.new?.stableford_points === 0 && p.new?.strokes) {
+          const pl = players.find(x => x.id === p.new.player_id)
+          if (pl) { const m = getZeroRoast(pl.nickname); addNotif(m, 'zero'); soundZero() }
+        }
       }
     }).subscribe()
-    const c2 = supabase.channel('c1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_chat' }, () => { setTimeout(() => fetchChat(), 300) }).subscribe()
+    const c2 = supabase.channel('c1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_chat' }, (p) => { setTimeout(() => fetchChat(), 300); if (p.new?.player_id !== user?.id) soundChat() }).subscribe()
     return () => { supabase.removeChannel(c1); supabase.removeChannel(c2) }
   }, [fetchAll, fetchChat, players])
 
-  const showToast = (msg, type) => { setToast({ msg, type }); if (toastT.current) clearTimeout(toastT.current); toastT.current = setTimeout(() => setToast(null), 4500) }
+  const addNotif = (msg, type) => {
+    const n = { id: Date.now(), msg, type, time: new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }) }
+    setNotifications(prev => [n, ...prev].slice(0, 50))
+    setUnread(prev => prev + 1)
+  }
+  const showToast = (msg, type) => {
+    setToast({ msg, type })
+    addNotif(msg, type)
+    if (toastT.current) clearTimeout(toastT.current)
+    toastT.current = setTimeout(() => setToast(null), 4500)
+    // Sound effects
+    if (type === 'eagle') soundEagle()
+    else if (type === 'birdie') soundBirdie()
+    else if (type === 'zero') soundZero()
+  }
 
   // Core helpers
   const rid = rn => rounds.find(r => r.round_number === rn)?.id
@@ -125,7 +148,7 @@ export default function Home() {
     const phcp = getPlayingHcp(Math.min(parseFloat(scoreFor.hcp), 36), c.slope)
     const pts = calcStableford(parseInt(strokes), hd.par, phcp, hd.hcp)
     await supabase.from('inv_scores').upsert({ player_id: scoreFor.id, round_id: roundId, hole, strokes: parseInt(strokes), stableford_points: pts }, { onConflict: 'player_id,round_id,hole' })
-    // Trigger shoutout/roast immediately for own scores
+    // Sound + shoutout
     if (pts >= 3) {
       const m = getShoutout(scoreFor.name, scoreFor.nickname, pts)
       if (m) { showToast(m.replace('{{hole}}', hole), pts >= 4 ? 'eagle' : 'birdie'); supabase.from('inv_chat').insert({ player_id: scoreFor.id, message: m.replace('{{hole}}', hole), msg_type: 'shoutout' }) }
@@ -133,6 +156,8 @@ export default function Home() {
       const m = getZeroRoast(scoreFor.nickname).replace('{{hole}}', hole)
       showToast(m, 'zero')
       supabase.from('inv_chat').insert({ player_id: scoreFor.id, message: m, msg_type: 'roast' })
+    } else {
+      soundScore()
     }
     fetchAll()
   }
@@ -165,7 +190,7 @@ export default function Home() {
       <p className="login-subtitle">Tryck på ditt ansikte för att börja</p>
       <div className="login-faces">
         {activePlayers.map(p => (
-          <button key={p.id} className="login-face-btn" onClick={() => { setUser(p); setView('leaderboard') }}>
+          <button key={p.id} className="login-face-btn" onClick={() => { initAudio(); setUser(p); setView('leaderboard') }}>
             <Av p={p} size={64} />
             <div className="login-player-name">{p.name.split(' ')[0]}</div>
             <div className="login-player-nick">{p.nickname}</div>
@@ -174,7 +199,7 @@ export default function Home() {
       </div>
       {/* Spectator login separate */}
       {players.find(p => p.key === 'spectator') && (
-        <button onClick={() => { setUser(players.find(p => p.key === 'spectator')); setView('leaderboard') }}
+        <button onClick={() => { initAudio(); setUser(players.find(p => p.key === 'spectator')); setView('leaderboard') }}
           style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 24px', color: 'var(--cream-muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--mono)' }}>
           👀 Gå med som Åskådare
         </button>
@@ -327,9 +352,32 @@ export default function Home() {
       <div className="status-bar" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span className="live-dot" /><Av p={user} size={18} /><span>{user.nickname}</span>
         {isAdmin && <Badge text="ADMIN" color="var(--gold)" bg="rgba(201,168,76,0.15)" />}
-        <button onClick={() => { setUser(null); localStorage?.removeItem('inv_user') }} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 10, cursor: 'pointer' }}>Byt</button>
+        {/* Notification bell */}
+        <button onClick={() => { setShowNotifs(!showNotifs); setUnread(0) }} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: unread > 0 ? 'var(--gold)' : 'var(--cream-muted)', fontSize: 16, cursor: 'pointer', position: 'relative', padding: '4px' }}>
+          🔔
+          {unread > 0 && <span style={{ position: 'absolute', top: 0, right: 0, background: 'var(--coral)', color: '#fff', fontSize: 8, fontWeight: 600, borderRadius: '50%', width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unread > 9 ? '9+' : unread}</span>}
+        </button>
+        <button onClick={() => { setUser(null); localStorage?.removeItem('inv_user') }} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 10, cursor: 'pointer' }}>Byt</button>
       </div>
-      <div className="page-content">
+
+      {/* Notification Center Panel */}
+      {showNotifs && (
+        <div style={{ position: 'fixed', top: 36, right: 8, width: 'calc(100vw - 16px)', maxWidth: 340, maxHeight: '60vh', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, zIndex: 250, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--gold)', letterSpacing: 1 }}>NOTISER</span>
+            {notifications.length > 0 && <button onClick={() => setNotifications([])} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 10, cursor: 'pointer' }}>Rensa</button>}
+          </div>
+          {notifications.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: 'var(--cream-muted)', fontSize: 12 }}>Inga notiser än</div>}
+          {notifications.map(n => (
+            <div key={n.id} style={{ padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)', borderLeft: `3px solid ${n.type === 'eagle' ? 'var(--gold-bright)' : n.type === 'birdie' ? 'var(--green)' : n.type === 'zero' ? 'var(--coral)' : 'var(--cream-muted)'}` }}>
+              <div style={{ fontSize: 12, color: 'var(--cream-dim)', lineHeight: 1.4 }}>{n.msg}</div>
+              <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', marginTop: 2 }}>{n.time}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="page-content" onClick={() => showNotifs && setShowNotifs(false)}>
 
         {/* ===== LEADERBOARD ===== */}
         {view === 'leaderboard' && (<>
