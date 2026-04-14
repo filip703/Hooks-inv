@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast } from '../lib/courses'
+import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements } from '../lib/courses'
 
 const RC = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Skogsbanan', 4: 'Parkbanan' }
 const RL = { 1: 'R1 Fre', 2: 'R2 Lör FM', 3: 'R3 Lör EM', 4: 'R4 Sön' }
@@ -122,6 +122,15 @@ export default function Home() {
     const phcp = getPlayingHcp(Math.min(parseFloat(scoreFor.hcp), 36), c.slope)
     const pts = calcStableford(parseInt(strokes), hd.par, phcp, hd.hcp)
     await supabase.from('inv_scores').upsert({ player_id: scoreFor.id, round_id: roundId, hole, strokes: parseInt(strokes), stableford_points: pts }, { onConflict: 'player_id,round_id,hole' })
+    // Trigger shoutout/roast immediately for own scores
+    if (pts >= 3) {
+      const m = getShoutout(scoreFor.name, scoreFor.nickname, pts)
+      if (m) { showToast(m.replace('{{hole}}', hole), pts >= 4 ? 'eagle' : 'birdie'); supabase.from('inv_chat').insert({ player_id: scoreFor.id, message: m.replace('{{hole}}', hole), msg_type: 'shoutout' }) }
+    } else if (pts === 0) {
+      const m = getZeroRoast(scoreFor.nickname).replace('{{hole}}', hole)
+      showToast(m, 'zero')
+      supabase.from('inv_chat').insert({ player_id: scoreFor.id, message: m, msg_type: 'roast' })
+    }
     fetchAll()
   }
 
@@ -169,7 +178,7 @@ export default function Home() {
   // ===== APP =====
   return (
     <div>
-      {toast && <div className={`shoutout-toast ${toast.type === 'eagle' ? 'eagle-toast' : ''}`}><div style={{ fontSize: 15, fontWeight: 500 }}>{toast.msg}</div></div>}
+      {toast && <div className={`shoutout-toast ${toast.type === 'eagle' ? 'eagle-toast' : toast.type === 'zero' ? 'zero-toast' : ''}`}><div style={{ fontSize: 15, fontWeight: 500 }}>{toast.msg}</div></div>}
 
       {/* BANGUIDE MODAL */}
       {guideHole && (
@@ -291,29 +300,41 @@ export default function Home() {
               <div className="sc-nine-header"><span>{nine.lbl}</span><span style={{ color: 'var(--gold)' }}>{ninePts(nine.h)}p</span></div>
               {nine.h.map(h => {
                 const pts = hPts(h.hole)
+                const strokes = hStr(h.hole)
                 const isLD = h.hole === sp.ld
                 const isNP = h.hole === sp.np
                 const isDouble = h.hole >= sp.doubleStart
                 const isNext = h.hole === nextHole
                 const accent = isLD ? 'var(--gold)' : isNP ? 'var(--green)' : isDouble ? 'var(--coral)' : null
+                const currentVal = strokes ? parseInt(strokes) : h.par
                 return (
                   <div className="sc-hole-card" key={h.hole} id={`hole-${h.hole}`} style={{
                     borderLeft: accent ? `3px solid ${accent}` : isNext ? '3px solid rgba(201,168,76,0.4)' : '3px solid transparent',
-                    background: isNext ? 'var(--surface2)' : 'var(--surface)',
+                    background: isNext ? 'var(--surface2)' : isDouble ? 'rgba(232,99,74,0.03)' : 'var(--surface)',
+                    gridTemplateColumns: '36px 1fr auto auto',
                   }}>
                     <div className="sc-hole-num" style={{ color: h.par === 3 ? 'var(--coral)' : h.par === 5 ? 'var(--green)' : 'var(--cream)', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }} onClick={() => setGuideHole(h.hole)}>{h.hole}</div>
                     <div className="sc-hole-info">
                       <div className="sc-hole-par">
-                        Par {h.par} · Hcp {h.hcp} · {h.meters}m
-                        {isLD && <Badge text="LD" color="var(--gold)" bg="rgba(201,168,76,0.2)" />}
-                        {isNP && <Badge text="NP" color="var(--green)" bg="rgba(107,191,127,0.2)" />}
-                        {isDouble && <Badge text="2x" color="var(--coral)" bg="rgba(232,99,74,0.2)" />}
+                        Par {h.par} · {h.meters}m
+                        {isLD && <Badge text=" LD " color="var(--gold)" bg="rgba(201,168,76,0.2)" />}
+                        {isNP && <Badge text=" NP " color="var(--green)" bg="rgba(107,191,127,0.2)" />}
+                        {isDouble && <Badge text=" 2× " color="var(--coral)" bg="rgba(232,99,74,0.2)" />}
                       </div>
                       <div className="sc-hole-tip">{h.tip}</div>
                     </div>
-                    <input className="sc-stroke-input" type="number" inputMode="numeric" min="1" max="15" placeholder="–"
-                      value={hStr(h.hole)} onChange={e => { const v = e.target.value; if (v && +v > 0 && +v <= 15) save(h.hole, v) }} />
-                    <div className={`sc-pts-badge pts-${pts ?? ''}`}>{pts !== null ? pts : ''}</div>
+                    {/* +/- Score input defaulting to par */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                      <button onClick={() => { if (currentVal > 1) save(h.hole, currentVal - 1) }} style={{ width: 28, height: 36, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px 0 0 8px', color: 'var(--cream)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                      <div onClick={() => { if (!strokes) save(h.hole, h.par) }} style={{ width: 36, height: 36, background: strokes ? 'var(--surface3)' : 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)', borderLeft: 'none', borderRight: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 500, color: strokes ? 'var(--cream)' : 'var(--cream-muted)', cursor: strokes ? 'default' : 'pointer' }}>
+                        {strokes || h.par}
+                      </div>
+                      <button onClick={() => { if (currentVal < 15) save(h.hole, currentVal + 1) }} style={{ width: 28, height: 36, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '0 8px 8px 0', color: 'var(--cream)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                    </div>
+                    <div style={{ minWidth: 36, textAlign: 'center' }}>
+                      {pts !== null && <div className={`sc-pts-badge pts-${pts}`}>{isDouble ? pts * 2 : pts}</div>}
+                      {pts !== null && isDouble && <div style={{ fontSize: 8, fontFamily: 'var(--mono)', color: 'var(--coral)', marginTop: -2 }}>2×</div>}
+                    </div>
                   </div>
                 )
               })}
@@ -426,7 +447,33 @@ export default function Home() {
             <div style={{ fontSize: 13, color: 'var(--cream-dim)', fontStyle: 'italic', lineHeight: 1.6 }}>"{pep}"</div>
           </div>
 
-          {/* Walk-up music with Spotify links */}
+          {/* Venue image carousel */}
+          <div style={{ marginBottom: 20, overflowX: 'auto', display: 'flex', gap: 8, scrollSnapType: 'x mandatory', paddingBottom: 4 }}>
+            {venueImages.map((img, i) => (
+              <div key={i} style={{ flexShrink: 0, width: '75vw', maxWidth: 280, scrollSnapAlign: 'start' }}>
+                <img src={img.url} alt={img.caption} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 12 }} loading="lazy" />
+                <div style={{ fontSize: 10, color: 'var(--cream-muted)', textAlign: 'center', marginTop: 4 }}>{img.caption}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Gamification - Achievements */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>ACHIEVEMENTS</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 20 }}>
+            {achievements.map(a => {
+              const myScores = scores.filter(s => s.player_id === user?.id && s.strokes > 0).sort((x,y) => x.hole - y.hole)
+              const unlocked = a.check(myScores)
+              return (
+                <div key={a.id} style={{ background: unlocked ? 'rgba(201,168,76,0.1)' : 'var(--surface)', borderRadius: 10, padding: '10px 4px', textAlign: 'center', opacity: unlocked ? 1 : 0.4, border: unlocked ? '1px solid var(--gold-dim)' : '1px solid transparent' }}>
+                  <div style={{ fontSize: 20, marginBottom: 2 }}>{a.icon}</div>
+                  <div style={{ fontSize: 9, fontWeight: 500, color: unlocked ? 'var(--gold)' : 'var(--cream-muted)' }}>{a.title}</div>
+                  <div style={{ fontSize: 8, color: 'var(--cream-muted)', marginTop: 1 }}>{a.desc}</div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Walk-up music with Spotify deeplinks */}
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>WALK-UP MUSIC IDAG</div>
           {players.map(p => {
             const today = walkupMusic[p.key]
@@ -434,7 +481,7 @@ export default function Home() {
             const dayMap = { 'fredag': 'Fredag', 'lördag': 'Lördag', 'söndag': 'Söndag' }
             const song = today?.find(s => s.day === dayMap[dayName]) || today?.[0]
             return song ? (
-              <a key={p.id} href={song.url} target="_blank" rel="noopener" style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', textDecoration: 'none', color: 'inherit', alignItems: 'center' }}>
+              <a key={p.id} href={song.deep} onClick={(e) => { setTimeout(() => { window.location.href = song.url }, 500) }} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', textDecoration: 'none', color: 'inherit', alignItems: 'center' }}>
                 <Av p={p} size={32} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name.split(' ')[0]}</div>

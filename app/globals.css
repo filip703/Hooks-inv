@@ -97,3 +97,8 @@ body { background: var(--bg); color: var(--cream); font-family: var(--sans); -we
 .shoutout-toast.eagle-toast { background: #2A1F08; border-color: var(--gold-bright); }
 @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes fadeOut { to { opacity: 0; transform: translateY(-20px); } }
+
+/* ZERO TOAST */
+.shoutout-toast.zero-toast { background: #2A0D08; border-color: var(--coral); }
+/* Surface3 for score input */
+:root { --surface3: #2C2C28; }
