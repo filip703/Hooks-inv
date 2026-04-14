@@ -32,6 +32,7 @@ export default function Home() {
   const [chatMsg, setChatMsg] = useState('')
   const [adminPid, setAdminPid] = useState(null)
   const [guideHole, setGuideHole] = useState(null)
+  const [activeHole, setActiveHole] = useState(null)
   const [pep] = useState(pepTalks[Math.floor(Math.random() * pepTalks.length)])
   const chatEnd = useRef(null)
   const toastT = useRef(null)
@@ -163,7 +164,7 @@ export default function Home() {
       <h1 className="login-title">The <em>Invitational</em></h1>
       <p className="login-subtitle">Tryck på ditt ansikte för att börja</p>
       <div className="login-faces">
-        {players.map(p => (
+        {activePlayers.map(p => (
           <button key={p.id} className="login-face-btn" onClick={() => { setUser(p); setView('leaderboard') }}>
             <Av p={p} size={64} />
             <div className="login-player-name">{p.name.split(' ')[0]}</div>
@@ -171,6 +172,13 @@ export default function Home() {
           </button>
         ))}
       </div>
+      {/* Spectator login separate */}
+      {players.find(p => p.key === 'spectator') && (
+        <button onClick={() => { setUser(players.find(p => p.key === 'spectator')); setView('leaderboard') }}
+          style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 24px', color: 'var(--cream-muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--mono)' }}>
+          👀 Gå med som Åskådare
+        </button>
+      )}
       <div style={{ maxWidth: 280, margin: '24px auto 0', padding: 16, background: 'var(--surface)', borderRadius: 12, textAlign: 'center' }}>
         <div style={{ fontSize: 12, color: 'var(--cream-dim)', fontStyle: 'italic', lineHeight: 1.6 }}>"{pep}"</div>
       </div>
@@ -220,6 +228,102 @@ export default function Home() {
           </div>
         </div>
       )}
+      {/* FULLSCREEN HOLE SCORING */}
+      {activeHole && course && !isSpectator && (() => {
+        const h = course.holes.find(x => x.hole === activeHole)
+        if (!h) return null
+        const pts = hPts(h.hole)
+        const strokes = hStr(h.hole)
+        const currentVal = strokes ? parseInt(strokes) : h.par
+        const isLD = h.hole === sp.ld
+        const isNP = h.hole === sp.np
+        const isDouble = h.hole >= (sp.doubleStart || 16)
+        const flyUrl = flyovers[RC[selRound]]?.[h.hole]
+        const prevHole = h.hole > 1 ? h.hole - 1 : null
+        const nextH = h.hole < 18 ? h.hole + 1 : null
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)', zIndex: 400, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Top bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--surface)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <button onClick={() => setActiveHole(null)} style={{ background: 'none', border: 'none', color: 'var(--cream)', fontSize: 16, cursor: 'pointer' }}>← Alla hål</button>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--cream-muted)' }}>{RL[selRound]} · {course.name}</div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+              {/* Hole number & info */}
+              <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                <div style={{ fontSize: 56, fontFamily: 'var(--serif)', fontWeight: 500, color: h.par === 3 ? 'var(--coral)' : h.par === 5 ? 'var(--green)' : 'var(--cream)' }}>{h.hole}</div>
+                <div style={{ fontSize: 14, color: 'var(--cream-dim)', marginTop: -4 }}>Par {h.par} · {h.meters}m · Hcp {h.hcp}</div>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 8 }}>
+                  {isLD && <Badge text=" 🏌️ LONGEST DRIVE " color="var(--gold)" bg="rgba(201,168,76,0.15)" />}
+                  {isNP && <Badge text=" 🎯 NÄRMAST PIN " color="var(--green)" bg="rgba(107,191,127,0.15)" />}
+                  {isDouble && <Badge text=" ⚡ DUBBLA POÄNG " color="var(--coral)" bg="rgba(232,99,74,0.15)" />}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--cream-muted)', fontStyle: 'italic', marginTop: 8 }}>{h.tip}</div>
+              </div>
+
+              {/* Flyover mini */}
+              {flyUrl && (
+                <div style={{ marginBottom: 16 }}>
+                  <video src={flyUrl} controls playsInline muted style={{ width: '100%', borderRadius: 12, maxHeight: 180, background: '#000' }} />
+                </div>
+              )}
+
+              {/* BIG SCORE INPUT */}
+              <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, marginBottom: 16 }}>
+                <div style={{ textAlign: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', letterSpacing: 1 }}>SLAG</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                  <button onClick={() => { if (currentVal > 1) save(h.hole, currentVal - 1) }}
+                    style={{ width: 64, height: 64, borderRadius: 16, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--cream)', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                  <div onClick={() => { if (!strokes) save(h.hole, h.par) }}
+                    style={{ width: 80, height: 80, borderRadius: 20, background: strokes ? 'var(--surface2)' : 'rgba(201,168,76,0.1)', border: strokes ? '2px solid rgba(255,255,255,0.1)' : '2px solid var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: strokes ? 'default' : 'pointer' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 36, fontWeight: 500, color: strokes ? 'var(--cream)' : 'var(--gold)' }}>{strokes || h.par}</div>
+                    {!strokes && <div style={{ fontSize: 9, color: 'var(--gold)', marginTop: -4 }}>TRYCK</div>}
+                  </div>
+                  <button onClick={() => { if (currentVal < 15) save(h.hole, currentVal + 1) }}
+                    style={{ width: 64, height: 64, borderRadius: 16, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--cream)', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                </div>
+                {/* Points display */}
+                {pts !== null && (
+                  <div style={{ textAlign: 'center', marginTop: 16 }}>
+                    <span style={{ fontSize: 32, fontFamily: 'var(--mono)', fontWeight: 500, color: pts === 0 ? 'var(--coral)' : pts >= 3 ? 'var(--green)' : pts >= 4 ? 'var(--gold-bright)' : 'var(--cream)' }}>
+                      {isDouble ? pts * 2 : pts}p
+                    </span>
+                    {isDouble && <span style={{ fontSize: 14, color: 'var(--coral)', marginLeft: 6 }}>2×</span>}
+                  </div>
+                )}
+              </div>
+
+              {/* Others on this hole */}
+              <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 12 }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1, marginBottom: 6 }}>ALLA PÅ HÅL {h.hole}</div>
+                {activePlayers.filter(p => p.id !== scoreFor?.id).map(p => {
+                  const s = roundId ? pSc(p.id, roundId).find(x => x.hole === h.hole) : null
+                  return (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <Av p={p} size={24} />
+                      <div style={{ flex: 1, fontSize: 13, color: 'var(--cream-dim)' }}>{p.nickname}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14 }}>{s?.strokes || '–'}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, minWidth: 28, textAlign: 'right', color: s?.stableford_points >= 3 ? 'var(--green)' : s?.stableford_points === 0 ? 'var(--coral)' : 'var(--cream-muted)' }}>{s?.stableford_points != null ? s.stableford_points + 'p' : ''}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Bottom nav: prev / next */}
+            <div style={{ display: 'flex', gap: 8, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0))', background: 'var(--surface)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button onClick={() => prevHole && setActiveHole(prevHole)} disabled={!prevHole}
+                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'var(--surface2)' : 'transparent', border: '1px solid rgba(255,255,255,0.06)', color: prevHole ? 'var(--cream)' : 'var(--cream-muted)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← Hål {prevHole || ''}</button>
+              <button onClick={() => nextH ? setActiveHole(nextH) : setActiveHole(null)}
+                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: 'var(--gold)', border: 'none', color: '#0A0A08', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
+            </div>
+          </div>
+        )
+      })()}
+
       <div className="status-bar" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span className="live-dot" /><Av p={user} size={18} /><span>{user.nickname}</span>
         {isAdmin && <Badge text="ADMIN" color="var(--gold)" bg="rgba(201,168,76,0.15)" />}
@@ -300,6 +404,11 @@ export default function Home() {
             {[1,2,3,4].map(r => <button key={r} className={`sc-round-pill ${selRound === r ? 'active' : ''}`} onClick={() => setSelRound(r)}>{RL[r]}</button>)}
           </div>
 
+          {/* Quick start button */}
+          <button onClick={() => setActiveHole(nextHole || 1)} style={{ width: '100%', padding: '14px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 12, fontSize: 16, fontWeight: 600, cursor: 'pointer', marginBottom: 12 }}>
+            {nextHole ? `▶ Hål ${nextHole} – Registrera score` : '▶ Starta runda – Hål 1'}
+          </button>
+
           {/* Special holes banner */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
             <Badge text={`🏌️ LD: HÅL ${sp.ld}`} color="var(--gold)" bg="rgba(201,168,76,0.12)" />
@@ -325,7 +434,7 @@ export default function Home() {
                     background: isNext ? 'var(--surface2)' : isDouble ? 'rgba(232,99,74,0.03)' : 'var(--surface)',
                     gridTemplateColumns: '36px 1fr auto auto',
                   }}>
-                    <div className="sc-hole-num" style={{ color: h.par === 3 ? 'var(--coral)' : h.par === 5 ? 'var(--green)' : 'var(--cream)', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }} onClick={() => setGuideHole(h.hole)}>{h.hole}</div>
+                    <div className="sc-hole-num" style={{ color: h.par === 3 ? 'var(--coral)' : h.par === 5 ? 'var(--green)' : 'var(--cream)', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }} onClick={() => setActiveHole(h.hole)}>{h.hole}</div>
                     <div className="sc-hole-info">
                       <div className="sc-hole-par">
                         Par {h.par} · {h.meters}m
@@ -524,7 +633,7 @@ export default function Home() {
             const dayMap = { 'fredag': 'Fredag', 'lördag': 'Lördag', 'söndag': 'Söndag' }
             const song = today?.find(s => s.day === dayMap[dayName]) || today?.[0]
             return song ? (
-              <a key={p.id} href={song.deep} onClick={(e) => { setTimeout(() => { window.location.href = song.url }, 500) }} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', textDecoration: 'none', color: 'inherit', alignItems: 'center' }}>
+              <a key={p.id} href={song.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', textDecoration: 'none', color: 'inherit', alignItems: 'center' }}>
                 <Av p={p} size={32} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name.split(' ')[0]}</div>
