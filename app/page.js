@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers } from '../lib/courses'
+import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven } from '../lib/courses'
 import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio } from '../lib/sounds'
 
 const RC = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Skogsbanan', 4: 'Parkbanan' }
@@ -37,6 +37,7 @@ export default function Home() {
   const [notifications, setNotifications] = useState([])
   const [showNotifs, setShowNotifs] = useState(false)
   const [unread, setUnread] = useState(0)
+  const [showInstall, setShowInstall] = useState(false)
   const [pep] = useState(pepTalks[Math.floor(Math.random() * pepTalks.length)])
   const chatEnd = useRef(null)
   const toastT = useRef(null)
@@ -44,6 +45,14 @@ export default function Home() {
 
   useEffect(() => { if (typeof window !== 'undefined') { const s = localStorage.getItem('inv_user'); if (s) try { setUser(JSON.parse(s)) } catch(e) {} } }, [])
   useEffect(() => { if (user && typeof window !== 'undefined') localStorage.setItem('inv_user', JSON.stringify(user)) }, [user])
+  // Show iOS install prompt if not in standalone mode
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone
+      const dismissed = localStorage.getItem('inv_install_dismissed')
+      if (!isStandalone && !dismissed) setShowInstall(true)
+    }
+  }, [])
 
   const fetchAll = useCallback(async () => {
     if (!supabase) return
@@ -185,6 +194,21 @@ export default function Home() {
   // ===== LOGIN =====
   if (!user) return (
     <div className="login-screen">
+      {/* iOS Install Prompt */}
+      {showInstall && (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--surface)', borderTop: '1px solid var(--gold-dim)', padding: '16px', zIndex: 500, paddingBottom: 'calc(16px + var(--safe-bottom))' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, maxWidth: 400, margin: '0 auto' }}>
+            <div style={{ fontSize: 28, flexShrink: 0 }}>📲</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--cream)', marginBottom: 4 }}>Installera appen!</div>
+              <div style={{ fontSize: 12, color: 'var(--cream-dim)', lineHeight: 1.5 }}>
+                Tryck <span style={{ fontSize: 16 }}>⎋</span> (dela-knappen) → <strong>"Lägg till på hemskärmen"</strong>
+              </div>
+            </div>
+            <button onClick={() => { setShowInstall(false); localStorage?.setItem('inv_install_dismissed', '1') }} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 18, cursor: 'pointer', padding: '0 4px' }}>×</button>
+          </div>
+        </div>
+      )}
       <div className="login-badge">EST. 2026 · HOOKS HERRGÅRD</div>
       <h1 className="login-title">The <em>Invitational</em></h1>
       <p className="login-subtitle">Tryck på ditt ansikte för att börja</p>
@@ -279,6 +303,17 @@ export default function Home() {
               <div style={{ textAlign: 'center', marginBottom: 16 }}>
                 <div style={{ fontSize: 56, fontFamily: 'var(--serif)', fontWeight: 500, color: h.par === 3 ? 'var(--coral)' : h.par === 5 ? 'var(--green)' : 'var(--cream)' }}>{h.hole}</div>
                 <div style={{ fontSize: 14, color: 'var(--cream-dim)', marginTop: -4 }}>Par {h.par} · {h.meters}m · Hcp {h.hcp}</div>
+                {/* Extra strokes indicator */}
+                {(() => {
+                  const phcp = getPlayingHcp(Math.min(parseFloat(scoreFor?.hcp || 0), 36), course.slope)
+                  const sg = getStrokesGiven(phcp, h.hcp)
+                  return sg > 0 ? (
+                    <div style={{ marginTop: 6, display: 'flex', justifyContent: 'center', gap: 4 }}>
+                      {Array.from({length: sg}).map((_, i) => <span key={i} style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: 'var(--green)' }} />)}
+                      <span style={{ fontSize: 12, color: 'var(--green)', marginLeft: 4, fontWeight: 500 }}>+{sg} slag</span>
+                    </div>
+                  ) : null
+                })()}
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 8 }}>
                   {isLD && <Badge text=" 🏌️ LONGEST DRIVE " color="var(--gold)" bg="rgba(201,168,76,0.15)" />}
                   {isNP && <Badge text=" 🎯 NÄRMAST PIN " color="var(--green)" bg="rgba(107,191,127,0.15)" />}
@@ -486,6 +521,7 @@ export default function Home() {
                     <div className="sc-hole-info">
                       <div className="sc-hole-par">
                         Par {h.par} · {h.meters}m
+                        {(() => { const sg = getStrokesGiven(getPlayingHcp(Math.min(parseFloat(scoreFor?.hcp||0),36), course.slope), h.hcp); return sg > 0 ? <span style={{ color: 'var(--green)', fontWeight: 500 }}> {'●'.repeat(sg)}</span> : null })()}
                         {isLD && <Badge text=" LD " color="var(--gold)" bg="rgba(201,168,76,0.2)" />}
                         {isNP && <Badge text=" NP " color="var(--green)" bg="rgba(107,191,127,0.2)" />}
                         {isDouble && <Badge text=" 2× " color="var(--coral)" bg="rgba(232,99,74,0.2)" />}
@@ -647,13 +683,15 @@ export default function Home() {
             <div style={{ fontSize: 13, color: 'var(--cream-dim)', fontStyle: 'italic', lineHeight: 1.6 }}>"{pep}"</div>
           </div>
 
-          {/* Venue image carousel */}
-          <div style={{ marginBottom: 20, overflowX: 'auto', display: 'flex', gap: 8, scrollSnapType: 'x mandatory', paddingBottom: 4 }}>
-            {venueImages.map((img, i) => (
-              <div key={i} style={{ flexShrink: 0, width: '75vw', maxWidth: 280, scrollSnapAlign: 'start' }}>
-                <img src={img.url} alt={img.caption} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 12 }} loading="lazy" />
-                <div style={{ fontSize: 10, color: 'var(--cream-muted)', textAlign: 'center', marginTop: 4 }}>{img.caption}</div>
-              </div>
+          {/* Epic playlists */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>SPELLISTOR FÖR HELGEN</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
+            {playlists.map((pl, i) => (
+              <a key={i} href={pl.url} target="_blank" rel="noopener noreferrer" style={{ background: 'var(--surface)', borderRadius: 12, padding: '14px 12px', textDecoration: 'none', color: 'inherit', border: '1px solid rgba(255,255,255,0.04)' }}>
+                <div style={{ fontSize: 18, marginBottom: 4 }}>{pl.name.split(' ')[0]}</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--cream)' }}>{pl.name.split(' ').slice(1).join(' ')}</div>
+                <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 2 }}>{pl.desc}</div>
+              </a>
             ))}
           </div>
 
