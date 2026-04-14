@@ -1,14 +1,17 @@
 {
   "name": "The Invitational 2026",
   "short_name": "Invitational",
-  "description": "Hooks Herrgård Invitational 2026 - Live Scoring",
+  "description": "Hooks Herrgård Invitational - Live Scoring & Chat",
   "start_url": "/",
+  "id": "/",
   "display": "standalone",
   "background_color": "#0A0A08",
-  "theme_color": "#C9A84C",
-  "orientation": "portrait",
+  "theme_color": "#0A0A08",
+  "orientation": "portrait-primary",
+  "categories": ["sports"],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
   ]
 }

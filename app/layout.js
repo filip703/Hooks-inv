@@ -5,13 +5,15 @@ export const metadata = {
   description: 'Hooks Herrgård Invitational 2026 - 72 hål · 6 spelare · 1 grön kavaj',
   manifest: '/manifest.json',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Invitational' },
+  icons: { icon: '/favicon.ico', apple: '/apple-touch-icon.png' },
 }
 
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  minimumScale: 1,
+  maximumScale: 3,
+  userScalable: true,
   viewportFit: 'cover',
   themeColor: '#0A0A08',
 }
@@ -24,7 +26,7 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="icon" href="/favicon.ico" sizes="32x32" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body>
         {children}
