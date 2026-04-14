@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements } from '../lib/courses'
+import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers } from '../lib/courses'
 
 const RC = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Skogsbanan', 4: 'Parkbanan' }
 const RL = { 1: 'R1 Fre', 2: 'R2 Lör FM', 3: 'R3 Lör EM', 4: 'R4 Sön' }
@@ -102,6 +102,8 @@ export default function Home() {
   const teamTotal = team => [1,2,3,4].reduce((s, r) => s + teamRound(team, r).total, 0)
   const zeros = pid => scores.filter(s => s.player_id === pid && s.stableford_points === 0 && s.strokes).length
   const isAdmin = user?.key === 'filip'
+  const isSpectator = user?.key === 'spectator'
+  const activePlayers = players.filter(p => p.key !== 'spectator')
 
   // Scorecard state
   const scoreFor = adminPid && isAdmin ? players.find(p => p.id === adminPid) : user
@@ -111,7 +113,7 @@ export default function Home() {
   const hStr = h => { const s = myScores.find(x => x.hole === h); return s ? String(s.strokes) : '' }
   const hPts = h => { const s = myScores.find(x => x.hole === h); return s ? s.stableford_points : null }
   const ninePts = holes => holes.reduce((s, h) => s + (hPts(h.hole) || 0), 0)
-  const lb = [...players].sort((a, b) => pTotal(b.id) - pTotal(a.id))
+  const lb = [...activePlayers].sort((a, b) => pTotal(b.id) - pTotal(a.id))
   const sp = specialHoles[selRound] || {}
   const nextHole = course ? course.holes.find(h => !hStr(h.hole))?.hole : null
 
@@ -182,33 +184,36 @@ export default function Home() {
 
       {/* BANGUIDE MODAL */}
       {guideHole && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 300, display: 'flex', flexDirection: 'column' }} onClick={() => setGuideHole(null)}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--surface)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 300, display: 'flex', flexDirection: 'column', overflowY: 'auto' }} onClick={() => setGuideHole(null)}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--surface)', position: 'sticky', top: 0, zIndex: 1 }}>
             <div>
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--gold)' }}>Hål {guideHole}</span>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--gold)', fontWeight: 500 }}>Hål {guideHole}</span>
               <span style={{ fontSize: 12, color: 'var(--cream-dim)', marginLeft: 8 }}>{course?.name} · Par {course?.holes.find(h=>h.hole===guideHole)?.par} · {course?.holes.find(h=>h.hole===guideHole)?.meters}m</span>
             </div>
-            <button onClick={() => setGuideHole(null)} style={{ background: 'none', border: 'none', color: 'var(--cream)', fontSize: 24, cursor: 'pointer', padding: '0 4px' }}>×</button>
+            <button onClick={() => setGuideHole(null)} style={{ background: 'none', border: 'none', color: 'var(--cream)', fontSize: 28, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
           </div>
-          <div style={{ padding: 16 }}>
+          {/* Flyover video */}
+          {flyovers[RC[selRound]]?.[guideHole] && (
+            <div style={{ padding: '8px 16px 0' }} onClick={e => e.stopPropagation()}>
+              <video src={flyovers[RC[selRound]][guideHole]} controls playsInline autoPlay muted
+                style={{ width: '100%', borderRadius: 12, maxHeight: '40vh', background: '#000' }} />
+              <div style={{ fontSize: 10, color: 'var(--cream-muted)', textAlign: 'center', marginTop: 4 }}>3D Flyover · LiveCaddie</div>
+            </div>
+          )}
+          <div style={{ padding: '12px 16px' }}>
             <div style={{ fontSize: 13, color: 'var(--cream-dim)', fontStyle: 'italic', marginBottom: 12 }}>{course?.holes.find(h=>h.hole===guideHole)?.tip}</div>
-            <a href={`${guideUrls[RC[selRound]]}#hole${guideHole}`} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
-              style={{ display: 'block', background: 'var(--gold)', color: '#0A0A08', textAlign: 'center', padding: '14px 20px', borderRadius: 12, fontWeight: 600, fontSize: 15, textDecoration: 'none' }}>
-              🗺️ Öppna banguide i LiveCaddie
-            </a>
-            <div style={{ fontSize: 11, color: 'var(--cream-muted)', textAlign: 'center', marginTop: 8 }}>Öppnas i ny flik med flyover & 3D-vy</div>
           </div>
-          {/* Quick stats for this hole */}
-          <div style={{ padding: '0 16px' }}>
+          {/* All players on this hole */}
+          <div style={{ padding: '0 16px', paddingBottom: 24 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-muted)', letterSpacing: 1, marginBottom: 6 }}>ALLA PÅ DETTA HÅL</div>
-            {players.map(p => {
+            {players.filter(p => p.key !== 'spectator').map(p => {
               const s = roundId ? pSc(p.id, roundId).find(x => x.hole === guideHole) : null
               return (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                   <Av p={p} size={24} />
                   <div style={{ flex: 1, fontSize: 12, color: 'var(--cream-dim)' }}>{p.nickname}</div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: s?.strokes ? 'var(--cream)' : 'var(--cream-muted)' }}>{s?.strokes || '–'}</div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 13, minWidth: 24, textAlign: 'center', color: s?.stableford_points >= 3 ? 'var(--green)' : s?.stableford_points === 0 ? 'var(--coral)' : 'var(--cream-muted)' }}>{s?.stableford_points ?? ''}</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: s?.strokes ? 'var(--cream)' : 'var(--cream-muted)' }}>{s?.strokes || '–'}</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 14, minWidth: 28, textAlign: 'center', fontWeight: 500, color: s?.stableford_points >= 3 ? 'var(--green)' : s?.stableford_points === 0 ? 'var(--coral)' : 'var(--cream-muted)' }}>{s?.stableford_points ?? ''}{s?.stableford_points != null ? 'p' : ''}</div>
                 </div>
               )
             })}
@@ -268,7 +273,14 @@ export default function Home() {
         </>)}
 
         {/* ===== SCORECARD ===== */}
-        {view === 'scorecard' && course && (<>
+        {view === 'scorecard' && course && isSpectator && (
+          <div style={{ textAlign: 'center', padding: 40 }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>👀</div>
+            <div className="section-title">Spectator Mode</div>
+            <div style={{ fontSize: 13, color: 'var(--cream-muted)', marginTop: 8 }}>Du kan följa score i leaderboard och chatta, men inte mata in resultat.</div>
+          </div>
+        )}
+        {view === 'scorecard' && course && !isSpectator && (<>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
             <Av p={scoreFor} size={36} />
             <div>
@@ -355,7 +367,7 @@ export default function Home() {
           {/* Other players this round */}
           <div style={{ marginTop: 16 }}>
             <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', letterSpacing: 1, marginBottom: 8 }}>MOTSTÅNDARNA</div>
-            {players.filter(p => p.id !== scoreFor?.id).map(p => {
+            {activePlayers.filter(p => p.id !== scoreFor?.id).map(p => {
               const rPts = pRoundRaw(p.id, selRound)
               const played = roundId ? pSc(p.id, roundId).filter(x => x.strokes).length : 0
               return (
@@ -378,7 +390,7 @@ export default function Home() {
           </div>
           {['green', 'blue'].map(team => {
             const tot = teamTotal(team)
-            const tp = players.filter(p => p.team === team)
+            const tp = activePlayers.filter(p => p.team === team)
             const c = team === 'green' ? '#6BBF7F' : '#8AB4D6'
             const otherTotal = teamTotal(team === 'green' ? 'blue' : 'green')
             const diff = tot - otherTotal
@@ -416,13 +428,29 @@ export default function Home() {
               const me = m.player_id === user?.id
               const sys = m.msg_type === 'shoutout' || m.msg_type === 'roast'
               const brd = sys ? (m.msg_type === 'shoutout' ? 'var(--green)' : 'var(--coral)') : me ? 'var(--gold-dim)' : 'transparent'
+              const canDel = me || isAdmin
+              // Highlight @mentions
+              const renderMsg = (text) => {
+                if (!text) return text
+                return text.split(/(@\w+)/g).map((part, j) => {
+                  if (part.startsWith('@')) {
+                    const nick = part.slice(1).toLowerCase()
+                    const tagged = players.find(p => p.nickname?.toLowerCase().includes(nick) || p.name?.split(' ')[0].toLowerCase() === nick)
+                    return <span key={j} style={{ color: 'var(--gold)', fontWeight: 500 }}>{part}</span>
+                  }
+                  return part
+                })
+              }
               return (
-                <div key={m.id || i} style={{ marginBottom: 6, padding: '8px 10px', background: sys ? 'rgba(255,255,255,0.02)' : 'var(--surface2)', borderRadius: 10, borderLeft: `3px solid ${brd}` }}>
+                <div key={m.id || i} style={{ marginBottom: 6, padding: '8px 10px', background: sys ? 'rgba(255,255,255,0.02)' : 'var(--surface2)', borderRadius: 10, borderLeft: `3px solid ${brd}`, position: 'relative' }}>
                   {!sys && <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
                     <Av p={m.inv_players || { name: '?', team: 'green' }} size={18} />
                     <span style={{ fontSize: 11, fontWeight: 500, color: me ? 'var(--gold)' : 'var(--cream-dim)' }}>{m.inv_players?.nickname || '?'}</span>
+                    {canDel && m.id && !String(m.id).startsWith('tmp') && (
+                      <button onClick={async () => { await supabase.from('inv_chat').delete().eq('id', m.id); fetchChat() }} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 10, cursor: 'pointer', opacity: 0.5 }}>✕</button>
+                    )}
                   </div>}
-                  <div style={{ fontSize: 13, lineHeight: 1.5, color: sys ? 'var(--cream-dim)' : 'var(--cream)' }}>{m.message}</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.5, color: sys ? 'var(--cream-dim)' : 'var(--cream)' }}>{renderMsg(m.message)}</div>
                   {m.image_url && <img src={m.image_url} alt="" style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} loading="lazy" />}
                   <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', marginTop: 3 }}>{new Date(m.created_at).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</div>
                 </div>
@@ -430,12 +458,27 @@ export default function Home() {
             })}
             <div ref={chatEnd} />
           </div>
-          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+          {/* @-mention suggestions */}
+          {chatMsg.includes('@') && (() => {
+            const match = chatMsg.match(/@(\w*)$/)
+            if (!match) return null
+            const q = match[1].toLowerCase()
+            const suggestions = players.filter(p => p.key !== 'spectator' && (p.nickname?.toLowerCase().includes(q) || p.name?.split(' ')[0].toLowerCase().includes(q)))
+            if (!suggestions.length) return null
+            return (
+              <div style={{ display: 'flex', gap: 4, padding: '6px 0', flexWrap: 'wrap' }}>
+                {suggestions.map(p => (
+                  <button key={p.id} onClick={() => setChatMsg(chatMsg.replace(/@\w*$/, `@${p.name.split(' ')[0]} `))} style={{ fontSize: 11, padding: '4px 8px', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', cursor: 'pointer' }}>@{p.name.split(' ')[0]}</button>
+                ))}
+              </div>
+            )
+          })()}
+          <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
             <label style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer', fontSize: 16 }}>
               📷<input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if(e.target.files[0]) uploadImg(e.target.files[0]) }} />
             </label>
             <input value={chatMsg} onChange={e => setChatMsg(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') sendMsg() }}
-              placeholder="Skriv något..." style={{ flex: 1, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--cream)', padding: '10px 14px', borderRadius: 10, fontSize: 14, fontFamily: 'var(--sans)', outline: 'none' }} />
+              placeholder="Skriv något... @namn för att tagga" style={{ flex: 1, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--cream)', padding: '10px 14px', borderRadius: 10, fontSize: 14, fontFamily: 'var(--sans)', outline: 'none' }} />
             <button onClick={sendMsg} style={{ background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 10, padding: '10px 16px', fontWeight: 600, cursor: 'pointer' }}>↑</button>
           </div>
         </>)}
