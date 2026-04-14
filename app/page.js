@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks } from '../lib/courses'
+import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast } from '../lib/courses'
 
 const RC = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Skogsbanan', 4: 'Parkbanan' }
 const RL = { 1: 'R1 Fre', 2: 'R2 Lör FM', 3: 'R3 Lör EM', 4: 'R4 Sön' }
@@ -31,6 +31,7 @@ export default function Home() {
   const [chat, setChat] = useState([])
   const [chatMsg, setChatMsg] = useState('')
   const [adminPid, setAdminPid] = useState(null)
+  const [guideHole, setGuideHole] = useState(null)
   const [pep] = useState(pepTalks[Math.floor(Math.random() * pepTalks.length)])
   const chatEnd = useRef(null)
   const toastT = useRef(null)
@@ -62,7 +63,7 @@ export default function Home() {
         if (pl) { const m = getShoutout(pl.name, pl.nickname, p.new.stableford_points); if (m) showToast(m, p.new.stableford_points >= 4 ? 'eagle' : 'birdie') }
       }
     }).subscribe()
-    const c2 = supabase.channel('c1').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'inv_chat' }, () => fetchChat()).subscribe()
+    const c2 = supabase.channel('c1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_chat' }, () => { setTimeout(() => fetchChat(), 300) }).subscribe()
     return () => { supabase.removeChannel(c1); supabase.removeChannel(c2) }
   }, [fetchAll, fetchChat, players])
 
@@ -124,12 +125,24 @@ export default function Home() {
     fetchAll()
   }
 
-  const sendMsg = async () => { if (!chatMsg.trim() || !user || !supabase) return; await supabase.from('inv_chat').insert({ player_id: user.id, message: chatMsg.trim(), msg_type: 'chat' }); setChatMsg('') }
+  const sendMsg = async () => {
+    if (!chatMsg.trim() || !user || !supabase) return
+    const msg = chatMsg.trim()
+    setChatMsg('')
+    // Optimistic: add immediately so sender sees it
+    setChat(prev => [...prev, { id: 'tmp-' + Date.now(), player_id: user.id, message: msg, msg_type: 'chat', created_at: new Date().toISOString(), inv_players: { name: user.name, nickname: user.nickname, image_url: user.image_url, team: user.team } }])
+    await supabase.from('inv_chat').insert({ player_id: user.id, message: msg, msg_type: 'chat' })
+    fetchChat()
+  }
   const uploadImg = async file => {
     if (!file || !user || !supabase) return
     const path = `chat/${Date.now()}.${file.name.split('.').pop()}`
     const { error } = await supabase.storage.from('inv-images').upload(path, file, { contentType: file.type })
-    if (!error) { const url = `https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/${path}`; await supabase.from('inv_chat').insert({ player_id: user.id, message: '📸', image_url: url, msg_type: 'image' }) }
+    if (!error) {
+      const url = `https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/${path}`
+      await supabase.from('inv_chat').insert({ player_id: user.id, message: '📸', image_url: url, msg_type: 'image' })
+      fetchChat()
+    }
   }
 
   // ===== LOGIN =====
@@ -157,6 +170,42 @@ export default function Home() {
   return (
     <div>
       {toast && <div className={`shoutout-toast ${toast.type === 'eagle' ? 'eagle-toast' : ''}`}><div style={{ fontSize: 15, fontWeight: 500 }}>{toast.msg}</div></div>}
+
+      {/* BANGUIDE MODAL */}
+      {guideHole && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 300, display: 'flex', flexDirection: 'column' }} onClick={() => setGuideHole(null)}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--surface)' }}>
+            <div>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--gold)' }}>Hål {guideHole}</span>
+              <span style={{ fontSize: 12, color: 'var(--cream-dim)', marginLeft: 8 }}>{course?.name} · Par {course?.holes.find(h=>h.hole===guideHole)?.par} · {course?.holes.find(h=>h.hole===guideHole)?.meters}m</span>
+            </div>
+            <button onClick={() => setGuideHole(null)} style={{ background: 'none', border: 'none', color: 'var(--cream)', fontSize: 24, cursor: 'pointer', padding: '0 4px' }}>×</button>
+          </div>
+          <div style={{ padding: 16 }}>
+            <div style={{ fontSize: 13, color: 'var(--cream-dim)', fontStyle: 'italic', marginBottom: 12 }}>{course?.holes.find(h=>h.hole===guideHole)?.tip}</div>
+            <a href={`${guideUrls[RC[selRound]]}#hole${guideHole}`} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
+              style={{ display: 'block', background: 'var(--gold)', color: '#0A0A08', textAlign: 'center', padding: '14px 20px', borderRadius: 12, fontWeight: 600, fontSize: 15, textDecoration: 'none' }}>
+              🗺️ Öppna banguide i LiveCaddie
+            </a>
+            <div style={{ fontSize: 11, color: 'var(--cream-muted)', textAlign: 'center', marginTop: 8 }}>Öppnas i ny flik med flyover & 3D-vy</div>
+          </div>
+          {/* Quick stats for this hole */}
+          <div style={{ padding: '0 16px' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-muted)', letterSpacing: 1, marginBottom: 6 }}>ALLA PÅ DETTA HÅL</div>
+            {players.map(p => {
+              const s = roundId ? pSc(p.id, roundId).find(x => x.hole === guideHole) : null
+              return (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <Av p={p} size={24} />
+                  <div style={{ flex: 1, fontSize: 12, color: 'var(--cream-dim)' }}>{p.nickname}</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: s?.strokes ? 'var(--cream)' : 'var(--cream-muted)' }}>{s?.strokes || '–'}</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 13, minWidth: 24, textAlign: 'center', color: s?.stableford_points >= 3 ? 'var(--green)' : s?.stableford_points === 0 ? 'var(--coral)' : 'var(--cream-muted)' }}>{s?.stableford_points ?? ''}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
       <div className="status-bar" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span className="live-dot" /><Av p={user} size={18} /><span>{user.nickname}</span>
         {isAdmin && <Badge text="ADMIN" color="var(--gold)" bg="rgba(201,168,76,0.15)" />}
@@ -252,7 +301,7 @@ export default function Home() {
                     borderLeft: accent ? `3px solid ${accent}` : isNext ? '3px solid rgba(201,168,76,0.4)' : '3px solid transparent',
                     background: isNext ? 'var(--surface2)' : 'var(--surface)',
                   }}>
-                    <div className="sc-hole-num" style={{ color: h.par === 3 ? 'var(--coral)' : h.par === 5 ? 'var(--green)' : 'var(--cream)' }}>{h.hole}</div>
+                    <div className="sc-hole-num" style={{ color: h.par === 3 ? 'var(--coral)' : h.par === 5 ? 'var(--green)' : 'var(--cream)', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }} onClick={() => setGuideHole(h.hole)}>{h.hole}</div>
                     <div className="sc-hole-info">
                       <div className="sc-hole-par">
                         Par {h.par} · Hcp {h.hcp} · {h.meters}m
@@ -404,7 +453,7 @@ export default function Home() {
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 500 }}>{p.name} <span style={{ fontSize: 11, color: p.team === 'green' ? 'var(--green)' : 'var(--blue)', fontFamily: 'var(--mono)' }}>{p.hcp}</span></div>
                 <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>{p.nickname} · {p.team === 'green' ? 'Smaragderna' : 'Stålklubban'}</div>
-                <div style={{ fontSize: 11, color: 'var(--cream-dim)', fontStyle: 'italic', marginTop: 2 }}>"{p.roast}"</div>
+                <div style={{ fontSize: 11, color: 'var(--cream-dim)', fontStyle: 'italic', marginTop: 2 }}>"{getRandomRoast(p.key)}"</div>
               </div>
             </div>
           ))}
