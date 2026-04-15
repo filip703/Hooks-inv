@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven } from '../lib/courses'
 import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio } from '../lib/sounds'
 
-const RC = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Skogsbanan', 4: 'Parkbanan' }
+const RC_DEFAULT = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Skogsbanan', 4: 'Parkbanan' }
 const RL = { 1: 'R1 Fre', 2: 'R2 Lör FM', 3: 'R3 Lör EM', 4: 'R4 Sön' }
 const DAYS = { 1: 'Fredag', 2: 'Lördag', 3: 'Lördag', 4: 'Söndag' }
 
@@ -117,8 +117,9 @@ export default function Home() {
   const pRoundTeamPts = (pid, rn) => {
     const r = rid(rn); if (!r) return 0
     const sc = pSc(pid, r)
+    const ds = specialHoles[rn]?.doubleStart || 16
     return sc.reduce((s, x) => {
-      const mult = x.hole >= 16 ? 2 : 1
+      const mult = x.hole >= ds ? 2 : 1
       return s + (x.stableford_points || 0) * mult
     }, 0)
   }
@@ -143,6 +144,11 @@ export default function Home() {
   const isAdmin = user?.key === 'filip' || user?.key === 'marcus'
   const isSpectator = user?.key === 'spectator'
   const activePlayers = players.filter(p => p.key !== 'spectator')
+
+  // Dynamic round-to-course mapping (reads from DB, falls back to defaults)
+  const RC = rounds.length > 0
+    ? rounds.reduce((m, r) => ({ ...m, [r.round_number]: r.course }), {})
+    : RC_DEFAULT
 
   // Scorecard state
   const scoreFor = adminPid && isAdmin ? players.find(p => p.id === adminPid) : user
@@ -514,7 +520,7 @@ export default function Home() {
           <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
             <Badge text={`🏌️ LD: HÅL ${sp.ld}`} color="var(--gold)" bg="rgba(201,168,76,0.12)" />
             <Badge text={`🎯 NP: HÅL ${sp.np}`} color="var(--green)" bg="rgba(107,191,127,0.12)" />
-            <Badge text={`⚡ 2x: HÅL ${sp.doubleStart}-18`} color="var(--coral)" bg="rgba(232,99,74,0.12)" />
+            <Badge text={`⚡ 2x: HÅL ${sp.doubleStart || 16}-18`} color="var(--coral)" bg="rgba(232,99,74,0.12)" />
           </div>
 
           {[{ lbl: 'UT (1–9)', h: course.holes.slice(0,9) }, { lbl: 'IN (10–18)', h: course.holes.slice(9) }].map(nine => (
@@ -525,7 +531,7 @@ export default function Home() {
                 const strokes = hStr(h.hole)
                 const isLD = h.hole === sp.ld
                 const isNP = h.hole === sp.np
-                const isDouble = h.hole >= sp.doubleStart
+                const isDouble = h.hole >= (sp.doubleStart || 16)
                 const isNext = h.hole === nextHole
                 const accent = isLD ? 'var(--gold)' : isNP ? 'var(--green)' : isDouble ? 'var(--coral)' : null
                 const currentVal = strokes ? parseInt(strokes) : h.par
@@ -844,7 +850,7 @@ export default function Home() {
             {[1,2,3,4].map(rn => (
               <div key={rn} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--cream)', minWidth: 30 }}>R{rn}</div>
-                <select defaultValue={RC[rn]} style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}
+                <select defaultValue={rounds.find(x => x.round_number === rn)?.course || RC[rn]} style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}
                   onChange={async (e) => {
                     const r = rounds.find(x => x.round_number === rn)
                     if (r) {
