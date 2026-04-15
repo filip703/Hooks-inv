@@ -1,9 +1,9 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Le Deusch de Golf 2026',
-  description: 'Le Deusch de Golf 2026 · Hooks Herrgård - 72 hål · 6 spelare · 1 grön kavaj',
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Le Deusch' },
+  title: 'Douche Invitational Only 2026',
+  description: 'Douche Invitational Only 2026 · Hooks Herrgård - 72 hål · 6 spelare · 1 buckla',
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'DIO 2026' },
   icons: { icon: '/favicon.ico', apple: '/apple-touch-icon.png' },
 }
 
@@ -25,7 +25,7 @@ export default function RootLayout({ children }) {
         <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Le Deusch" />
+        <meta name="apple-mobile-web-app-title" content="DIO 2026" />
         <link rel="icon" href="/favicon.ico" sizes="32x32" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
