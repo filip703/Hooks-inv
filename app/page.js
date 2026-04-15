@@ -209,8 +209,8 @@ export default function Home() {
           </div>
         </div>
       )}
-      <div className="login-badge">EST. 2026 · HOOKS HERRGÅRD</div>
-      <h1 className="login-title">The <em>Invitational</em></h1>
+      <div className="login-badge">LE DEUSCH DE GOLF · EST. 2026</div>
+      <h1 className="login-title">Le Deusch <em>de Golf</em></h1>
       <p className="login-subtitle">Tryck på ditt ansikte för att börja</p>
       <div className="login-faces">
         {activePlayers.map(p => (
@@ -678,7 +678,7 @@ export default function Home() {
 
         {/* ===== INFO ===== */}
         {view === 'info' && (<>
-          <div className="section-title">The Invitational 2026</div>
+          <div className="section-title">Le Deusch de Golf 2026</div>
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 16, marginBottom: 16, textAlign: 'center' }}>
             <div style={{ fontSize: 13, color: 'var(--cream-dim)', fontStyle: 'italic', lineHeight: 1.6 }}>"{pep}"</div>
           </div>
