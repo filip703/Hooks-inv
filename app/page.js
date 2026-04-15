@@ -1294,7 +1294,7 @@ export default function Home() {
                   <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                     <div style={{ flex: 1 }}>
                       <span style={{ fontSize: 11 }}>🏌️ LD: </span>
-                      {ldExpense ? <span style={{ fontSize: 11, color: 'var(--green)' }}>{activePlayers.find(p => p.key === ldExpense.paid_by)?.nickname} 🏆</span>
+                      {ldExpense ? <span style={{ fontSize: 11, color: 'var(--green)' }}>{activePlayers.find(p => p.key === ldExpense.target_player)?.nickname} 🏆</span>
                         : isAdmin ? (
                           <select onChange={async (e) => {
                             if (!e.target.value) return
@@ -1315,7 +1315,7 @@ export default function Home() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <span style={{ fontSize: 11 }}>🎯 NP: </span>
-                      {npExpense ? <span style={{ fontSize: 11, color: 'var(--green)' }}>{activePlayers.find(p => p.key === npExpense.paid_by)?.nickname} 🏆</span>
+                      {npExpense ? <span style={{ fontSize: 11, color: 'var(--green)' }}>{activePlayers.find(p => p.key === npExpense.target_player)?.nickname} 🏆</span>
                         : isAdmin ? (
                           <select onChange={async (e) => {
                             if (!e.target.value) return
@@ -1345,10 +1345,19 @@ export default function Home() {
             const totals = {}
             playerKeys.forEach(k => { totals[k] = { paid: 0, owes: 0 } })
             expenses.forEach(e => {
-              if (totals[e.paid_by]) totals[e.paid_by].paid += parseFloat(e.amount)
-              const split = (e.split_between?.length > 0 ? e.split_between : playerKeys).filter(k => totals[k])
-              const share = parseFloat(e.amount) / split.length
-              split.forEach(k => { if (totals[k]) totals[k].owes += share })
+              const amt = parseFloat(e.amount)
+              if (e.target_player) {
+                // Person-to-person: paid_by owes money TO target_player
+                // paid_by is the debtor, target_player is the creditor
+                if (totals[e.paid_by]) totals[e.paid_by].owes += amt
+                if (totals[e.target_player]) totals[e.target_player].paid += amt
+              } else {
+                // Shared expense: paid_by laid out money, everyone shares the cost
+                if (totals[e.paid_by]) totals[e.paid_by].paid += amt
+                const split = (e.split_between?.length > 0 ? e.split_between : playerKeys).filter(k => totals[k])
+                const share = amt / split.length
+                split.forEach(k => { if (totals[k]) totals[k].owes += share })
+              }
             })
             const balances = {}
             playerKeys.forEach(k => { balances[k] = Math.round((totals[k].paid - totals[k].owes) * 100) / 100 })
