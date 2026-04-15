@@ -45,7 +45,7 @@ export default function Home() {
   const [h2hMatches, setH2hMatches] = useState([])
   const [expenseTarget, setExpenseTarget] = useState('')
   const [propBets, setPropBets] = useState([])
-  const [propForm, setPropForm] = useState({ question: '', odds: 'Even', stake: 50, options: '' })
+  const [propForm, setPropForm] = useState({ question: '', odds: 'Even', stake: 50, options: '', banker: '' })
   const [pep] = useState(pepTalks[Math.floor(Math.random() * pepTalks.length)])
   const chatEnd = useRef(null)
   const toastT = useRef(null)
@@ -1026,8 +1026,12 @@ export default function Home() {
           })()}
         </>)}
 
-        {/* ===== PROP BETS ===== */}
-        {view === 'expenses' && propBets.length + 1 > 0 && (
+        {/* ===== EVEN STEVEN (EXPENSE SPLIT + BETS) ===== */}
+        {view === 'expenses' && (<>
+          <div className="section-title">💰 Even Steven</div>
+          <div className="section-sub">Utgifter, bets & sidospel – allt räknas ihop</div>
+
+          {/* 🎲 PROP BETS */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>🎲 PROP BETS</div>
 
@@ -1121,8 +1125,7 @@ export default function Home() {
               )
             })}
 
-            {/* Create new prop bet */}
-            {isAdmin && (
+            {/* Create new prop bet – alla kan skapa */}
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10, marginTop: 8 }}>
                 <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', marginBottom: 6 }}>SKAPA NY PROP</div>
                 <input placeholder="Fråga? (t.ex. Vem gör första birdien?)" value={propForm.question} onChange={e => setPropForm(f => ({...f, question: e.target.value}))}
@@ -1142,7 +1145,7 @@ export default function Home() {
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 9, color: 'var(--cream-muted)' }}>🏦 BANK</div>
-                    <select onChange={e => setPropForm(f => ({...f, banker: e.target.value}))}
+                    <select value={propForm.banker} onChange={e => setPropForm(f => ({...f, banker: e.target.value}))}
                       style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px', fontSize: 10 }}>
                       <option value="">Ingen bank</option>
                       {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
@@ -1157,20 +1160,14 @@ export default function Home() {
                     question: propForm.question, odds: propForm.odds, stake: propForm.stake,
                     options: opts, banker_key: propForm.banker || null, created_by: user.key
                   })
-                  setPropForm({ question: '', odds: 'Even', stake: 50, options: '' })
+                  setPropForm({ question: '', odds: 'Even', stake: 50, options: '', banker: '' })
                   fetchProps(); soundScore()
                 }} style={{ width: '100%', padding: '10px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   🎲 Skapa prop bet
                 </button>
               </div>
-            )}
           </div>
-        )}
 
-        {/* ===== EVEN STEVEN (EXPENSE SPLIT + BETS) ===== */}
-        {view === 'expenses' && (<>
-          <div className="section-title">💰 Even Steven</div>
-          <div className="section-sub">Utgifter, bets & sidospel – allt räknas ihop</div>
 
           {/* Add expense form */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
