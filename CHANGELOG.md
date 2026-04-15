@@ -1,10 +1,23 @@
-# Changelog – Le Deusch de Golf 2026
+# Changelog – Douche Invitational Only 2026
 
 Alla ändringar i appen dokumenteras här. Lägg till dina ändringar överst innan du pushar.
 
 Format: `## [datum] Beskrivning (@vem)`
 
 ---
+
+## [2026-04-15] PWA-ikoner: Le Douche de Golf bucklan (@filip)
+- Alla ikoner genererade från det riktiga trofé-fotot
+- icon-512, icon-192, apple-touch-icon, favicon
+- Bucklan med "DIO 2026" i guld text
+- Mörk gradient-overlay för läsbarhet
+
+## [2026-04-15] Namnfix: Douche Invitational Only (@filip)
+- Tävlingen: "Douche Invitational Only" (DIO)
+- Bucklan: "Le Douche de Golf"
+- Ingen grön kavaj – bara bucklan
+- PWA short name: DIO 2026
+- Marcus hade rätt hela tiden
 
 ## [2026-04-15] Rename till Le Deusch de Golf (@filip)
 - Bytt namn från "The Invitational" till "Le Deusch de Golf" överallt

@@ -1,8 +1,8 @@
-# Le Deusch de Golf 2026 🏆
+# Douche Invitational Only 2026 🏆
 
 > *Marcus U 2021 · Filip H 2022 · Magnus J 2024 · Matthis The Great – Överlägsen 2025*
 
-Live scoring-app för Le Deusch de Golf – en årlig golftävling på Hooks Herrgård, Småland.
+Live scoring-app för **Douche Invitational Only** (DIO) – en årlig golftävling på Hooks Herrgård, Småland. Bucklan heter **Le Douche de Golf**.
 
 **Live:** [hooks-inv.vercel.app](https://hooks-inv.vercel.app)
 
@@ -27,7 +27,7 @@ Live scoring-app för Le Deusch de Golf – en årlig golftävling på Hooks Her
 - Hot Hand (+2 vid 3 birdies i rad) / Cold Turkey (-1 vid 3 nollor)
 
 **Tävlingar**
-- The Green Jacket – individuellt, 72 hål
+- The Green Jacket – individuellt, 72 hål (vinnaren får Le Douche de Golf)
 - LIV Team Battle – 2 bästa per runda, 2x poäng sista 3 hålen
 - Daily Loser – sämst per runda köper kvällens första
 - Konsistenskungen – lägst spridning
@@ -75,10 +75,10 @@ lib/
 public/
   manifest.json    – PWA manifest
   sw.js            – Service Worker
-  favicon.ico      – Favicon (HI 2026)
-  icon-192.png     – PWA ikon 192x192
-  icon-512.png     – PWA ikon 512x512
-  apple-touch-icon.png – iOS hemskärmsikon
+  favicon.ico      – Favicon (DIO 2026, bucklan)
+  icon-192.png     – PWA ikon 192x192 (bucklan)
+  icon-512.png     – PWA ikon 512x512 (bucklan)
+  apple-touch-icon.png – iOS hemskärmsikon (bucklan)
 ```
 
 ## Supabase
