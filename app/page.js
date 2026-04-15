@@ -1479,8 +1479,7 @@ export default function Home() {
                       </div>
                     )
                   })}
-                  {isAdmin && dayMatches.length < 3 && (
-                    <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                  <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
                       <select id={`h2h-p1-${rn}`} style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px', fontSize: 10 }}>
                         <option value="">Spelare 1</option>
                         {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
@@ -1499,8 +1498,6 @@ export default function Home() {
                         }
                       }} style={{ padding: '4px 10px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>+</button>
                     </div>
-                  )}
-                  {dayMatches.length === 0 && !isAdmin && <div style={{ fontSize: 11, color: 'var(--cream-muted)', padding: '4px 0' }}>Inga matcher ännu</div>}
                 </div>
               )
             })}
