@@ -140,7 +140,7 @@ export default function Home() {
   }
   const teamTotal = team => [1,2,3,4].reduce((s, r) => s + teamRound(team, r).total, 0)
   const zeros = pid => scores.filter(s => s.player_id === pid && s.stableford_points === 0 && s.strokes).length
-  const isAdmin = user?.key === 'filip'
+  const isAdmin = user?.key === 'filip' || user?.key === 'marcus'
   const isSpectator = user?.key === 'spectator'
   const activePlayers = players.filter(p => p.key !== 'spectator')
 
@@ -793,6 +793,217 @@ export default function Home() {
             ))}
           </div>
         </>)}
+
+        {/* ===== SETTINGS (ADMIN ONLY) ===== */}
+        {view === 'settings' && isAdmin && (<>
+          <div className="section-title">⚙️ Admin Settings</div>
+
+          {/* HCP per spelare */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>HANDICAP</div>
+            {activePlayers.map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <Av p={p} size={24} />
+                <div style={{ flex: 1, fontSize: 13 }}>{p.nickname}</div>
+                <input type="number" step="0.1" defaultValue={p.hcp} style={{ width: 60, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, textAlign: 'center', fontFamily: 'var(--mono)' }}
+                  onBlur={async (e) => {
+                    const v = parseFloat(e.target.value)
+                    if (!isNaN(v) && v !== parseFloat(p.hcp)) {
+                      await supabase.from('inv_players').update({ hcp: v }).eq('id', p.id)
+                      fetchAll()
+                      showToast(`${p.nickname} HCP → ${v}`, 'birdie')
+                    }
+                  }} />
+              </div>
+            ))}
+          </div>
+
+          {/* Lagindelning */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>LAGINDELNING</div>
+            {activePlayers.map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <Av p={p} size={24} />
+                <div style={{ flex: 1, fontSize: 13 }}>{p.nickname}</div>
+                <select defaultValue={p.team} style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 12 }}
+                  onChange={async (e) => {
+                    await supabase.from('inv_players').update({ team: e.target.value }).eq('id', p.id)
+                    fetchAll()
+                    showToast(`${p.nickname} → ${e.target.value}`, 'birdie')
+                  }}>
+                  <option value="Smaragderna">Smaragderna</option>
+                  <option value="Stålklubban">Stålklubban</option>
+                </select>
+              </div>
+            ))}
+          </div>
+
+          {/* Rundor & Banval */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>RUNDOR & BANVAL</div>
+            {[1,2,3,4].map(rn => (
+              <div key={rn} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--cream)', minWidth: 30 }}>R{rn}</div>
+                <select defaultValue={RC[rn]} style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}
+                  onChange={async (e) => {
+                    const r = rounds.find(x => x.round_number === rn)
+                    if (r) {
+                      await supabase.from('inv_rounds').update({ course: e.target.value }).eq('id', r.id)
+                      fetchAll()
+                      showToast(`R${rn} → ${e.target.value}`, 'birdie')
+                    }
+                  }}>
+                  <option value="Skogsbanan">Skogsbanan</option>
+                  <option value="Parkbanan">Parkbanan</option>
+                </select>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-muted)' }}>{RL[rn]}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Slope & CR override */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>SLOPE & CR (BANDATA)</div>
+            {Object.entries(courses).map(([name, c]) => (
+              <div key={name} style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--cream)', marginBottom: 6 }}>{name}</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>SLOPE</div>
+                    <input type="number" defaultValue={c.slope} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
+                      onBlur={async (e) => {
+                        const v = parseInt(e.target.value)
+                        if (!isNaN(v) && v !== c.slope) {
+                          await supabase.from('inv_settings').upsert({ key: `slope_${name}`, value: v, updated_by: user.nickname })
+                          showToast(`${name} slope → ${v}`, 'birdie')
+                        }
+                      }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>CR</div>
+                    <input type="number" step="0.1" defaultValue={c.cr} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
+                      onBlur={async (e) => {
+                        const v = parseFloat(e.target.value)
+                        if (!isNaN(v)) {
+                          await supabase.from('inv_settings').upsert({ key: `cr_${name}`, value: v, updated_by: user.nickname })
+                          showToast(`${name} CR → ${v}`, 'birdie')
+                        }
+                      }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* LD / NP / Double per runda */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>SPECIALHÅL PER RUNDA</div>
+            {[1,2,3,4].map(rn => {
+              const s = sp || specialHoles[rn] || {}
+              return (
+                <div key={rn} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', marginBottom: 6 }}>R{rn} – {RC[rn]}</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>🏌️ LD HÅL</div>
+                      <input type="number" min="1" max="18" defaultValue={specialHoles[rn]?.ld} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
+                        onBlur={async (e) => {
+                          const v = parseInt(e.target.value)
+                          if (v >= 1 && v <= 18) {
+                            const cur = specialHoles[rn] || {}
+                            cur.ld = v
+                            const all = { ...specialHoles, [rn]: cur }
+                            await supabase.from('inv_settings').upsert({ key: 'special_holes', value: all, updated_by: user.nickname })
+                            showToast(`R${rn} LD → Hål ${v}`, 'birdie')
+                          }
+                        }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>🎯 NP HÅL</div>
+                      <input type="number" min="1" max="18" defaultValue={specialHoles[rn]?.np} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
+                        onBlur={async (e) => {
+                          const v = parseInt(e.target.value)
+                          if (v >= 1 && v <= 18) {
+                            const cur = specialHoles[rn] || {}
+                            cur.np = v
+                            const all = { ...specialHoles, [rn]: cur }
+                            await supabase.from('inv_settings').upsert({ key: 'special_holes', value: all, updated_by: user.nickname })
+                            showToast(`R${rn} NP → Hål ${v}`, 'birdie')
+                          }
+                        }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>⚡ 2× FRÅN</div>
+                      <input type="number" min="1" max="18" defaultValue={specialHoles[rn]?.doubleStart || 16} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
+                        onBlur={async (e) => {
+                          const v = parseInt(e.target.value)
+                          if (v >= 1 && v <= 18) {
+                            const cur = specialHoles[rn] || {}
+                            cur.doubleStart = v
+                            const all = { ...specialHoles, [rn]: cur }
+                            await supabase.from('inv_settings').upsert({ key: 'special_holes', value: all, updated_by: user.nickname })
+                            showToast(`R${rn} 2× från hål ${v}`, 'birdie')
+                          }
+                        }} />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Radera scores */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>RADERA SCORE</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <select id="del-player" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}>
+                {activePlayers.map(p => <option key={p.id} value={p.id}>{p.nickname}</option>)}
+              </select>
+              <select id="del-round" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}>
+                {[1,2,3,4].map(r => <option key={r} value={r}>R{r}</option>)}
+              </select>
+              <input id="del-hole" type="number" min="1" max="18" placeholder="Hål" style={{ width: 50, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px', fontSize: 12, fontFamily: 'var(--mono)' }} />
+            </div>
+            <button onClick={async () => {
+              const pid = document.getElementById('del-player').value
+              const rn = parseInt(document.getElementById('del-round').value)
+              const hole = parseInt(document.getElementById('del-hole').value)
+              const r = rounds.find(x => x.round_number === rn)
+              if (r && hole >= 1 && hole <= 18) {
+                const pl = activePlayers.find(p => p.id === pid)
+                if (confirm(`Radera ${pl?.nickname} R${rn} Hål ${hole}?`)) {
+                  await supabase.from('inv_scores').delete().eq('player_id', pid).eq('round_id', r.id).eq('hole', hole)
+                  fetchAll()
+                  showToast(`Raderat: ${pl?.nickname} R${rn} H${hole}`, 'zero')
+                }
+              }
+            }} style={{ width: '100%', padding: '10px', background: 'var(--coral)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+              🗑️ Radera score
+            </button>
+          </div>
+
+          {/* Nollställ hel runda */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--coral)', letterSpacing: 2, marginBottom: 10 }}>DANGER ZONE</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select id="reset-round" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}>
+                {[1,2,3,4].map(r => <option key={r} value={r}>R{r} – {RC[r]}</option>)}
+              </select>
+              <button onClick={async () => {
+                const rn = parseInt(document.getElementById('reset-round').value)
+                const r = rounds.find(x => x.round_number === rn)
+                if (r && confirm(`⚠️ NOLLSTÄLL ALLA SCORES för R${rn}? Detta kan inte ångras!`)) {
+                  await supabase.from('inv_scores').delete().eq('round_id', r.id)
+                  fetchAll()
+                  showToast(`R${rn} nollställd`, 'zero')
+                }
+              }} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--coral)', color: 'var(--coral)', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>
+                ⚠️ Nollställ runda
+              </button>
+            </div>
+          </div>
+        </>)}
+
       </div>
 
       {/* ===== BOTTOM NAV ===== */}
@@ -803,6 +1014,7 @@ export default function Home() {
           { key: 'teams', icon: '⚔️', label: 'LAG' },
           { key: 'feed', icon: '💬', label: 'CHAT' },
           { key: 'info', icon: '📋', label: 'INFO' },
+          ...(isAdmin ? [{ key: 'settings', icon: '⚙️', label: 'ADMIN' }] : []),
         ].map(t => (
           <button key={t.key} className={`bottom-nav-btn ${view === t.key ? 'active' : ''}`} onClick={() => setView(t.key)}>
             <span className="nav-icon">{t.icon}</span>{t.label}

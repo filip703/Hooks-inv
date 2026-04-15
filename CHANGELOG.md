@@ -6,6 +6,17 @@ Format: `## [datum] Beskrivning (@vem)`
 
 ---
 
+## [2026-04-15] Admin Settings (@filip)
+- Ny ⚙️ ADMIN-tab i bottom nav (bara Filip + Marcus)
+- HCP: Justera per spelare, sparas direkt till Supabase
+- Lagindelning: Byt spelare mellan Smaragderna/Stålklubban
+- Rundor & Banval: Byt bana per runda (Skogsbanan/Parkbanan)
+- Slope & CR: Manuellt override per bana
+- Specialhål: LD-hål, NP-hål, 2×-start per runda
+- Radera score: Välj spelare + runda + hål → radera
+- Danger Zone: Nollställ hel runda (med bekräftelse)
+- Marcus tillagd som admin
+
 ## [2026-04-15] Transparent badge + uppdaterade ikoner (@filip)
 - Vit bakgrund borttagen från DIO-badge (transparent PNG)
 - Splash screen: badge flyter snyggt mot svart bakgrund
