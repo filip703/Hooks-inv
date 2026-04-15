@@ -6,6 +6,13 @@ Format: `## [datum] Beskrivning (@vem)`
 
 ---
 
+## [2026-04-15] Splash screen animation (@filip)
+- Netflix-style splash vid app-start (2.8 sek)
+- DIO-badge zoomar in med bounce-effekt
+- Gyllene radial glow-animation i bakgrunden
+- "2026" och "HOOKS HERRGÅRD · SMÅLAND" fader in sekventiellt
+- Visas en gång vid varje app-öppning
+
 ## [2026-04-15] PWA-ikoner: Douche Invitational badge (@filip)
 - Ny officiell DIO-badge som PWA-ikon (guld sköld med golfare + öl)
 - Mörk bakgrund, rundade hörn

@@ -38,6 +38,7 @@ export default function Home() {
   const [showNotifs, setShowNotifs] = useState(false)
   const [unread, setUnread] = useState(0)
   const [showInstall, setShowInstall] = useState(false)
+  const [splash, setSplash] = useState(true)
   const [pep] = useState(pepTalks[Math.floor(Math.random() * pepTalks.length)])
   const chatEnd = useRef(null)
   const toastT = useRef(null)
@@ -52,6 +53,11 @@ export default function Home() {
       const dismissed = localStorage.getItem('inv_install_dismissed')
       if (!isStandalone && !dismissed) setShowInstall(true)
     }
+  }, [])
+  // Splash screen timer
+  useEffect(() => {
+    const t = setTimeout(() => setSplash(false), 2800)
+    return () => clearTimeout(t)
   }, [])
 
   const fetchAll = useCallback(async () => {
@@ -190,6 +196,18 @@ export default function Home() {
       fetchChat()
     }
   }
+
+  // ===== LOGIN =====
+  // ===== SPLASH SCREEN =====
+  if (splash) return (
+    <div className="splash-screen">
+      <div className="splash-badge">
+        <img src="/dio-badge.png" alt="DIO" className="splash-img" />
+      </div>
+      <div className="splash-year">2026</div>
+      <div className="splash-location">HOOKS HERRGÅRD · SMÅLAND</div>
+    </div>
+  )
 
   // ===== LOGIN =====
   if (!user) return (
