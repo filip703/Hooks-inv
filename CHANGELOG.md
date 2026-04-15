@@ -6,6 +6,11 @@ Format: `## [datum] Beskrivning (@vem)`
 
 ---
 
+## [2026-04-15] Transparent badge + uppdaterade ikoner (@filip)
+- Vit bakgrund borttagen från DIO-badge (transparent PNG)
+- Splash screen: badge flyter snyggt mot svart bakgrund
+- Alla PWA-ikoner regenererade med transparent badge
+
 ## [2026-04-15] Splash screen animation (@filip)
 - Netflix-style splash vid app-start (2.8 sek)
 - DIO-badge zoomar in med bounce-effekt
