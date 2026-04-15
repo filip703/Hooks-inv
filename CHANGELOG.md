@@ -17,6 +17,22 @@ Format: `## [datum] Beskrivning (@vem)`
 - Danger Zone: Nollställ hel runda (med bekräftelse)
 - Marcus tillagd som admin
 
+## [2026-04-15] Prisutdelning + Round Stats + Live-ticker + GUI polish (@filip)
+- 🏆 Prisutdelning på INFO-sidan (admin):
+  - Le Douche de Golf (individuell vinnare)
+  - Daily Loser per runda (sämst köper)
+  - Konsistenskungen (lägst standardavvikelse)
+- 📊 Rundstats per spelad runda:
+  - Antal birdies+, nollor, topscorer, bästa hål
+- ▲▼ Live-ticker på leaderboard:
+  - Gröna/röda pilar visar rankingförändring sen förra rundan
+- GUI-polish:
+  - Glassmorphism på leaderboard + bottom nav (backdrop-filter blur)
+  - Fade-in animation vid vy-byte
+  - Toast-animation (slide + scale)
+  - Bättre section-titles (serif 22px)
+  - Active-state på knappar och rader
+
 ## [2026-04-15] Even Steven + Head-to-Head + Countdown (@filip)
 - 💰 SPLIT-tab: Even Steven expense splitting
   - Lägg till utgift med belopp, beskrivning, tagg (mat/dryck/golf/spa/transport)

@@ -158,3 +158,27 @@ button, .bottom-nav-btn, .login-face-btn { -webkit-user-select: none; user-selec
   80% { opacity: 1; }
   100% { opacity: 0; }
 }
+
+
+/* ===== GUI POLISH ===== */
+/* Glassmorphism cards */
+.lb-card { background: rgba(20,20,18,0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.04); border-radius: 14px; overflow: hidden; }
+.lb-row { transition: background 0.2s ease; }
+.lb-row:active { background: rgba(255,255,255,0.03); }
+/* Team cards */
+.team-card { border: 1px solid rgba(255,255,255,0.04); transition: transform 0.2s ease; }
+/* Section titles */
+.section-title { font-family: var(--serif); font-size: 22px; }
+.section-sub { font-size: 11px; color: var(--cream-muted); font-family: var(--mono); letter-spacing: 0.5px; }
+/* Expense tag pills */
+.expense-tag { transition: all 0.15s ease; }
+.expense-tag:active { transform: scale(0.95); }
+/* Smooth view transitions */
+.page-content { animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+/* Better bottom nav */
+.bottom-nav { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); background: rgba(20,20,18,0.9); }
+.bottom-nav-btn.active { color: var(--gold); }
+/* Score card glow on registration */
+.shoutout-toast { animation: toastIn 0.3s ease-out; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-10px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }

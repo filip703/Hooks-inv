@@ -458,10 +458,17 @@ export default function Home() {
             {lb.map((p, i) => {
               const tot = pTotal(p.id)
               const bonus = [1,2,3,4].reduce((s, r) => s + pRoundBonus(p.id, r), 0)
+              // Calculate rank without last round to show movement
+              const lastPlayed = [4,3,2,1].find(rn => pRoundRaw(p.id, rn) > 0) || 0
+              const prevTotal = pid => pTotal(pid) - pRoundRaw(pid, lastPlayed) - pRoundBonus(pid, lastPlayed)
+              const prevLb = [...activePlayers].sort((a, b) => prevTotal(b.id) - prevTotal(a.id))
+              const prevPos = prevLb.findIndex(x => x.id === p.id)
+              const movement = lastPlayed > 0 && prevTotal(p.id) > 0 ? prevPos - i : 0
               return (
                 <div className="lb-row" key={p.id} style={p.id === user?.id ? { background: 'rgba(201,168,76,0.06)' } : {}}>
                   <div className="lb-team-indicator" style={{ background: p.team === 'green' ? '#6BBF7F' : '#8AB4D6' }} />
                   <div className="lb-pos">{i === 0 && tot > 0 ? '👑' : i + 1}</div>
+                  {movement !== 0 && <div style={{ fontSize: 10, color: movement > 0 ? 'var(--green)' : 'var(--coral)', minWidth: 14 }}>{movement > 0 ? '▲' : '▼'}</div>}
                   <Av p={p} size={38} />
                   <div className="lb-info">
                     <div className="lb-name">{p.name}</div>
@@ -786,6 +793,78 @@ export default function Home() {
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 16, marginBottom: 16, textAlign: 'center' }}>
             <div style={{ fontSize: 13, color: 'var(--cream-dim)', fontStyle: 'italic', lineHeight: 1.6 }}>"{pep}"</div>
           </div>
+
+          {/* 🏆 PRISUTDELNING */}
+          {isAdmin && (
+            <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>🏆 PRISUTDELNING</div>
+              {(() => {
+                const cats = []
+                // Le Douche de Golf (individual winner)
+                if (lb.length > 0 && pTotal(lb[0].id) > 0) cats.push({ title: 'Le Douche de Golf', icon: '🏆', winner: lb[0], value: `${pTotal(lb[0].id)}p` })
+                // Daily Loser per round
+                ;[1,2,3,4].forEach(rn => {
+                  const r = rid(rn); if (!r) return
+                  const played = activePlayers.filter(p => pSc(p.id, r).length > 0)
+                  if (played.length > 0) {
+                    const loser = played.sort((a,b) => pRoundRaw(a.id, rn) - pRoundRaw(b.id, rn))[0]
+                    if (pRoundRaw(loser.id, rn) > 0) cats.push({ title: `Daily Loser R${rn}`, icon: '🍺', winner: loser, value: `${pRoundRaw(loser.id, rn)}p` })
+                  }
+                })
+                // Konsistenskungen (lowest std dev)
+                const withStdDev = activePlayers.filter(p => [1,2,3,4].filter(r => pRoundRaw(p.id, r) > 0).length >= 2).map(p => {
+                  const vals = [1,2,3,4].map(r => pRoundRaw(p.id, r)).filter(v => v > 0)
+                  const mean = vals.reduce((s,v) => s+v, 0) / vals.length
+                  const variance = vals.reduce((s,v) => s + Math.pow(v - mean, 2), 0) / vals.length
+                  return { player: p, stdDev: Math.sqrt(variance) }
+                }).sort((a,b) => a.stdDev - b.stdDev)
+                if (withStdDev.length > 0) cats.push({ title: 'Konsistenskungen', icon: '📏', winner: withStdDev[0].player, value: `σ ${withStdDev[0].stdDev.toFixed(1)}` })
+
+                if (cats.length === 0) return <div style={{ fontSize: 12, color: 'var(--cream-muted)', textAlign: 'center', padding: 10 }}>Spela först – vinnare avslöjas här</div>
+                return cats.map((c, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div style={{ fontSize: 22 }}>{c.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--gold)' }}>{c.title}</div>
+                      <div style={{ fontSize: 13, color: 'var(--cream)' }}>{c.winner.name}</div>
+                    </div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--cream-muted)' }}>{c.value}</div>
+                  </div>
+                ))
+              })()}
+            </div>
+          )}
+
+          {/* 📊 ROUND STATS */}
+          {(() => {
+            const playedRounds = [1,2,3,4].filter(rn => { const r = rid(rn); return r && scores.filter(s => s.round_id === r && s.strokes > 0).length > 0 })
+            if (playedRounds.length === 0) return null
+            return (
+              <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>📊 RUNDSTATS</div>
+                {playedRounds.map(rn => {
+                  const r = rid(rn)
+                  const roundScores = scores.filter(s => s.round_id === r && s.strokes > 0)
+                  const birdiesPlus = roundScores.filter(s => s.stableford_points >= 3).length
+                  const zeros = roundScores.filter(s => s.stableford_points === 0).length
+                  const bestHole = roundScores.sort((a,b) => b.stableford_points - a.stableford_points)[0]
+                  const bestPlayer = bestHole ? activePlayers.find(p => p.id === bestHole.player_id) : null
+                  const topScorer = activePlayers.sort((a,b) => pRoundRaw(b.id, rn) - pRoundRaw(a.id, rn))[0]
+                  return (
+                    <div key={rn} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--cream)', marginBottom: 4 }}>R{rn} – {RC[rn]}</div>
+                      <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--cream-muted)' }}>
+                        <span>🐦 {birdiesPlus} birdies+</span>
+                        <span>💀 {zeros} nollor</span>
+                        {topScorer && pRoundRaw(topScorer.id, rn) > 0 && <span>👑 {topScorer.nickname} ({pRoundRaw(topScorer.id, rn)}p)</span>}
+                      </div>
+                      {bestPlayer && bestHole.stableford_points >= 4 && <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 2 }}>⭐ {bestPlayer.nickname} – {bestHole.stableford_points}p på hål {bestHole.hole}</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
 
           {/* Epic playlists */}
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>SPELLISTOR FÖR HELGEN</div>

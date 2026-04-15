@@ -60,6 +60,21 @@ Live scoring-app för **Douche Invitational Only** (DIO) – en årlig golftävl
 - Offline-stöd via Service Worker
 - Safe areas för Dynamic Island/notch
 - Zoom tillåtet
+- Netflix-style splash screen med DIO-badge
+
+**Even Steven (expense split)**
+- Lägg till utgifter med belopp, beskrivning och tagg
+- Auto-split mellan alla spelare
+- Optimal settlement plan (minimalt antal transaktioner)
+- Live-balans och "gör upp"-instruktioner
+- Supabase realtime
+
+**Stats & Awards**
+- Head-to-head jämförelse mellan valfria spelare
+- Prisutdelning: Le Douche de Golf, Daily Loser, Konsistenskungen
+- Rundstats: birdies, nollor, topscorer per runda
+- Live-ticker med ▲▼ pilar på leaderboard
+- Countdown till första tee
 
 ## Projektstruktur
 
