@@ -1088,7 +1088,7 @@ export default function Home() {
                     <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>{p?.nickname} · {new Date(e.created_at).toLocaleDateString('sv-SE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div>
                   </div>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500 }}>{parseFloat(e.amount)} kr</div>
-                  {isAdmin && <button onClick={async () => { if (confirm('Radera?')) { await supabase.from('inv_expenses').delete().eq('id', e.id); fetchAll() } }} style={{ background: 'none', border: 'none', color: 'var(--coral)', fontSize: 12, cursor: 'pointer', padding: '2px 4px' }}>✕</button>}
+                  {(isAdmin || e.created_by === user?.key || e.paid_by === user?.key) && <button onClick={async () => { if (confirm('Radera utgift?')) { await supabase.from('inv_expenses').delete().eq('id', e.id); fetchExpenses() }}} style={{ background: 'none', border: 'none', color: 'var(--coral)', fontSize: 12, cursor: 'pointer', padding: '2px 4px' }}>✕</button>}
                 </div>
               )
             })}
@@ -1475,7 +1475,7 @@ export default function Home() {
                     <div style={{ fontSize: 9, color: 'var(--cream-muted)' }}>{p?.nickname}{target ? ` → ${target.nickname}` : ''} · {new Date(e.created_at).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
                   </div>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, flexShrink: 0 }}>{Math.round(parseFloat(e.amount))} kr</div>
-                  {isAdmin && <button onClick={async () => { if (confirm('Radera?')) { await supabase.from('inv_expenses').delete().eq('id', e.id); fetchExpenses() }}} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>✕</button>}
+                  {(isAdmin || e.created_by === user?.key || e.paid_by === user?.key) && <button onClick={async () => { if (confirm('Radera utgift?')) { await supabase.from('inv_expenses').delete().eq('id', e.id); fetchExpenses() }}} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>✕</button>}
                 </div>
               )
             })}
