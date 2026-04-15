@@ -41,7 +41,7 @@ export default function Home() {
   const [splash, setSplash] = useState(true)
   const [expenses, setExpenses] = useState([])
   const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', tag: 'mat' })
-  const [h2hPlayers, setH2hPlayers] = useState([null, null])
+  const [h2hPlayers, setH2hPlayers] = useState([])
   const [h2hMatches, setH2hMatches] = useState([])
   const [expenseTarget, setExpenseTarget] = useState('')
   const [propBets, setPropBets] = useState([])
@@ -531,54 +531,78 @@ export default function Home() {
             return null
           })()}
 
-          {/* Head-to-head quick pick */}
+          {/* Head-to-head comparisons */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginTop: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>HEAD-TO-HEAD</div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              {[0,1].map(idx => (
-                <select key={idx} value={h2hPlayers[idx] || ''} onChange={e => { const n = [...h2hPlayers]; n[idx] = e.target.value || null; setH2hPlayers(n) }}
-                  style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '8px', fontSize: 12 }}>
-                  <option value="">Välj spelare</option>
-                  {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
-                </select>
-              ))}
-            </div>
-            {h2hPlayers[0] && h2hPlayers[1] && h2hPlayers[0] !== h2hPlayers[1] && (() => {
-              const p1 = activePlayers.find(p => p.key === h2hPlayers[0])
-              const p2 = activePlayers.find(p => p.key === h2hPlayers[1])
-              if (!p1 || !p2) return null
-              const t1 = pTotal(p1.id), t2 = pTotal(p2.id)
-              let p1wins = 0, p2wins = 0, ties = 0
-              const holes = []
-              ;[1,2,3,4].forEach(rn => {
-                const r = rid(rn); if (!r) return
-                const s1 = pSc(p1.id, r), s2 = pSc(p2.id, r)
-                for (let h = 1; h <= 18; h++) {
-                  const a = s1.find(x => x.hole === h), b = s2.find(x => x.hole === h)
-                  if (a?.stableford_points != null && b?.stableford_points != null) {
-                    const d = a.stableford_points - b.stableford_points
-                    if (d > 0) p1wins++; else if (d < 0) p2wins++; else ties++
-                    holes.push({ rn, h, p1: a.stableford_points, p2: b.stableford_points })
+
+            {/* Saved H2H matchups from leaderboard context */}
+            {(() => {
+              const calcH2h = (k1, k2) => {
+                const p1 = activePlayers.find(p => p.key === k1), p2 = activePlayers.find(p => p.key === k2)
+                if (!p1 || !p2) return null
+                const t1 = pTotal(p1.id), t2 = pTotal(p2.id)
+                let w1 = 0, w2 = 0, ties = 0
+                ;[1,2,3,4].forEach(rn => {
+                  const r = rid(rn); if (!r) return
+                  const s1 = pSc(p1.id, r), s2 = pSc(p2.id, r)
+                  for (let h = 1; h <= 18; h++) {
+                    const a = s1.find(x => x.hole === h), b = s2.find(x => x.hole === h)
+                    if (a?.stableford_points != null && b?.stableford_points != null) {
+                      const d = a.stableford_points - b.stableford_points
+                      if (d > 0) w1++; else if (d < 0) w2++; else ties++
+                    }
                   }
-                }
-              })
+                })
+                return { p1, p2, t1, t2, w1, w2, ties }
+              }
+
+              // Show all stored H2H pairs
+              const pairs = h2hPlayers.filter(p => p && p[0] && p[1] && p[0] !== p[1])
               return (<>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
-                  <div style={{ textAlign: 'center', flex: 1 }}>
-                    <Av p={p1} size={32} />
-                    <div style={{ fontSize: 11, fontWeight: 500, marginTop: 4 }}>{p1.nickname}</div>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 22, color: t1 >= t2 ? 'var(--green)' : 'var(--cream-muted)' }}>{t1}</div>
-                  </div>
-                  <div style={{ textAlign: 'center', padding: '0 8px' }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)' }}>VS</div>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--gold)', marginTop: 4 }}>{p1wins}–{ties}–{p2wins}</div>
-                    <div style={{ fontSize: 9, color: 'var(--cream-muted)' }}>V–O–F</div>
-                  </div>
-                  <div style={{ textAlign: 'center', flex: 1 }}>
-                    <Av p={p2} size={32} />
-                    <div style={{ fontSize: 11, fontWeight: 500, marginTop: 4 }}>{p2.nickname}</div>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 22, color: t2 >= t1 ? 'var(--green)' : 'var(--cream-muted)' }}>{t2}</div>
-                  </div>
+                {pairs.map((pair, idx) => {
+                  const h = calcH2h(pair[0], pair[1])
+                  if (!h) return null
+                  return (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div style={{ textAlign: 'center', flex: 1 }}>
+                        <Av p={h.p1} size={28} />
+                        <div style={{ fontSize: 10, fontWeight: 500, marginTop: 2 }}>{h.p1.nickname}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 18, color: h.t1 >= h.t2 ? 'var(--green)' : 'var(--cream-muted)' }}>{h.t1}</div>
+                      </div>
+                      <div style={{ textAlign: 'center', padding: '0 6px' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-muted)' }}>VS</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--gold)', marginTop: 2 }}>{h.w1}–{h.ties}–{h.w2}</div>
+                      </div>
+                      <div style={{ textAlign: 'center', flex: 1 }}>
+                        <Av p={h.p2} size={28} />
+                        <div style={{ fontSize: 10, fontWeight: 500, marginTop: 2 }}>{h.p2.nickname}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 18, color: h.t2 >= h.t1 ? 'var(--green)' : 'var(--cream-muted)' }}>{h.t2}</div>
+                      </div>
+                      <button onClick={() => setH2hPlayers(prev => prev.filter((_, i) => i !== idx))}
+                        style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 14, cursor: 'pointer', padding: '0 4px', marginLeft: 4 }}>✕</button>
+                    </div>
+                  )
+                })}
+
+                {/* Add new matchup */}
+                <div style={{ display: 'flex', gap: 4, marginTop: pairs.length > 0 ? 8 : 0 }}>
+                  <select id="h2h-add-p1" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '6px', fontSize: 11 }}>
+                    <option value="">Spelare 1</option>
+                    {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
+                  </select>
+                  <select id="h2h-add-p2" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '6px', fontSize: 11 }}>
+                    <option value="">Spelare 2</option>
+                    {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
+                  </select>
+                  <button onClick={() => {
+                    const p1 = document.getElementById('h2h-add-p1').value
+                    const p2 = document.getElementById('h2h-add-p2').value
+                    if (p1 && p2 && p1 !== p2) {
+                      setH2hPlayers(prev => [...prev, [p1, p2]])
+                      document.getElementById('h2h-add-p1').value = ''
+                      document.getElementById('h2h-add-p2').value = ''
+                    }
+                  }} style={{ padding: '6px 14px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+</button>
                 </div>
               </>)
             })()}
