@@ -44,6 +44,8 @@ export default function Home() {
   const [h2hPlayers, setH2hPlayers] = useState([null, null])
   const [h2hMatches, setH2hMatches] = useState([])
   const [expenseTarget, setExpenseTarget] = useState('')
+  const [propBets, setPropBets] = useState([])
+  const [propForm, setPropForm] = useState({ question: '', odds: 'Even', stake: 50, options: '' })
   const [pep] = useState(pepTalks[Math.floor(Math.random() * pepTalks.length)])
   const chatEnd = useRef(null)
   const toastT = useRef(null)
@@ -85,7 +87,12 @@ export default function Home() {
     const { data } = await supabase.from('inv_h2h_matches').select('*').order('round_number')
     if (data) setH2hMatches(data)
   }, [])
-  useEffect(() => { fetchAll(); fetchChat(); fetchExpenses(); fetchH2h() }, [fetchAll, fetchChat, fetchExpenses, fetchH2h])
+  const fetchProps = useCallback(async () => {
+    if (!supabase) return
+    const { data } = await supabase.from('inv_prop_bets').select('*').order('created_at', { ascending: false })
+    if (data) setPropBets(data)
+  }, [])
+  useEffect(() => { fetchAll(); fetchChat(); fetchExpenses(); fetchH2h(); fetchProps() }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps])
   useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth' }) }, [chat])
 
   // Realtime
@@ -106,8 +113,9 @@ export default function Home() {
     const c2 = supabase.channel('c1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_chat' }, (p) => { setTimeout(() => fetchChat(), 300); if (p.new?.player_id !== user?.id) soundChat() }).subscribe()
     const c3 = supabase.channel('e1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_expenses' }, () => fetchExpenses()).subscribe()
     const c4 = supabase.channel('h2h1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_h2h_matches' }, () => fetchH2h()).subscribe()
-    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4) }
-  }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, players])
+    const c5 = supabase.channel('prop1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_prop_bets' }, () => fetchProps()).subscribe()
+    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4); supabase.removeChannel(c5) }
+  }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, players])
 
   const addNotif = (msg, type) => {
     const n = { id: Date.now(), msg, type, time: new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }) }
@@ -1211,6 +1219,166 @@ export default function Home() {
           {chat.filter(m => m.image_url).length === 0 && <div style={{ textAlign: 'center', color: 'var(--cream-muted)', fontSize: 12, padding: 40 }}>Inga bilder ännu – ta bilder i chatten!</div>}
         </>)}
 
+        {/* ===== PHOTO GALLERY ===== */}
+        {view === 'gallery' && (<>
+          <div className="section-title">📸 Helgen i bilder</div>
+          <div className="section-sub">{chat.filter(m => m.image_url).length} foton</div>
+          {(() => {
+            const photos = chat.filter(m => m.image_url).sort((a,b) => new Date(b.created_at) - new Date(a.created_at))
+            if (photos.length === 0) return <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 40, textAlign: 'center', color: 'var(--cream-muted)' }}>Inga bilder ännu. Skicka foton i chatten!</div>
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+                {photos.map(m => {
+                  const p = m.inv_players || activePlayers.find(x => x.id === m.player_id) || {}
+                  return (
+                    <div key={m.id} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', aspectRatio: '1', background: 'var(--surface)' }}>
+                      <img src={m.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.7))', padding: '16px 8px 6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Av p={p} size={16} />
+                          <span style={{ fontSize: 10, color: '#fff' }}>{p.nickname || '?'}</span>
+                          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', marginLeft: 'auto' }}>{new Date(m.created_at).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+        </>)}
+
+        {/* ===== PROP BETS ===== */}
+        {view === 'expenses' && propBets.length + 1 > 0 && (
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>🎲 PROP BETS</div>
+
+            {/* Active bets */}
+            {propBets.map(bet => {
+              const opts = bet.options || []
+              const bets = bet.bets || {}
+              const myBet = bets[user?.key]
+              const banker = bet.banker_key ? activePlayers.find(p => p.key === bet.banker_key) : null
+              return (
+                <div key={bet.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--cream)' }}>{bet.question}</div>
+                      <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 2 }}>
+                        {bet.stake} kr · Odds: {bet.odds}
+                        {banker && <span> · 🏦 Bank: {banker.nickname}</span>}
+                      </div>
+                    </div>
+                    {bet.settled && <Badge text="AVGJORD" color="var(--green)" bg="rgba(107,191,127,0.15)" />}
+                  </div>
+                  {/* Options to bet on */}
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
+                    {opts.map((opt, oi) => {
+                      const voters = Object.entries(bets).filter(([k, v]) => v === opt).map(([k]) => activePlayers.find(p => p.key === k)?.nickname).filter(Boolean)
+                      const isWinner = bet.winner_option === opt
+                      return (
+                        <button key={oi} onClick={async () => {
+                          if (bet.settled) return
+                          const newBets = { ...bets, [user.key]: opt }
+                          await supabase.from('inv_prop_bets').update({ bets: newBets }).eq('id', bet.id)
+                          fetchProps()
+                        }} style={{
+                          fontSize: 11, padding: '5px 10px', borderRadius: 8, cursor: bet.settled ? 'default' : 'pointer',
+                          border: myBet === opt ? '1.5px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)',
+                          background: isWinner ? 'rgba(107,191,127,0.15)' : myBet === opt ? 'rgba(201,168,76,0.1)' : 'var(--surface2)',
+                          color: isWinner ? 'var(--green)' : myBet === opt ? 'var(--gold)' : 'var(--cream-dim)'
+                        }}>
+                          {isWinner && '🏆 '}{opt} {voters.length > 0 && <span style={{ fontSize: 9, opacity: 0.7 }}>({voters.join(', ')})</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {/* Admin: declare winner */}
+                  {isAdmin && !bet.settled && (
+                    <select onChange={async (e) => {
+                      if (!e.target.value) return
+                      await supabase.from('inv_prop_bets').update({ winner_option: e.target.value, settled: true }).eq('id', bet.id)
+                      // Settle: losers pay winners via Even Steven
+                      const winners = Object.entries(bets).filter(([k, v]) => v === e.target.value).map(([k]) => k)
+                      const losers = Object.entries(bets).filter(([k, v]) => v !== e.target.value).map(([k]) => k)
+                      if (bet.banker_key) {
+                        // Bank mode: bank pays winners, losers pay bank
+                        for (const w of winners) {
+                          if (w !== bet.banker_key) {
+                            await supabase.from('inv_expenses').insert({ paid_by: bet.banker_key, amount: bet.stake, description: `Prop: "${bet.question}" → ${activePlayers.find(p => p.key === w)?.nickname}`, tag: 'bet', target_player: w, split_between: [w], bet_type: 'prop', created_by: user.key })
+                          }
+                        }
+                        for (const l of losers) {
+                          if (l !== bet.banker_key) {
+                            await supabase.from('inv_expenses').insert({ paid_by: l, amount: bet.stake, description: `Prop: "${bet.question}" → Bank`, tag: 'bet', target_player: bet.banker_key, split_between: [bet.banker_key], bet_type: 'prop', created_by: user.key })
+                          }
+                        }
+                      } else {
+                        // Even split: losers pay into pool, winners split
+                        for (const l of losers) {
+                          for (const w of winners) {
+                            const share = Math.round(bet.stake / winners.length)
+                            await supabase.from('inv_expenses').insert({ paid_by: l, amount: share, description: `Prop: "${bet.question}"`, tag: 'bet', target_player: w, split_between: [w], bet_type: 'prop', created_by: user.key })
+                          }
+                        }
+                      }
+                      fetchProps(); fetchExpenses()
+                      showToast(`Prop avgjord: ${e.target.value}!`, 'birdie')
+                    }} style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '3px 6px', fontSize: 10, marginTop: 4 }}>
+                      <option value="">Avgör vinnare...</option>
+                      {opts.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
+                    </select>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Create new prop bet */}
+            {isAdmin && (
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10, marginTop: 8 }}>
+                <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', marginBottom: 6 }}>SKAPA NY PROP</div>
+                <input placeholder="Fråga? (t.ex. Vem gör första birdien?)" value={propForm.question} onChange={e => setPropForm(f => ({...f, question: e.target.value}))}
+                  style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '8px', fontSize: 12, marginBottom: 6 }} />
+                <input placeholder="Alternativ (komma-separerade: Filip, Marcus, Magnus...)" value={propForm.options} onChange={e => setPropForm(f => ({...f, options: e.target.value}))}
+                  style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '8px', fontSize: 12, marginBottom: 6 }} />
+                <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 9, color: 'var(--cream-muted)' }}>INSATS (kr)</div>
+                    <input type="number" value={propForm.stake} onChange={e => setPropForm(f => ({...f, stake: parseInt(e.target.value) || 50}))}
+                      style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px', fontSize: 12, fontFamily: 'var(--mono)' }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 9, color: 'var(--cream-muted)' }}>ODDS</div>
+                    <input value={propForm.odds} onChange={e => setPropForm(f => ({...f, odds: e.target.value}))}
+                      style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px', fontSize: 12, fontFamily: 'var(--mono)' }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 9, color: 'var(--cream-muted)' }}>🏦 BANK</div>
+                    <select onChange={e => setPropForm(f => ({...f, banker: e.target.value}))}
+                      style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px', fontSize: 10 }}>
+                      <option value="">Ingen bank</option>
+                      {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <button onClick={async () => {
+                  if (!propForm.question || !propForm.options) return
+                  const opts = propForm.options.split(',').map(o => o.trim()).filter(Boolean)
+                  if (opts.length < 2) return
+                  await supabase.from('inv_prop_bets').insert({
+                    question: propForm.question, odds: propForm.odds, stake: propForm.stake,
+                    options: opts, banker_key: propForm.banker || null, created_by: user.key
+                  })
+                  setPropForm({ question: '', odds: 'Even', stake: 50, options: '' })
+                  fetchProps(); soundScore()
+                }} style={{ width: '100%', padding: '10px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  🎲 Skapa prop bet
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ===== EVEN STEVEN (EXPENSE SPLIT + BETS) ===== */}
         {view === 'expenses' && (<>
           <div className="section-title">💰 Even Steven</div>
@@ -1702,6 +1870,7 @@ export default function Home() {
           { key: 'teams', icon: '⚔️', label: 'LAG' },
           { key: 'feed', icon: '💬', label: 'CHAT' },
           { key: 'expenses', icon: '💰', label: 'SPLIT' },
+          { key: 'gallery', icon: '📸', label: 'FOTO' },
           { key: 'info', icon: '📋', label: 'INFO' },
           ...(isAdmin ? [{ key: 'settings', icon: '⚙️', label: 'ADMIN' }] : []),
         ].map(t => (

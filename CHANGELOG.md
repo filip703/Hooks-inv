@@ -17,6 +17,20 @@ Format: `## [datum] Beskrivning (@vem)`
 - Danger Zone: Nollställ hel runda (med bekräftelse)
 - Marcus tillagd som admin
 
+## [2026-04-15] Fotogalleri + Prop Bets med odds & bank (@filip)
+- 📸 FOTO-tab: samlar alla chatbilder i ett 2-kolumns grid
+  - Visar fotograf, datum, lazy loading
+  - Gradient overlay med avatar + timestamp
+- 🎲 Prop Bets i SPLIT-taben:
+  - Skapa frågor med alternativ ("Vem gör första birdien?")
+  - Alla kan rösta/betta på sitt alternativ
+  - Insats + odds konfigurerbart
+  - 🏦 Bank-läge: en spelare tar bank, betalar vinnare, tar från förlorare
+  - Utan bank: förlorare delar lika till vinnare
+  - Admin avgör vinnare → auto-settlement via Even Steven
+  - Avgjorda bets markeras med 🏆
+- inv_prop_bets tabell + realtime
+
 ## [2026-04-15] Even Steven v2: H2H bets, LD/NP, person-to-person (@filip)
 - 🆚 Head-to-Head bets: 3 matcher per runda, 100 kr/vinst
   - Admin sätter upp matcher + utser vinnare
