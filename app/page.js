@@ -42,6 +42,8 @@ export default function Home() {
   const [expenses, setExpenses] = useState([])
   const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', tag: 'mat' })
   const [h2hPlayers, setH2hPlayers] = useState([null, null])
+  const [h2hMatches, setH2hMatches] = useState([])
+  const [expenseTarget, setExpenseTarget] = useState('')
   const [pep] = useState(pepTalks[Math.floor(Math.random() * pepTalks.length)])
   const chatEnd = useRef(null)
   const toastT = useRef(null)
@@ -78,7 +80,12 @@ export default function Home() {
     const { data } = await supabase.from('inv_expenses').select('*').order('created_at', { ascending: false })
     if (data) setExpenses(data)
   }, [])
-  useEffect(() => { fetchAll(); fetchChat(); fetchExpenses() }, [fetchAll, fetchChat, fetchExpenses])
+  const fetchH2h = useCallback(async () => {
+    if (!supabase) return
+    const { data } = await supabase.from('inv_h2h_matches').select('*').order('round_number')
+    if (data) setH2hMatches(data)
+  }, [])
+  useEffect(() => { fetchAll(); fetchChat(); fetchExpenses(); fetchH2h() }, [fetchAll, fetchChat, fetchExpenses, fetchH2h])
   useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth' }) }, [chat])
 
   // Realtime
@@ -98,8 +105,9 @@ export default function Home() {
     }).subscribe()
     const c2 = supabase.channel('c1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_chat' }, (p) => { setTimeout(() => fetchChat(), 300); if (p.new?.player_id !== user?.id) soundChat() }).subscribe()
     const c3 = supabase.channel('e1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_expenses' }, () => fetchExpenses()).subscribe()
-    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3) }
-  }, [fetchAll, fetchChat, fetchExpenses, players])
+    const c4 = supabase.channel('h2h1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_h2h_matches' }, () => fetchH2h()).subscribe()
+    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4) }
+  }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, players])
 
   const addNotif = (msg, type) => {
     const n = { id: Date.now(), msg, type, time: new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }) }
@@ -1203,13 +1211,14 @@ export default function Home() {
           {chat.filter(m => m.image_url).length === 0 && <div style={{ textAlign: 'center', color: 'var(--cream-muted)', fontSize: 12, padding: 40 }}>Inga bilder ännu – ta bilder i chatten!</div>}
         </>)}
 
-        {/* ===== EVEN STEVEN (EXPENSE SPLIT) ===== */}
+        {/* ===== EVEN STEVEN (EXPENSE SPLIT + BETS) ===== */}
         {view === 'expenses' && (<>
           <div className="section-title">💰 Even Steven</div>
-          <div className="section-sub">Dela notan – vem är skyldig vem?</div>
+          <div className="section-sub">Utgifter, bets & sidospel – allt räknas ihop</div>
 
           {/* Add expense form */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>LÄGG TILL UTGIFT</div>
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
               <input placeholder="Vad?" value={expenseForm.description} onChange={e => setExpenseForm(f => ({...f, description: e.target.value}))}
                 style={{ flex: 2, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
@@ -1217,27 +1226,174 @@ export default function Home() {
                 style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14, fontFamily: 'var(--mono)' }} />
             </div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
-              {['mat','dryck','golf','spa','transport','övrigt'].map(t => (
+              {['mat','dryck','golf','spa','transport','bet','övrigt'].map(t => (
                 <button key={t} onClick={() => setExpenseForm(f => ({...f, tag: t}))}
                   style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: expenseForm.tag === t ? 'var(--gold)' : 'var(--surface2)', color: expenseForm.tag === t ? '#0A0A08' : 'var(--cream-muted)' }}>
-                  {t === 'mat' ? '🍔' : t === 'dryck' ? '🍺' : t === 'golf' ? '⛳' : t === 'spa' ? '🧖' : t === 'transport' ? '🚗' : '📦'} {t}
+                  {t === 'mat' ? '🍔' : t === 'dryck' ? '🍺' : t === 'golf' ? '⛳' : t === 'spa' ? '🧖' : t === 'transport' ? '🚗' : t === 'bet' ? '🎰' : '📦'} {t}
                 </button>
               ))}
             </div>
+            {/* Target player (optional – person-to-person) */}
+            <div style={{ marginBottom: 8 }}>
+              <select value={expenseTarget} onChange={e => setExpenseTarget(e.target.value)}
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '8px', fontSize: 12 }}>
+                <option value="">Delas av alla</option>
+                {activePlayers.filter(p => p.key !== user?.key).map(p => (
+                  <option key={p.key} value={p.key}>{p.nickname} ska betala (1-till-1)</option>
+                ))}
+              </select>
+            </div>
             <button onClick={async () => {
               if (!expenseForm.description || !expenseForm.amount || !user) return
-              const allKeys = activePlayers.map(p => p.key)
-              await supabase.from('inv_expenses').insert({
+              const ins = {
                 paid_by: user.key, amount: parseFloat(expenseForm.amount),
                 description: expenseForm.description, tag: expenseForm.tag,
-                split_between: allKeys, created_by: user.key
-              })
+                created_by: user.key
+              }
+              if (expenseTarget) {
+                ins.target_player = expenseTarget
+                ins.split_between = [expenseTarget]
+              } else {
+                ins.split_between = activePlayers.map(p => p.key)
+              }
+              await supabase.from('inv_expenses').insert(ins)
               setExpenseForm({ description: '', amount: '', tag: 'mat' })
+              setExpenseTarget('')
               fetchExpenses()
               soundScore()
             }} style={{ width: '100%', padding: '12px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-              Lägg till utgift
+              Lägg till
             </button>
+          </div>
+
+          {/* HEAD-TO-HEAD BETS */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>🆚 HEAD-TO-HEAD · 100 KR/VINST</div>
+            <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 10 }}>3 matcher per dag. Förloraren betalar 100 kr.</div>
+            {[1,2,3,4].map(rn => {
+              const dayMatches = h2hMatches.filter(m => m.round_number === rn)
+              const dayName = { 1: 'FREDAG', 2: 'LÖRDAG FM', 3: 'LÖRDAG EM', 4: 'SÖNDAG' }[rn]
+              return (
+                <div key={rn} style={{ marginBottom: 12 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1, marginBottom: 4 }}>{dayName} (R{rn})</div>
+                  {dayMatches.map(m => {
+                    const p1 = activePlayers.find(p => p.key === m.player1_key)
+                    const p2 = activePlayers.find(p => p.key === m.player2_key)
+                    const w = m.winner_key ? activePlayers.find(p => p.key === m.winner_key) : null
+                    return (
+                      <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <Av p={p1} size={20} /><span style={{ fontSize: 11, color: m.winner_key === m.player1_key ? 'var(--green)' : 'var(--cream-dim)' }}>{p1?.nickname}</span>
+                        <span style={{ fontSize: 10, color: 'var(--cream-muted)' }}>vs</span>
+                        <Av p={p2} size={20} /><span style={{ fontSize: 11, color: m.winner_key === m.player2_key ? 'var(--green)' : 'var(--cream-dim)' }}>{p2?.nickname}</span>
+                        <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 11 }}>
+                          {w ? <span style={{ color: 'var(--green)' }}>🏆 {w.nickname}</span> : <span style={{ color: 'var(--cream-muted)' }}>Pågår</span>}
+                        </span>
+                        {isAdmin && !m.winner_key && (
+                          <select onChange={async (e) => {
+                            if (!e.target.value) return
+                            await supabase.from('inv_h2h_matches').update({ winner_key: e.target.value }).eq('id', m.id)
+                            // Auto-add to expenses
+                            const loserKey = e.target.value === m.player1_key ? m.player2_key : m.player1_key
+                            const winnerP = activePlayers.find(p => p.key === e.target.value)
+                            const loserP = activePlayers.find(p => p.key === loserKey)
+                            await supabase.from('inv_expenses').insert({
+                              paid_by: loserKey, amount: m.stake, description: `H2H: ${loserP?.nickname} → ${winnerP?.nickname} R${rn}`,
+                              tag: 'bet', target_player: e.target.value, split_between: [e.target.value], bet_type: 'h2h', created_by: user.key
+                            })
+                            fetchH2h(); fetchExpenses()
+                            showToast(`${winnerP?.nickname} vinner H2H!`, 'birdie')
+                          }} style={{ width: 70, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '3px', fontSize: 10 }}>
+                            <option value="">Vinnare?</option>
+                            <option value={m.player1_key}>{p1?.nickname}</option>
+                            <option value={m.player2_key}>{p2?.nickname}</option>
+                          </select>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {isAdmin && dayMatches.length < 3 && (
+                    <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                      <select id={`h2h-p1-${rn}`} style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px', fontSize: 10 }}>
+                        <option value="">Spelare 1</option>
+                        {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
+                      </select>
+                      <select id={`h2h-p2-${rn}`} style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px', fontSize: 10 }}>
+                        <option value="">Spelare 2</option>
+                        {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
+                      </select>
+                      <button onClick={async () => {
+                        const p1 = document.getElementById(`h2h-p1-${rn}`).value
+                        const p2 = document.getElementById(`h2h-p2-${rn}`).value
+                        if (p1 && p2 && p1 !== p2) {
+                          await supabase.from('inv_h2h_matches').insert({ round_number: rn, player1_key: p1, player2_key: p2, stake: 100 })
+                          fetchH2h()
+                          soundScore()
+                        }
+                      }} style={{ padding: '4px 10px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>+</button>
+                    </div>
+                  )}
+                  {dayMatches.length === 0 && !isAdmin && <div style={{ fontSize: 11, color: 'var(--cream-muted)', padding: '4px 0' }}>Inga matcher ännu</div>}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* LD & NP BETS */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>🏌️ LD & 🎯 NP · 50 KR/RUNDA</div>
+            <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 10 }}>Alla lägger i 50 kr. Vinnaren tar potten (300 kr).</div>
+            {[1,2,3,4].map(rn => {
+              const ldExpense = expenses.find(e => e.bet_type === 'ld' && e.description?.includes(`R${rn}`))
+              const npExpense = expenses.find(e => e.bet_type === 'np' && e.description?.includes(`R${rn}`))
+              return (
+                <div key={rn} style={{ padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1 }}>R{rn}</div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: 11 }}>🏌️ LD: </span>
+                      {ldExpense ? <span style={{ fontSize: 11, color: 'var(--green)' }}>{activePlayers.find(p => p.key === ldExpense.paid_by)?.nickname} 🏆</span>
+                        : isAdmin ? (
+                          <select onChange={async (e) => {
+                            if (!e.target.value) return
+                            const winner = activePlayers.find(p => p.key === e.target.value)
+                            // Each player pays 50 to the winner
+                            for (const p of activePlayers.filter(x => x.key !== e.target.value)) {
+                              await supabase.from('inv_expenses').insert({
+                                paid_by: p.key, amount: 50, description: `LD R${rn} → ${winner.nickname}`,
+                                tag: 'bet', target_player: e.target.value, split_between: [e.target.value], bet_type: 'ld', created_by: user.key
+                              })
+                            }
+                            fetchExpenses(); showToast(`${winner.nickname} vinner LD R${rn}!`, 'birdie')
+                          }} style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, color: 'var(--cream)', padding: '2px', fontSize: 10 }}>
+                            <option value="">Vinnare?</option>
+                            {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
+                          </select>
+                        ) : <span style={{ fontSize: 11, color: 'var(--cream-muted)' }}>Ej avgjord</span>}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: 11 }}>🎯 NP: </span>
+                      {npExpense ? <span style={{ fontSize: 11, color: 'var(--green)' }}>{activePlayers.find(p => p.key === npExpense.paid_by)?.nickname} 🏆</span>
+                        : isAdmin ? (
+                          <select onChange={async (e) => {
+                            if (!e.target.value) return
+                            const winner = activePlayers.find(p => p.key === e.target.value)
+                            for (const p of activePlayers.filter(x => x.key !== e.target.value)) {
+                              await supabase.from('inv_expenses').insert({
+                                paid_by: p.key, amount: 50, description: `NP R${rn} → ${winner.nickname}`,
+                                tag: 'bet', target_player: e.target.value, split_between: [e.target.value], bet_type: 'np', created_by: user.key
+                              })
+                            }
+                            fetchExpenses(); showToast(`${winner.nickname} vinner NP R${rn}!`, 'birdie')
+                          }} style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, color: 'var(--cream)', padding: '2px', fontSize: 10 }}>
+                            <option value="">Vinnare?</option>
+                            {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
+                          </select>
+                        ) : <span style={{ fontSize: 11, color: 'var(--cream-muted)' }}>Ej avgjord</span>}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           {/* Settlement summary */}
@@ -1253,8 +1409,6 @@ export default function Home() {
             })
             const balances = {}
             playerKeys.forEach(k => { balances[k] = Math.round((totals[k].paid - totals[k].owes) * 100) / 100 })
-
-            // Optimal settlement (minimize transactions)
             const debtors = playerKeys.filter(k => balances[k] < -0.01).map(k => ({ key: k, amount: -balances[k] })).sort((a,b) => b.amount - a.amount)
             const creditors = playerKeys.filter(k => balances[k] > 0.01).map(k => ({ key: k, amount: balances[k] })).sort((a,b) => b.amount - a.amount)
             const settlements = []
@@ -1262,30 +1416,24 @@ export default function Home() {
             while (di < debtors.length && ci < creditors.length) {
               const amt = Math.min(debtors[di].amount, creditors[ci].amount)
               if (amt > 0.5) settlements.push({ from: debtors[di].key, to: creditors[ci].key, amount: Math.round(amt) })
-              debtors[di].amount -= amt
-              creditors[ci].amount -= amt
-              if (debtors[di].amount < 0.01) di++
-              if (creditors[ci].amount < 0.01) ci++
+              debtors[di].amount -= amt; creditors[ci].amount -= amt
+              if (debtors[di].amount < 0.01) di++; if (creditors[ci].amount < 0.01) ci++
             }
-
             const grandTotal = expenses.reduce((s, e) => s + parseFloat(e.amount), 0)
             const getName = k => activePlayers.find(p => p.key === k)?.nickname || k
-
             return (<>
-              {/* Total spend overview */}
               <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2 }}>TOTALT SPENDERAT</div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 20, color: 'var(--cream)', fontWeight: 500 }}>{Math.round(grandTotal).toLocaleString()} kr</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2 }}>BALANS</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 18, color: 'var(--cream)' }}>{Math.round(grandTotal).toLocaleString()} kr totalt</div>
                 </div>
                 {playerKeys.map(k => {
-                  const p = activePlayers.find(x => x.key === k)
-                  const bal = balances[k]
+                  const p = activePlayers.find(x => x.key === k); const bal = balances[k]
                   return (
                     <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                       <Av p={p} size={22} />
                       <div style={{ flex: 1, fontSize: 12 }}>{p?.nickname}</div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)', minWidth: 60, textAlign: 'right' }}>betalt {Math.round(totals[k]?.paid || 0)} kr</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)', minWidth: 55, textAlign: 'right' }}>{Math.round(totals[k]?.paid || 0)} kr</div>
                       <div style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, minWidth: 55, textAlign: 'right', color: bal > 0.5 ? 'var(--green)' : bal < -0.5 ? 'var(--coral)' : 'var(--cream-muted)' }}>
                         {bal > 0.5 ? `+${Math.round(bal)}` : bal < -0.5 ? Math.round(bal) : '±0'} kr
                       </div>
@@ -1293,19 +1441,17 @@ export default function Home() {
                   )
                 })}
               </div>
-
-              {/* Settlement plan */}
               {settlements.length > 0 && (
                 <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>GÖR UPP</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>GÖR UPP 🤝</div>
                   {settlements.map((s, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                       <Av p={activePlayers.find(p => p.key === s.from)} size={22} />
-                      <div style={{ fontSize: 13, color: 'var(--coral)' }}>{getName(s.from)}</div>
-                      <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>→</div>
+                      <span style={{ fontSize: 13, color: 'var(--coral)' }}>{getName(s.from)}</span>
+                      <span style={{ color: 'var(--cream-muted)' }}>→</span>
                       <Av p={activePlayers.find(p => p.key === s.to)} size={22} />
-                      <div style={{ fontSize: 13, color: 'var(--green)' }}>{getName(s.to)}</div>
-                      <div style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600, color: 'var(--cream)' }}>{s.amount} kr</div>
+                      <span style={{ fontSize: 13, color: 'var(--green)' }}>{getName(s.to)}</span>
+                      <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600 }}>{s.amount} kr</span>
                     </div>
                   ))}
                 </div>
@@ -1315,20 +1461,21 @@ export default function Home() {
 
           {/* Expense list */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>UTGIFTER</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>ALLA UTGIFTER & BETS</div>
             {expenses.length === 0 && <div style={{ fontSize: 13, color: 'var(--cream-muted)', textAlign: 'center', padding: 20 }}>Inga utgifter ännu</div>}
             {expenses.map(e => {
               const p = activePlayers.find(x => x.key === e.paid_by)
-              const tagEmoji = { mat: '🍔', dryck: '🍺', golf: '⛳', spa: '🧖', transport: '🚗', övrigt: '📦' }
+              const target = e.target_player ? activePlayers.find(x => x.key === e.target_player) : null
+              const tagEmoji = { mat: '🍔', dryck: '🍺', golf: '⛳', spa: '🧖', transport: '🚗', bet: '🎰', övrigt: '📦' }
               return (
-                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  <Av p={p} size={20} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, color: 'var(--cream)' }}>{tagEmoji[e.tag] || '📦'} {e.description}</div>
-                    <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>{p?.nickname} · {new Date(e.created_at).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <Av p={p} size={18} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, color: 'var(--cream)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tagEmoji[e.tag] || '📦'} {e.description}</div>
+                    <div style={{ fontSize: 9, color: 'var(--cream-muted)' }}>{p?.nickname}{target ? ` → ${target.nickname}` : ''} · {new Date(e.created_at).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
                   </div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, color: 'var(--cream)' }}>{Math.round(parseFloat(e.amount))} kr</div>
-                  {isAdmin && <button onClick={async () => { if (confirm('Radera?')) { await supabase.from('inv_expenses').delete().eq('id', e.id); fetchExpenses() }}} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 12, cursor: 'pointer' }}>✕</button>}
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, flexShrink: 0 }}>{Math.round(parseFloat(e.amount))} kr</div>
+                  {isAdmin && <button onClick={async () => { if (confirm('Radera?')) { await supabase.from('inv_expenses').delete().eq('id', e.id); fetchExpenses() }}} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>✕</button>}
                 </div>
               )
             })}

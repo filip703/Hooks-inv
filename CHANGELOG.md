@@ -17,6 +17,20 @@ Format: `## [datum] Beskrivning (@vem)`
 - Danger Zone: Nollställ hel runda (med bekräftelse)
 - Marcus tillagd som admin
 
+## [2026-04-15] Even Steven v2: H2H bets, LD/NP, person-to-person (@filip)
+- 🆚 Head-to-Head bets: 3 matcher per runda, 100 kr/vinst
+  - Admin sätter upp matcher + utser vinnare
+  - Förlust auto-genererar expense i Even Steven
+- 🏌️ LD & 🎯 NP sidospel: 50 kr/runda
+  - Admin utser vinnare → alla förlorare betalar 50 kr till vinnaren
+  - Integrerat i settlement-planen
+- 💸 Person-to-person utgifter
+  - Dropdown: "Delas av alla" eller "X ska betala"
+  - Perfekt för H2H-bets, privata skulder
+- 🎰 Ny tagg "bet" för spel-relaterade utgifter
+- inv_h2h_matches tabell + realtime
+- Allt flödar in i Even Steven settlement
+
 ## [2026-04-15] Prisutdelning + Round Stats + Live-ticker + GUI polish (@filip)
 - 🏆 Prisutdelning på INFO-sidan (admin):
   - Le Douche de Golf (individuell vinnare)
