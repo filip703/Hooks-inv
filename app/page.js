@@ -1047,7 +1047,17 @@ export default function Home() {
                         {banker && <span> · 🏦 Bank: {banker.nickname}</span>}
                       </div>
                     </div>
-                    {bet.settled && <Badge text="AVGJORD" color="var(--green)" bg="rgba(107,191,127,0.15)" />}
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      {bet.settled && <Badge text="AVGJORD" color="var(--green)" bg="rgba(107,191,127,0.15)" />}
+                      {(isAdmin || bet.created_by === user?.key) && <button onClick={async () => {
+                        if (confirm('Radera denna bet?')) {
+                          await supabase.from('inv_prop_bets').delete().eq('id', bet.id)
+                          // Also remove any auto-generated expenses from this bet
+                          await supabase.from('inv_expenses').delete().match({ bet_type: 'prop', description: `Prop: "${bet.question}"` })
+                          fetchProps(); fetchExpenses()
+                        }
+                      }} style={{ background: 'none', border: 'none', color: 'var(--coral)', fontSize: 14, cursor: 'pointer' }}>✕</button>}
+                    </div>
                   </div>
                   {/* Options to bet on */}
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
@@ -1254,6 +1264,13 @@ export default function Home() {
                             <option value={m.player2_key}>{p2?.nickname}</option>
                           </select>
                         )}
+                        <button onClick={async () => {
+                          if (confirm('Radera H2H-match?')) {
+                            await supabase.from('inv_h2h_matches').delete().eq('id', m.id)
+                            await supabase.from('inv_expenses').delete().match({ bet_type: 'h2h', description: `H2H: ${activePlayers.find(p=>p.key===(m.winner_key===m.player1_key?m.player2_key:m.player1_key))?.nickname} → ${activePlayers.find(p=>p.key===m.winner_key)?.nickname} R${rn}` })
+                            fetchH2h(); fetchExpenses()
+                          }
+                        }} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 12, cursor: 'pointer' }}>✕</button>
                       </div>
                     )
                   })}
