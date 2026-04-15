@@ -17,6 +17,20 @@ Format: `## [datum] Beskrivning (@vem)`
 - Danger Zone: Nollställ hel runda (med bekräftelse)
 - Marcus tillagd som admin
 
+## [2026-04-15] Even Steven + Head-to-Head + Countdown (@filip)
+- 💰 SPLIT-tab: Even Steven expense splitting
+  - Lägg till utgift med belopp, beskrivning, tagg (mat/dryck/golf/spa/transport)
+  - Automatisk split mellan alla spelare
+  - Live-balans per person (grön = har till godo, röd = skyldig)
+  - Optimal settlement plan ("Marcus → Filip 250 kr")
+  - Admins kan radera utgifter
+  - Supabase realtime – alla ser uppdateringar live
+- 🆚 Head-to-Head på leaderboard
+  - Välj två spelare → hål-för-hål jämförelse
+  - Visar totalpoäng, V-O-F record
+- ⏳ Countdown till första tee (visas inom 30 dagar)
+- Expense realtime channel fixad
+
 ## [2026-04-15] Transparent badge + uppdaterade ikoner (@filip)
 - Vit bakgrund borttagen från DIO-badge (transparent PNG)
 - Splash screen: badge flyter snyggt mot svart bakgrund

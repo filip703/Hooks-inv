@@ -27,6 +27,7 @@ export default function Home() {
   const [players, setPlayers] = useState([])
   const [rounds, setRounds] = useState([])
   const [scores, setScores] = useState([])
+  const [expenses, setExpenses] = useState([])
   const [selRound, setSelRound] = useState(1)
   const [toast, setToast] = useState(null)
   const [chat, setChat] = useState([])
@@ -39,6 +40,9 @@ export default function Home() {
   const [unread, setUnread] = useState(0)
   const [showInstall, setShowInstall] = useState(false)
   const [splash, setSplash] = useState(true)
+  const [expenses, setExpenses] = useState([])
+  const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', tag: 'mat' })
+  const [h2hPlayers, setH2hPlayers] = useState([null, null])
   const [pep] = useState(pepTalks[Math.floor(Math.random() * pepTalks.length)])
   const chatEnd = useRef(null)
   const toastT = useRef(null)
@@ -62,15 +66,20 @@ export default function Home() {
 
   const fetchAll = useCallback(async () => {
     if (!supabase) return
-    const [p, r, s] = await Promise.all([supabase.from('inv_players').select('*').order('hcp'), supabase.from('inv_rounds').select('*').order('round_number'), supabase.from('inv_scores').select('*')])
-    if (p.data) setPlayers(p.data); if (r.data) setRounds(r.data); if (s.data) setScores(s.data)
+    const [p, r, s, ex] = await Promise.all([supabase.from('inv_players').select('*').order('hcp'), supabase.from('inv_rounds').select('*').order('round_number'), supabase.from('inv_scores').select('*'), supabase.from('inv_expenses').select('*').order('created_at', { ascending: false })])
+    if (p.data) setPlayers(p.data); if (r.data) setRounds(r.data); if (s.data) setScores(s.data); if (ex.data) setExpenses(ex.data)
   }, [])
   const fetchChat = useCallback(async () => {
     if (!supabase) return
     const { data } = await supabase.from('inv_chat').select('*, inv_players(name, nickname, image_url, team)').order('created_at', { ascending: true }).limit(200)
     if (data) setChat(data)
   }, [])
-  useEffect(() => { fetchAll(); fetchChat() }, [fetchAll, fetchChat])
+  const fetchExpenses = useCallback(async () => {
+    if (!supabase) return
+    const { data } = await supabase.from('inv_expenses').select('*').order('created_at', { ascending: false })
+    if (data) setExpenses(data)
+  }, [])
+  useEffect(() => { fetchAll(); fetchChat(); fetchExpenses() }, [fetchAll, fetchChat, fetchExpenses])
   useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth' }) }, [chat])
 
   // Realtime
@@ -89,8 +98,9 @@ export default function Home() {
       }
     }).subscribe()
     const c2 = supabase.channel('c1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_chat' }, (p) => { setTimeout(() => fetchChat(), 300); if (p.new?.player_id !== user?.id) soundChat() }).subscribe()
-    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2) }
-  }, [fetchAll, fetchChat, players])
+    const c3 = supabase.channel('e1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_expenses' }, () => fetchExpenses()).subscribe()
+    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3) }
+  }, [fetchAll, fetchChat, fetchExpenses, players])
 
   const addNotif = (msg, type) => {
     const n = { id: Date.now(), msg, type, time: new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }) }
@@ -481,6 +491,76 @@ export default function Home() {
               </tr>
             ))}</tbody>
           </table>
+          {/* Countdown to first tee */}
+          {(() => {
+            const teeOff = new Date('2026-05-01T09:00:00+02:00')
+            const now = new Date()
+            const diff = teeOff - now
+            if (diff > 0 && diff < 30 * 24 * 60 * 60 * 1000) {
+              const d = Math.floor(diff / 86400000)
+              const h = Math.floor((diff % 86400000) / 3600000)
+              return (
+                <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14, textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 2 }}>COUNTDOWN TILL FÖRSTA TEE</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 28, color: 'var(--cream)', fontWeight: 500, marginTop: 4 }}>{d}d {h}h</div>
+                </div>
+              )
+            }
+            return null
+          })()}
+
+          {/* Head-to-head quick pick */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginTop: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>HEAD-TO-HEAD</div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              {[0,1].map(idx => (
+                <select key={idx} value={h2hPlayers[idx] || ''} onChange={e => { const n = [...h2hPlayers]; n[idx] = e.target.value || null; setH2hPlayers(n) }}
+                  style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '8px', fontSize: 12 }}>
+                  <option value="">Välj spelare</option>
+                  {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
+                </select>
+              ))}
+            </div>
+            {h2hPlayers[0] && h2hPlayers[1] && h2hPlayers[0] !== h2hPlayers[1] && (() => {
+              const p1 = activePlayers.find(p => p.key === h2hPlayers[0])
+              const p2 = activePlayers.find(p => p.key === h2hPlayers[1])
+              if (!p1 || !p2) return null
+              const t1 = pTotal(p1.id), t2 = pTotal(p2.id)
+              let p1wins = 0, p2wins = 0, ties = 0
+              const holes = []
+              ;[1,2,3,4].forEach(rn => {
+                const r = rid(rn); if (!r) return
+                const s1 = pSc(p1.id, r), s2 = pSc(p2.id, r)
+                for (let h = 1; h <= 18; h++) {
+                  const a = s1.find(x => x.hole === h), b = s2.find(x => x.hole === h)
+                  if (a?.stableford_points != null && b?.stableford_points != null) {
+                    const d = a.stableford_points - b.stableford_points
+                    if (d > 0) p1wins++; else if (d < 0) p2wins++; else ties++
+                    holes.push({ rn, h, p1: a.stableford_points, p2: b.stableford_points })
+                  }
+                }
+              })
+              return (<>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
+                  <div style={{ textAlign: 'center', flex: 1 }}>
+                    <Av p={p1} size={32} />
+                    <div style={{ fontSize: 11, fontWeight: 500, marginTop: 4 }}>{p1.nickname}</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 22, color: t1 >= t2 ? 'var(--green)' : 'var(--cream-muted)' }}>{t1}</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '0 8px' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)' }}>VS</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--gold)', marginTop: 4 }}>{p1wins}–{ties}–{p2wins}</div>
+                    <div style={{ fontSize: 9, color: 'var(--cream-muted)' }}>V–O–F</div>
+                  </div>
+                  <div style={{ textAlign: 'center', flex: 1 }}>
+                    <Av p={p2} size={32} />
+                    <div style={{ fontSize: 11, fontWeight: 500, marginTop: 4 }}>{p2.nickname}</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 22, color: t2 >= t1 ? 'var(--green)' : 'var(--cream-muted)' }}>{t2}</div>
+                  </div>
+                </div>
+              </>)
+            })()}
+          </div>
         </>)}
 
         {/* ===== SCORECARD ===== */}
@@ -800,6 +880,383 @@ export default function Home() {
           </div>
         </>)}
 
+        {/* ===== EVEN STEVEN ===== */}
+        {view === 'expenses' && (<>
+          <div className="section-title">💰 Even Steven</div>
+          <div className="section-sub">Lägg till utgifter – appen räknar ut vem som är skyldig vem</div>
+
+          {/* Add expense form */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <input id="exp-amount" type="number" placeholder="Belopp (kr)" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px 12px', fontSize: 16, fontFamily: 'var(--mono)' }} />
+              <select id="exp-tag" style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px 8px', fontSize: 12 }}>
+                <option value="mat">🍔 Mat</option>
+                <option value="dryck">🍺 Dryck</option>
+                <option value="golf">⛳ Golf</option>
+                <option value="boende">🏨 Boende</option>
+                <option value="transport">🚗 Transport</option>
+                <option value="övrigt">📦 Övrigt</option>
+              </select>
+            </div>
+            <input id="exp-desc" type="text" placeholder="Vad betalade du för?" style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px 12px', fontSize: 14, marginBottom: 8 }} />
+            <button onClick={async () => {
+              const amount = parseFloat(document.getElementById('exp-amount').value)
+              const desc = document.getElementById('exp-desc').value.trim()
+              const tag = document.getElementById('exp-tag').value
+              if (!amount || !desc || !user) return
+              await supabase.from('inv_expenses').insert({ player_id: user.id, amount, description: desc, tag })
+              document.getElementById('exp-amount').value = ''
+              document.getElementById('exp-desc').value = ''
+              fetchAll()
+              showToast(`${amount} kr registrerad`, 'birdie')
+            }} style={{ width: '100%', padding: '12px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+              + Lägg till utgift
+            </button>
+          </div>
+
+          {/* Totals per person */}
+          {(() => {
+            const totals = {}
+            activePlayers.forEach(p => { totals[p.id] = { name: p.nickname, paid: 0 } })
+            expenses.forEach(e => { if (totals[e.player_id]) totals[e.player_id].paid += parseFloat(e.amount) })
+            const totalSpent = Object.values(totals).reduce((s, t) => s + t.paid, 0)
+            const perPerson = totalSpent / activePlayers.length
+            const balances = Object.entries(totals).map(([id, t]) => ({ id, name: t.name, paid: t.paid, balance: t.paid - perPerson }))
+            balances.sort((a, b) => b.paid - a.paid)
+
+            // Calculate settlements
+            const debtors = balances.filter(b => b.balance < -0.5).map(b => ({ ...b, owes: -b.balance }))
+            const creditors = balances.filter(b => b.balance > 0.5).map(b => ({ ...b, owed: b.balance }))
+            debtors.sort((a, b) => b.owes - a.owes)
+            creditors.sort((a, b) => b.owed - a.owed)
+            const settlements = []
+            let di = 0, ci = 0
+            while (di < debtors.length && ci < creditors.length) {
+              const amount = Math.min(debtors[di].owes, creditors[ci].owed)
+              if (amount > 0.5) settlements.push({ from: debtors[di].name, to: creditors[ci].name, amount: Math.round(amount) })
+              debtors[di].owes -= amount
+              creditors[ci].owed -= amount
+              if (debtors[di].owes < 0.5) di++
+              if (creditors[ci].owed < 0.5) ci++
+            }
+
+            return (<>
+              {/* Summary cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                <div style={{ background: 'var(--surface)', borderRadius: 10, padding: 12, textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', letterSpacing: 1 }}>TOTALT SPENDERAT</div>
+                  <div style={{ fontSize: 24, fontFamily: 'var(--mono)', color: 'var(--gold)', fontWeight: 500 }}>{Math.round(totalSpent)} kr</div>
+                </div>
+                <div style={{ background: 'var(--surface)', borderRadius: 10, padding: 12, textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', letterSpacing: 1 }}>PER PERSON</div>
+                  <div style={{ fontSize: 24, fontFamily: 'var(--mono)', color: 'var(--cream)', fontWeight: 500 }}>{Math.round(perPerson)} kr</div>
+                </div>
+              </div>
+
+              {/* Per person breakdown */}
+              <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>VEM HAR BETALAT VAD</div>
+                {balances.map(b => {
+                  const p = activePlayers.find(x => x.id === b.id)
+                  return (
+                    <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <Av p={p} size={24} />
+                      <div style={{ flex: 1, fontSize: 13 }}>{b.name}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 13 }}>{Math.round(b.paid)} kr</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 12, minWidth: 65, textAlign: 'right', color: b.balance > 0.5 ? 'var(--green)' : b.balance < -0.5 ? 'var(--coral)' : 'var(--cream-muted)' }}>
+                        {b.balance > 0.5 ? `+${Math.round(b.balance)}` : b.balance < -0.5 ? `${Math.round(b.balance)}` : '✓ kvitt'}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Settlements */}
+              {settlements.length > 0 && (
+                <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>GÖR UPP – {settlements.length} BETALNING{settlements.length > 1 ? 'AR' : ''}</div>
+                  {settlements.map((s, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div style={{ fontSize: 13, color: 'var(--coral)', fontWeight: 500 }}>{s.from}</div>
+                      <div style={{ flex: 1, textAlign: 'center', fontSize: 11, color: 'var(--cream-muted)' }}>→ betalar →</div>
+                      <div style={{ fontSize: 13, color: 'var(--green)', fontWeight: 500 }}>{s.to}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 15, fontWeight: 600, color: 'var(--cream)', minWidth: 60, textAlign: 'right' }}>{s.amount} kr</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>)
+          })()}
+
+          {/* Expense log */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>SENASTE UTGIFTER</div>
+            {expenses.slice(0, 20).map(e => {
+              const p = players.find(x => x.id === e.player_id)
+              const tagEmoji = { mat: '🍔', dryck: '🍺', golf: '⛳', boende: '🏨', transport: '🚗', övrigt: '📦' }
+              return (
+                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ fontSize: 16 }}>{tagEmoji[e.tag] || '📦'}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12 }}>{e.description}</div>
+                    <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>{p?.nickname} · {new Date(e.created_at).toLocaleDateString('sv-SE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                  </div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500 }}>{parseFloat(e.amount)} kr</div>
+                  {isAdmin && <button onClick={async () => { if (confirm('Radera?')) { await supabase.from('inv_expenses').delete().eq('id', e.id); fetchAll() } }} style={{ background: 'none', border: 'none', color: 'var(--coral)', fontSize: 12, cursor: 'pointer', padding: '2px 4px' }}>✕</button>}
+                </div>
+              )
+            })}
+            {expenses.length === 0 && <div style={{ textAlign: 'center', color: 'var(--cream-muted)', fontSize: 12, padding: 16 }}>Inga utgifter ännu – lägg till den första!</div>}
+          </div>
+        </>)}
+
+        {/* ===== HEAD TO HEAD ===== */}
+        {view === 'h2h' && (<>
+          <div className="section-title">⚔️ Head to Head</div>
+          <div className="section-sub">Välj två spelare och se hål-för-hål</div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            <select id="h2h-a" defaultValue={activePlayers[0]?.id} style={{ flex: 1, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 13 }}>
+              {activePlayers.map(p => <option key={p.id} value={p.id}>{p.nickname}</option>)}
+            </select>
+            <div style={{ fontSize: 18, color: 'var(--gold)', alignSelf: 'center' }}>vs</div>
+            <select id="h2h-b" defaultValue={activePlayers[1]?.id} style={{ flex: 1, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 13 }}>
+              {activePlayers.map(p => <option key={p.id} value={p.id}>{p.nickname}</option>)}
+            </select>
+          </div>
+          {(() => {
+            const aId = typeof document !== 'undefined' ? document.getElementById('h2h-a')?.value : activePlayers[0]?.id
+            const bId = typeof document !== 'undefined' ? document.getElementById('h2h-b')?.value : activePlayers[1]?.id
+            const pA = activePlayers.find(p => p.id === aId) || activePlayers[0]
+            const pB = activePlayers.find(p => p.id === bId) || activePlayers[1]
+            if (!pA || !pB) return null
+            let winsA = 0, winsB = 0, ties = 0
+            return (
+              <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14 }}>
+                {[1,2,3,4].map(rn => {
+                  const r = rid(rn); if (!r) return null
+                  const c = courses[RC[rn]]; if (!c) return null
+                  const scA = pSc(pA.id, r), scB = pSc(pB.id, r)
+                  if (scA.length === 0 && scB.length === 0) return null
+                  return (
+                    <div key={rn}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, margin: '10px 0 6px' }}>R{rn} – {RC[rn]}</div>
+                      {c.holes.map(h => {
+                        const a = scA.find(x => x.hole === h.hole)
+                        const b = scB.find(x => x.hole === h.hole)
+                        const ptsA = a?.stableford_points, ptsB = b?.stableford_points
+                        const win = ptsA != null && ptsB != null ? (ptsA > ptsB ? 'a' : ptsB > ptsA ? 'b' : 'tie') : null
+                        if (win === 'a') winsA++; if (win === 'b') winsB++; if (win === 'tie') ties++
+                        return (
+                          <div key={h.hole} style={{ display: 'flex', alignItems: 'center', padding: '3px 0', fontSize: 12, borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                            <div style={{ width: 24, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', fontSize: 10 }}>{h.hole}</div>
+                            <div style={{ flex: 1, textAlign: 'center', fontFamily: 'var(--mono)', color: win === 'a' ? 'var(--green)' : 'var(--cream-dim)', fontWeight: win === 'a' ? 600 : 400 }}>{ptsA != null ? `${ptsA}p` : '–'}</div>
+                            <div style={{ width: 20, textAlign: 'center', color: 'var(--cream-muted)', fontSize: 9 }}>{h.par}</div>
+                            <div style={{ flex: 1, textAlign: 'center', fontFamily: 'var(--mono)', color: win === 'b' ? 'var(--green)' : 'var(--cream-dim)', fontWeight: win === 'b' ? 600 : 400 }}>{ptsB != null ? `${ptsB}p` : '–'}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 12, padding: '12px 0', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontFamily: 'var(--mono)', color: winsA >= winsB ? 'var(--green)' : 'var(--cream)' }}>{winsA}</div><div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>{pA.nickname}</div></div>
+                  <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>{ties}</div><div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>Delat</div></div>
+                  <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontFamily: 'var(--mono)', color: winsB >= winsA ? 'var(--green)' : 'var(--cream)' }}>{winsB}</div><div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>{pB.nickname}</div></div>
+                </div>
+              </div>
+            )
+          })()}
+        </>)}
+
+        {/* ===== STATS ===== */}
+        {view === 'stats' && (<>
+          <div className="section-title">📊 Statistik</div>
+          {activePlayers.map(p => {
+            const allSc = scores.filter(s => s.player_id === p.id && s.strokes > 0)
+            if (allSc.length === 0) return null
+            const birdies = allSc.filter(s => s.stableford_points >= 3).length
+            const pars = allSc.filter(s => s.stableford_points === 2).length
+            const zeros = allSc.filter(s => s.stableford_points === 0).length
+            const avgPts = (allSc.reduce((s, x) => s + (x.stableford_points || 0), 0) / allSc.length).toFixed(1)
+            const bestHole = allSc.reduce((best, s) => s.stableford_points > (best?.stableford_points || 0) ? s : best, null)
+            return (
+              <div key={p.id} style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Av p={p} size={28} />
+                  <div style={{ fontWeight: 500, fontSize: 14 }}>{p.nickname}</div>
+                  <div style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 18, color: 'var(--gold)' }}>{pTotal(p.id)}p</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                  <div style={{ textAlign: 'center', background: 'var(--surface2)', borderRadius: 8, padding: '8px 4px' }}>
+                    <div style={{ fontSize: 16, fontFamily: 'var(--mono)', color: 'var(--green)' }}>{birdies}</div>
+                    <div style={{ fontSize: 8, color: 'var(--cream-muted)' }}>BIRDIES+</div>
+                  </div>
+                  <div style={{ textAlign: 'center', background: 'var(--surface2)', borderRadius: 8, padding: '8px 4px' }}>
+                    <div style={{ fontSize: 16, fontFamily: 'var(--mono)' }}>{pars}</div>
+                    <div style={{ fontSize: 8, color: 'var(--cream-muted)' }}>PARS</div>
+                  </div>
+                  <div style={{ textAlign: 'center', background: 'var(--surface2)', borderRadius: 8, padding: '8px 4px' }}>
+                    <div style={{ fontSize: 16, fontFamily: 'var(--mono)', color: 'var(--coral)' }}>{zeros}</div>
+                    <div style={{ fontSize: 8, color: 'var(--cream-muted)' }}>NOLLOR</div>
+                  </div>
+                  <div style={{ textAlign: 'center', background: 'var(--surface2)', borderRadius: 8, padding: '8px 4px' }}>
+                    <div style={{ fontSize: 16, fontFamily: 'var(--mono)' }}>{avgPts}</div>
+                    <div style={{ fontSize: 8, color: 'var(--cream-muted)' }}>SNITT/HÅL</div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </>)}
+
+        {/* ===== GALLERY ===== */}
+        {view === 'gallery' && (<>
+          <div className="section-title">📸 Fotogalleri</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+            {chat.filter(m => m.image_url).map(m => (
+              <div key={m.id} style={{ position: 'relative', paddingTop: '100%', borderRadius: 8, overflow: 'hidden' }}>
+                <img src={m.image_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.7))', padding: '12px 6px 4px' }}>
+                  <div style={{ fontSize: 9, color: '#fff' }}>{m.inv_players?.nickname} · {new Date(m.created_at).toLocaleDateString('sv-SE', { weekday: 'short' })}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {chat.filter(m => m.image_url).length === 0 && <div style={{ textAlign: 'center', color: 'var(--cream-muted)', fontSize: 12, padding: 40 }}>Inga bilder ännu – ta bilder i chatten!</div>}
+        </>)}
+
+        {/* ===== EVEN STEVEN (EXPENSE SPLIT) ===== */}
+        {view === 'expenses' && (<>
+          <div className="section-title">💰 Even Steven</div>
+          <div className="section-sub">Dela notan – vem är skyldig vem?</div>
+
+          {/* Add expense form */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              <input placeholder="Vad?" value={expenseForm.description} onChange={e => setExpenseForm(f => ({...f, description: e.target.value}))}
+                style={{ flex: 2, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
+              <input placeholder="SEK" type="number" value={expenseForm.amount} onChange={e => setExpenseForm(f => ({...f, amount: e.target.value}))}
+                style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14, fontFamily: 'var(--mono)' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+              {['mat','dryck','golf','spa','transport','övrigt'].map(t => (
+                <button key={t} onClick={() => setExpenseForm(f => ({...f, tag: t}))}
+                  style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: expenseForm.tag === t ? 'var(--gold)' : 'var(--surface2)', color: expenseForm.tag === t ? '#0A0A08' : 'var(--cream-muted)' }}>
+                  {t === 'mat' ? '🍔' : t === 'dryck' ? '🍺' : t === 'golf' ? '⛳' : t === 'spa' ? '🧖' : t === 'transport' ? '🚗' : '📦'} {t}
+                </button>
+              ))}
+            </div>
+            <button onClick={async () => {
+              if (!expenseForm.description || !expenseForm.amount || !user) return
+              const allKeys = activePlayers.map(p => p.key)
+              await supabase.from('inv_expenses').insert({
+                paid_by: user.key, amount: parseFloat(expenseForm.amount),
+                description: expenseForm.description, tag: expenseForm.tag,
+                split_between: allKeys, created_by: user.key
+              })
+              setExpenseForm({ description: '', amount: '', tag: 'mat' })
+              fetchExpenses()
+              soundScore()
+            }} style={{ width: '100%', padding: '12px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              Lägg till utgift
+            </button>
+          </div>
+
+          {/* Settlement summary */}
+          {(() => {
+            const playerKeys = activePlayers.map(p => p.key)
+            const totals = {}
+            playerKeys.forEach(k => { totals[k] = { paid: 0, owes: 0 } })
+            expenses.forEach(e => {
+              if (totals[e.paid_by]) totals[e.paid_by].paid += parseFloat(e.amount)
+              const split = (e.split_between?.length > 0 ? e.split_between : playerKeys).filter(k => totals[k])
+              const share = parseFloat(e.amount) / split.length
+              split.forEach(k => { if (totals[k]) totals[k].owes += share })
+            })
+            const balances = {}
+            playerKeys.forEach(k => { balances[k] = Math.round((totals[k].paid - totals[k].owes) * 100) / 100 })
+
+            // Optimal settlement (minimize transactions)
+            const debtors = playerKeys.filter(k => balances[k] < -0.01).map(k => ({ key: k, amount: -balances[k] })).sort((a,b) => b.amount - a.amount)
+            const creditors = playerKeys.filter(k => balances[k] > 0.01).map(k => ({ key: k, amount: balances[k] })).sort((a,b) => b.amount - a.amount)
+            const settlements = []
+            let di = 0, ci = 0
+            while (di < debtors.length && ci < creditors.length) {
+              const amt = Math.min(debtors[di].amount, creditors[ci].amount)
+              if (amt > 0.5) settlements.push({ from: debtors[di].key, to: creditors[ci].key, amount: Math.round(amt) })
+              debtors[di].amount -= amt
+              creditors[ci].amount -= amt
+              if (debtors[di].amount < 0.01) di++
+              if (creditors[ci].amount < 0.01) ci++
+            }
+
+            const grandTotal = expenses.reduce((s, e) => s + parseFloat(e.amount), 0)
+            const getName = k => activePlayers.find(p => p.key === k)?.nickname || k
+
+            return (<>
+              {/* Total spend overview */}
+              <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2 }}>TOTALT SPENDERAT</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 20, color: 'var(--cream)', fontWeight: 500 }}>{Math.round(grandTotal).toLocaleString()} kr</div>
+                </div>
+                {playerKeys.map(k => {
+                  const p = activePlayers.find(x => x.key === k)
+                  const bal = balances[k]
+                  return (
+                    <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <Av p={p} size={22} />
+                      <div style={{ flex: 1, fontSize: 12 }}>{p?.nickname}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)', minWidth: 60, textAlign: 'right' }}>betalt {Math.round(totals[k]?.paid || 0)} kr</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, minWidth: 55, textAlign: 'right', color: bal > 0.5 ? 'var(--green)' : bal < -0.5 ? 'var(--coral)' : 'var(--cream-muted)' }}>
+                        {bal > 0.5 ? `+${Math.round(bal)}` : bal < -0.5 ? Math.round(bal) : '±0'} kr
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Settlement plan */}
+              {settlements.length > 0 && (
+                <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>GÖR UPP</div>
+                  {settlements.map((s, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <Av p={activePlayers.find(p => p.key === s.from)} size={22} />
+                      <div style={{ fontSize: 13, color: 'var(--coral)' }}>{getName(s.from)}</div>
+                      <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>→</div>
+                      <Av p={activePlayers.find(p => p.key === s.to)} size={22} />
+                      <div style={{ fontSize: 13, color: 'var(--green)' }}>{getName(s.to)}</div>
+                      <div style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600, color: 'var(--cream)' }}>{s.amount} kr</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>)
+          })()}
+
+          {/* Expense list */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>UTGIFTER</div>
+            {expenses.length === 0 && <div style={{ fontSize: 13, color: 'var(--cream-muted)', textAlign: 'center', padding: 20 }}>Inga utgifter ännu</div>}
+            {expenses.map(e => {
+              const p = activePlayers.find(x => x.key === e.paid_by)
+              const tagEmoji = { mat: '🍔', dryck: '🍺', golf: '⛳', spa: '🧖', transport: '🚗', övrigt: '📦' }
+              return (
+                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <Av p={p} size={20} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, color: 'var(--cream)' }}>{tagEmoji[e.tag] || '📦'} {e.description}</div>
+                    <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>{p?.nickname} · {new Date(e.created_at).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                  </div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, color: 'var(--cream)' }}>{Math.round(parseFloat(e.amount))} kr</div>
+                  {isAdmin && <button onClick={async () => { if (confirm('Radera?')) { await supabase.from('inv_expenses').delete().eq('id', e.id); fetchExpenses() }}} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 12, cursor: 'pointer' }}>✕</button>}
+                </div>
+              )
+            })}
+          </div>
+        </>)}
+
         {/* ===== SETTINGS (ADMIN ONLY) ===== */}
         {view === 'settings' && isAdmin && (<>
           <div className="section-title">⚙️ Admin Settings</div>
@@ -1019,6 +1476,7 @@ export default function Home() {
           { key: 'scorecard', icon: '📝', label: 'SCORE' },
           { key: 'teams', icon: '⚔️', label: 'LAG' },
           { key: 'feed', icon: '💬', label: 'CHAT' },
+          { key: 'expenses', icon: '💰', label: 'SPLIT' },
           { key: 'info', icon: '📋', label: 'INFO' },
           ...(isAdmin ? [{ key: 'settings', icon: '⚙️', label: 'ADMIN' }] : []),
         ].map(t => (
