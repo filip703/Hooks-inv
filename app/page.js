@@ -27,7 +27,6 @@ export default function Home() {
   const [players, setPlayers] = useState([])
   const [rounds, setRounds] = useState([])
   const [scores, setScores] = useState([])
-  const [expenses, setExpenses] = useState([])
   const [selRound, setSelRound] = useState(1)
   const [toast, setToast] = useState(null)
   const [chat, setChat] = useState([])
