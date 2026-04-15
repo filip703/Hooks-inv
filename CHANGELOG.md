@@ -6,11 +6,10 @@ Format: `## [datum] Beskrivning (@vem)`
 
 ---
 
-## [2026-04-15] PWA-ikoner: Le Douche de Golf bucklan (@filip)
-- Alla ikoner genererade från det riktiga trofé-fotot
-- icon-512, icon-192, apple-touch-icon, favicon
-- Bucklan med "DIO 2026" i guld text
-- Mörk gradient-overlay för läsbarhet
+## [2026-04-15] PWA-ikoner: Douche Invitational badge (@filip)
+- Ny officiell DIO-badge som PWA-ikon (guld sköld med golfare + öl)
+- Mörk bakgrund, rundade hörn
+- Ersätter trofé-fotot
 
 ## [2026-04-15] Namnfix: Douche Invitational Only (@filip)
 - Tävlingen: "Douche Invitational Only" (DIO)
