@@ -1346,13 +1346,17 @@ export default function Home() {
             playerKeys.forEach(k => { totals[k] = { paid: 0, owes: 0 } })
             expenses.forEach(e => {
               const amt = parseFloat(e.amount)
-              if (e.target_player) {
-                // Person-to-person: paid_by owes money TO target_player
-                // paid_by is the debtor, target_player is the creditor
+              if (e.target_player && e.bet_type) {
+                // BET (LD/NP/H2H/prop): paid_by is the LOSER who owes target_player
                 if (totals[e.paid_by]) totals[e.paid_by].owes += amt
                 if (totals[e.target_player]) totals[e.target_player].paid += amt
+              } else if (e.target_player && !e.bet_type) {
+                // PERSONAL EXPENSE: paid_by LAID OUT money for target_player
+                // target_player owes paid_by
+                if (totals[e.paid_by]) totals[e.paid_by].paid += amt
+                if (totals[e.target_player]) totals[e.target_player].owes += amt
               } else {
-                // Shared expense: paid_by laid out money, everyone shares the cost
+                // SHARED: paid_by laid out money, everyone shares equally
                 if (totals[e.paid_by]) totals[e.paid_by].paid += amt
                 const split = (e.split_between?.length > 0 ? e.split_between : playerKeys).filter(k => totals[k])
                 const share = amt / split.length
