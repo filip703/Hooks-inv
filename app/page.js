@@ -829,10 +829,10 @@ export default function Home() {
                   onChange={async (e) => {
                     await supabase.from('inv_players').update({ team: e.target.value }).eq('id', p.id)
                     fetchAll()
-                    showToast(`${p.nickname} → ${e.target.value}`, 'birdie')
+                    showToast(`${p.nickname} → ${e.target.value === 'green' ? 'Smaragderna' : 'Stålklubban'}`, 'birdie')
                   }}>
-                  <option value="Smaragderna">Smaragderna</option>
-                  <option value="Stålklubban">Stålklubban</option>
+                  <option value="green">Smaragderna</option>
+                  <option value="blue">Stålklubban</option>
                 </select>
               </div>
             ))}
