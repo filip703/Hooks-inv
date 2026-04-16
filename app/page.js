@@ -277,6 +277,21 @@ export default function Home() {
     if (data) setPropBets(data)
   }, [])
   useEffect(() => { fetchAll(); fetchChat(); fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments(); fetchOdds() }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds])
+
+  // Auto-refresh när appen blir synlig (PWA: när man växlar tillbaka)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchAll(); fetchChat(); fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments(); fetchOdds()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds])
   useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth' }) }, [chat])
 
   // Realtime
@@ -1445,7 +1460,13 @@ export default function Home() {
 
         {/* ===== EVEN STEVEN (EXPENSE SPLIT + BETS) ===== */}
         {view === 'expenses' && (<>
-          <div className="section-title">💰 Even Steven</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <div className="section-title">💰 Even Steven</div>
+            <button onClick={() => {
+              fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments(); fetchOdds(); fetchAll()
+              showToast('🔄 Uppdaterad!', 'birdie')
+            }} style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream-dim)', padding: '8px 12px', fontSize: 12, cursor: 'pointer' }}>🔄 Uppdatera</button>
+          </div>
           <div className="section-sub">Utgifter, bets & sidospel – allt räknas ihop</div>
 
           {/* 🎲 PROP BETS */}
@@ -1814,6 +1835,7 @@ export default function Home() {
               setExpenseTarget('')
               fetchExpenses()
               soundScore()
+              showToast(`💰 ${ins.amount} kr tillagt!`, 'birdie')
             }} style={{ width: '100%', padding: '12px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
               Lägg till
             </button>
