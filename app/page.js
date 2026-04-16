@@ -1669,69 +1669,6 @@ export default function Home() {
               </details>
             )}
           </div>
-          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>LÄGG TILL UTGIFT</div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              <input placeholder="Vad?" value={expenseForm.description} onChange={e => setExpenseForm(f => ({...f, description: e.target.value}))}
-                style={{ flex: 2, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
-              <input placeholder="SEK" type="number" value={expenseForm.amount} onChange={e => setExpenseForm(f => ({...f, amount: e.target.value}))}
-                style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14, fontFamily: 'var(--mono)' }} />
-            </div>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
-              {['mat','dryck','golf','spa','transport','bet','övrigt'].map(t => (
-                <button key={t} onClick={() => setExpenseForm(f => ({...f, tag: t}))}
-                  style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: expenseForm.tag === t ? 'var(--gold)' : 'var(--surface2)', color: expenseForm.tag === t ? '#0A0A08' : 'var(--cream-muted)' }}>
-                  {t === 'mat' ? '🍔' : t === 'dryck' ? '🍺' : t === 'golf' ? '⛳' : t === 'spa' ? '🧖' : t === 'transport' ? '🚗' : t === 'bet' ? '🎰' : '📦'} {t}
-                </button>
-              ))}
-            </div>
-            {/* Target player (optional – person-to-person) */}
-            <div style={{ marginBottom: 8 }}>
-              <select value={expenseTarget} onChange={e => setExpenseTarget(e.target.value)}
-                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '8px', fontSize: 12 }}>
-                <option value="">Delas av alla</option>
-                {activePlayers.filter(p => p.key !== user?.key).map(p => (
-                  <option key={p.key} value={p.key}>{p.nickname} ska betala (1-till-1)</option>
-                ))}
-              </select>
-            </div>
-            <button onClick={async () => {
-              if (!expenseForm.description || !expenseForm.amount || !user) return
-              const ins = {
-                paid_by: user.key, amount: parseFloat(expenseForm.amount),
-                description: expenseForm.description, tag: expenseForm.tag,
-                created_by: user.key
-              }
-              if (expenseTarget) {
-                ins.target_player = expenseTarget
-                ins.split_between = [expenseTarget]
-              } else {
-                ins.split_between = activePlayers.map(p => p.key)
-              }
-              await supabase.from('inv_expenses').insert(ins)
-              // Push till target_player om någon specifik
-              if (expenseTarget) {
-                const targetP = activePlayers.find(p => p.key === expenseTarget)
-                if (targetP && targetP.id !== user.id) {
-                  sendPush({
-                    title: `💰 Ny skuld: ${ins.amount} kr`,
-                    body: `${user.nickname} la ut "${ins.description}" – du är skyldig`,
-                    type: 'expense',
-                    targetPlayerId: targetP.id,
-                    prefKey: 'notif_debts'
-                  })
-                }
-              }
-              setExpenseForm({ description: '', amount: '', tag: 'mat' })
-              setExpenseTarget('')
-              fetchExpenses()
-              soundScore()
-              showToast(`💰 ${ins.amount} kr tillagt!`, 'birdie')
-            }} style={{ width: '100%', padding: '12px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-              Lägg till
-            </button>
-          </div>
-
           {/* HEAD-TO-HEAD BETS */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>🆚 HEAD-TO-HEAD · 100 KR/VINST</div>
@@ -1875,6 +1812,69 @@ export default function Home() {
           </>)}
 
         {view === 'expenses' && (<>
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>LÄGG TILL UTGIFT</div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              <input placeholder="Vad?" value={expenseForm.description} onChange={e => setExpenseForm(f => ({...f, description: e.target.value}))}
+                style={{ flex: 2, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
+              <input placeholder="SEK" type="number" value={expenseForm.amount} onChange={e => setExpenseForm(f => ({...f, amount: e.target.value}))}
+                style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14, fontFamily: 'var(--mono)' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+              {['mat','dryck','golf','spa','transport','bet','övrigt'].map(t => (
+                <button key={t} onClick={() => setExpenseForm(f => ({...f, tag: t}))}
+                  style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: expenseForm.tag === t ? 'var(--gold)' : 'var(--surface2)', color: expenseForm.tag === t ? '#0A0A08' : 'var(--cream-muted)' }}>
+                  {t === 'mat' ? '🍔' : t === 'dryck' ? '🍺' : t === 'golf' ? '⛳' : t === 'spa' ? '🧖' : t === 'transport' ? '🚗' : t === 'bet' ? '🎰' : '📦'} {t}
+                </button>
+              ))}
+            </div>
+            {/* Target player (optional – person-to-person) */}
+            <div style={{ marginBottom: 8 }}>
+              <select value={expenseTarget} onChange={e => setExpenseTarget(e.target.value)}
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '8px', fontSize: 12 }}>
+                <option value="">Delas av alla</option>
+                {activePlayers.filter(p => p.key !== user?.key).map(p => (
+                  <option key={p.key} value={p.key}>{p.nickname} ska betala (1-till-1)</option>
+                ))}
+              </select>
+            </div>
+            <button onClick={async () => {
+              if (!expenseForm.description || !expenseForm.amount || !user) return
+              const ins = {
+                paid_by: user.key, amount: parseFloat(expenseForm.amount),
+                description: expenseForm.description, tag: expenseForm.tag,
+                created_by: user.key
+              }
+              if (expenseTarget) {
+                ins.target_player = expenseTarget
+                ins.split_between = [expenseTarget]
+              } else {
+                ins.split_between = activePlayers.map(p => p.key)
+              }
+              await supabase.from('inv_expenses').insert(ins)
+              // Push till target_player om någon specifik
+              if (expenseTarget) {
+                const targetP = activePlayers.find(p => p.key === expenseTarget)
+                if (targetP && targetP.id !== user.id) {
+                  sendPush({
+                    title: `💰 Ny skuld: ${ins.amount} kr`,
+                    body: `${user.nickname} la ut "${ins.description}" – du är skyldig`,
+                    type: 'expense',
+                    targetPlayerId: targetP.id,
+                    prefKey: 'notif_debts'
+                  })
+                }
+              }
+              setExpenseForm({ description: '', amount: '', tag: 'mat' })
+              setExpenseTarget('')
+              fetchExpenses()
+              soundScore()
+              showToast(`💰 ${ins.amount} kr tillagt!`, 'birdie')
+            }} style={{ width: '100%', padding: '12px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              Lägg till
+            </button>
+          </div>
+
           {/* Settlement summary */}
           {(() => {
             const playerKeys = activePlayers.map(p => p.key)
