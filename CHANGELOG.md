@@ -1,210 +1,259 @@
-# Changelog – Douche Invitational Only 2026
+# DIO – Douche Invitational Only 2026
 
-Alla ändringar i appen dokumenteras här. Lägg till dina ändringar överst innan du pushar.
+## Changelog
 
-Format: `## [datum] Beskrivning (@vem)`
+Komplett utvecklingshistorik för DIO-appen (hooks-inv.vercel.app).
+
+Turnering: **1–3 maj 2026 · Hooks Herrgård · 6 spelare · 4 rundor**
 
 ---
 
-## [2026-04-15] Admin Settings (@filip)
-- Ny ⚙️ ADMIN-tab i bottom nav (bara Filip + Marcus)
-- HCP: Justera per spelare, sparas direkt till Supabase
-- Lagindelning: Byt spelare mellan Smaragderna/Stålklubban
-- Rundor & Banval: Byt bana per runda (Skogsbanan/Parkbanan)
-- Slope & CR: Manuellt override per bana
-- Specialhål: LD-hål, NP-hål, 2×-start per runda
-- Radera score: Välj spelare + runda + hål → radera
-- Danger Zone: Nollställ hel runda (med bekräftelse)
-- Marcus tillagd som admin
+## 16 april 2026
 
-## [2026-04-15] Fotogalleri + Prop Bets med odds & bank (@filip)
-- 📸 FOTO-tab: samlar alla chatbilder i ett 2-kolumns grid
-  - Visar fotograf, datum, lazy loading
-  - Gradient overlay med avatar + timestamp
-- 🎲 Prop Bets i SPLIT-taben:
-  - Skapa frågor med alternativ ("Vem gör första birdien?")
-  - Alla kan rösta/betta på sitt alternativ
-  - Insats + odds konfigurerbart
-  - 🏦 Bank-läge: en spelare tar bank, betalar vinnare, tar från förlorare
-  - Utan bank: förlorare delar lika till vinnare
-  - Admin avgör vinnare → auto-settlement via Even Steven
-  - Avgjorda bets markeras med 🏆
-- inv_prop_bets tabell + realtime
+### 🔔 Push-notis-system
+- Komplett push notification-system med **6 triggers**: Eagles/Birdies, Prop bet avgjord, H2H avgjord, Ny skuld, Chat @-mention, Ledarbyte
+- VAPID-nycklar genererade + edge function `send-push` deployad
+- Service worker uppdaterad med push-handler + click-to-open
+- Per-enhet push-subscription (iPhone + Mac = dubbla notiser)
+- 5 granulära toggles per spelare (kan stänga av specifika typer)
+- `inv_push_subscriptions`-tabell + 5 `notif_*`-kolumner
 
-## [2026-04-15] Even Steven v2: H2H bets, LD/NP, person-to-person (@filip)
-- 🆚 Head-to-Head bets: 3 matcher per runda, 100 kr/vinst
-  - Admin sätter upp matcher + utser vinnare
-  - Förlust auto-genererar expense i Even Steven
-- 🏌️ LD & 🎯 NP sidospel: 50 kr/runda
-  - Admin utser vinnare → alla förlorare betalar 50 kr till vinnaren
-  - Integrerat i settlement-planen
-- 💸 Person-to-person utgifter
-  - Dropdown: "Delas av alla" eller "X ska betala"
-  - Perfekt för H2H-bets, privata skulder
-- 🎰 Ny tagg "bet" för spel-relaterade utgifter
-- inv_h2h_matches tabell + realtime
-- Allt flödar in i Even Steven settlement
+### 📢 Admin broadcast
+- Ny admin-sektion: **📢 Skicka push-notis**
+- 6 snabbval: Tee-off / Bar / Spa / Middag / Prisutdelning / Gruppfoto
+- Mottagar-val: alla / alla utom mig / specifik spelare
+- Live förhandsgranskning innan skick
+- Titel (60 tecken) + meddelande (200 tecken)
 
-## [2026-04-15] Prisutdelning + Round Stats + Live-ticker + GUI polish (@filip)
-- 🏆 Prisutdelning på INFO-sidan (admin):
-  - Le Douche de Golf (individuell vinnare)
-  - Daily Loser per runda (sämst köper)
-  - Konsistenskungen (lägst standardavvikelse)
-- 📊 Rundstats per spelad runda:
-  - Antal birdies+, nollor, topscorer, bästa hål
-- ▲▼ Live-ticker på leaderboard:
-  - Gröna/röda pilar visar rankingförändring sen förra rundan
-- GUI-polish:
-  - Glassmorphism på leaderboard + bottom nav (backdrop-filter blur)
-  - Fade-in animation vid vy-byte
-  - Toast-animation (slide + scale)
-  - Bättre section-titles (serif 22px)
-  - Active-state på knappar och rader
+### 🎨 GUI-uppgradering (golf-känsla)
+- Bottom nav reducerad från **9 → 3 tabs** (LEDARE, SCORE, MENY)
+- **Hamburger-meny** med slide-in animation + backdrop blur
+- Masters-green jacket gradient på #1 på leaderboard
+- Scorecard-kort med guld pin-stripe: röd accent på svåra hål (hcp 1-3), grön på lätta (16-18)
+- Fairway-grön + guld radial gradients i bakgrunden
+- Login-titel med guld/cream gradient-text
+- Button press-animation (scale 0.98)
 
-## [2026-04-15] Even Steven + Head-to-Head + Countdown (@filip)
-- 💰 SPLIT-tab: Even Steven expense splitting
-  - Lägg till utgift med belopp, beskrivning, tagg (mat/dryck/golf/spa/transport)
-  - Automatisk split mellan alla spelare
-  - Live-balans per person (grön = har till godo, röd = skyldig)
-  - Optimal settlement plan ("Marcus → Filip 250 kr")
-  - Admins kan radera utgifter
-  - Supabase realtime – alla ser uppdateringar live
-- 🆚 Head-to-Head på leaderboard
-  - Välj två spelare → hål-för-hål jämförelse
-  - Visar totalpoäng, V-O-F record
-- ⏳ Countdown till första tee (visas inom 30 dagar)
-- Expense realtime channel fixad
+### 🔒 Säkerhet – PIN-system
+- Default PIN **0000** för alla spelare (ej spectator)
+- Tvingad PIN-ändring vid första inloggning
+- PIN-verifiering vid alla framtida inloggningar
+- Admin kan resetta/sätta PIN per spelare
+- ⚠️ "ej bytt"-flagga visas för spelare med default-PIN
 
-## [2026-04-15] Transparent badge + uppdaterade ikoner (@filip)
-- Vit bakgrund borttagen från DIO-badge (transparent PNG)
-- Splash screen: badge flyter snyggt mot svart bakgrund
-- Alla PWA-ikoner regenererade med transparent badge
+### 💸 Swish-betalningar
+- **💸 Swisha-knapp** i settlement "GÖR UPP"-sektion
+- Använder `swish://payment` URL-schema
+- Öppnar Swish-appen med nummer + belopp + meddelande förifyllt
+- Visas endast när **du** är skyldig någon som har telefon
 
-## [2026-04-15] Splash screen animation (@filip)
-- Netflix-style splash vid app-start (2.8 sek)
-- DIO-badge zoomar in med bounce-effekt
-- Gyllene radial glow-animation i bakgrunden
-- "2026" och "HOOKS HERRGÅRD · SMÅLAND" fader in sekventiellt
-- Visas en gång vid varje app-öppning
+### 👤 Min Profil-flik
+- Avatar + nickname + HCP + lag
+- Telefon (för Swish) + email
+- Walk-up anthem + profilbild URL
+- Granulära notis-toggles (5 st)
+- Daglig sammanfattning + ljudeffekter
+- PIN-hantering
+- Snabbåtgärder: maila sammanfattning, dela status, logga ut
+- Tydlig **💾 Spara profil**-knapp (kontrollerade inputs)
 
-## [2026-04-15] PWA-ikoner: Douche Invitational badge (@filip)
-- Ny officiell DIO-badge som PWA-ikon (guld sköld med golfare + öl)
-- Mörk bakgrund, rundade hörn
-- Ersätter trofé-fotot
+### 🐛 Bugfixar
+- Profil-form synkas nu korrekt när view öppnas
+- `user`-state uppdateras direkt efter spara (ingen stale data)
+- Prop bets-wrapper `<div>` återställd
+- Dubbel Even Steven-rubrik borttagen
+- Swish-knapp-visibilitet korrekt (bara egna skulder)
 
-## [2026-04-15] Namnfix: Douche Invitational Only (@filip)
-- Tävlingen: "Douche Invitational Only" (DIO)
-- Bucklan: "Le Douche de Golf"
-- Ingen grön kavaj – bara bucklan
-- PWA short name: DIO 2026
-- Marcus hade rätt hela tiden
+---
 
-## [2026-04-15] Rename till Le Deusch de Golf (@filip)
-- Bytt namn från "The Invitational" till "Le Deusch de Golf" överallt
-- Manifest, page title, login, info-sida, PWA-namn
+## 15 april 2026 (kväll)
 
-## [2026-04-15] PWA-fix för iOS Safari (@filip)
-- Separerade ikon-purposes (any/maskable) – Safari-krav
-- Borttagen crossorigin på manifest-länk
-- Nya ikoner med Georgia Bold
-- apple-mobile-web-app-title fixad
+### ⛳ Banguide omskriven
+- **Alla 36 hål** har nu riktiga strategier + episka roasts
+- Klubbrekommendationer för 7-22 hcp
+- Bana-specifika tips (vatten, bunkers, doglegs, OB)
+- Skogsbanan: tät skog med vatten på hål 5/10/12/15
+- Parkbanan: öppen, Hokasjön-vatten på hål 10/11/13/16/17
+- Lokala regler refererade (röd straff oändligt vänster hål 10 Skog)
+- Spelar-specifika roasts vävda in i strategin
 
-## [2026-04-14] Phase 11: Spotify-fix, slag/hål, spellistor (@filip)
-- 8 av 18 Spotify-låtar hade döda track IDs – alla ersatta och verifierade
-- Extra slag visas som gröna prickar per hål (●● = 2 slag)
-- Fullscreen: "+X slag" med gröna cirklar
-- 4 episka spellistor: Walk-Up Anthems, Golf Vibes, Pump Up, 19th Hole
-- iOS install-prompt banner
-- Stableford trippelkollad mot EGA/WHS
+### 💰 Even Steven – settlement fix
+- **3 separata logiker** för olika transaktionstyper:
+  - **Bet** (bet_type satt): LOSER betalar, WINNER får
+  - **Personal** (target, ingen bet_type): la ut pengar → skyldig
+  - **Shared** (ingen target): delas lika mellan alla
+- LD/NP winner-display fixad (visade förlorare innan)
+- Delete-knappar på prop bets + H2H-matcher
+- Auto-generated expenses raderas när bet tas bort
 
-## [2026-04-14] Phase 10: PWA-optimering (@filip)
-- Viewport tillåter zoom (maximumScale: 3)
-- Safe areas för Dynamic Island/notch/home indicator
-- Standalone-mode CSS
-- Nya ikoner (HI 2026, rundad fyrkant, guld på svart)
+---
 
-## [2026-04-14] Phase 9: Notification center + ljud (@filip)
-- 🔔 i status-baren med oläst-badge
-- Dropdown med alla events (birdies, eagles, nollor)
-- Web Audio API ljudeffekter (fungerar på silent mode):
-  - Birdie: stigande 3-tons chime
-  - Eagle: 5-tons fanfar
-  - Nolla: sjunkande sawtooth
-  - Chat: dubbel-pip
-  - Score registrerad: bekräftelseton
-- Ljud triggas vid egna scores + andras via realtime
+## 15 april 2026 (eftermiddag)
 
-## [2026-04-14] Phase 8: Fullscreen score-input (@filip)
-- Hål-för-hål fullscreen-vy med STORA +/- knappar (64x64px)
-- Par som default, klicka för att registrera
-- Flyover-video inline per hål
-- LD/NP/2x badges i fullscreen
-- Alla motståndarnas score synligt
-- Prev/Next hål-navigation
-- "Starta runda"-knapp i scorekortet
-- Spectator separerad från spelargrid
+### 🎲 Prop Bets
+- Fri fråga + odds + valfri bank (banker_key)
+- Alternativ som komma-separerad lista
+- Röster sparas per spelare
+- Admin avgör vinnare → auto-settlement via Even Steven
+- Bank-mode: bank betalar vinnare, förlorare betalar bank
+- Utan bank: förlorar-pool delas jämnt mellan vinnare
 
-## [2026-04-14] Phase 7: Flyovers, chat delete/tag, spectator (@filip)
-- 36 flyover-videos (18 per bana) streamade från CloudFront
-- Autoplay muted i banguide-modal
-- Radera egna chattmeddelanden (admin: alla)
-- @-mention med autocomplete
-- @-namn highlightas i guld
-- Spectator-login (kan se + chatta, inte scora)
+### ⚔️ Head-to-Head
+- Alla spelare kan skapa H2H-matcher (ingen gräns per runda)
+- Multi-matchup i leaderboard med + knapp
+- Auto-genererad expense när winner_key sätts
 
-## [2026-04-14] Phase 6: Score UX, shoutouts, gamification (@filip)
-- Score-input: par som default med +/- knappar
-- Dubbla poäng (2×) visas visuellt hål 16-18
-- Shoutouts triggas direkt (inte bara via realtime)
-- Birdie = grön toast, Eagle = guld, Nolla = röd
-- Auto-post till chatten
+### 📸 Fotogalleri
+- 2-kolumns grid från chat-bilder
+- Gradient overlay + lazy loading
+
+### 🧹 Stor städning
+- **243 rader** dubbla sektioner borttagna (Even Steven, H2H, Stats, Gallery)
+
+---
+
+## 15 april 2026 (förmiddag)
+
+### 💰 Even Steven v1
+- Utgifter med 3 tags: mat / bar / aktivitet
+- Person-to-person: "Marcus betalar" dropdown
+- Shared expenses delas lika mellan alla
+- Settlement-plan minimerar transaktioner
+- H2H bets (100 kr standardbas)
+- LD/NP sidospel (50 kr)
+
+### 🏆 Stats & Awards
+- Le Douche de Golf (individuellt)
+- LIV Team Battle (2 bästa per runda, hål 16-18 dubbla)
+- Daily Loser (sämst per runda)
+- Konsistenskungen (lägst σ)
+- Hot Hand (+2 vid 3 birdies i rad)
+- Cold Turkey (-1 vid 3 nollor)
+- Live-ticker ▲▼ för positionsändringar
+
+### ⏰ Countdown
+- Timer till turneringsstart
+- UI-polish: glassmorphism, animations
+
+---
+
+## 15 april 2026 (morgon)
+
+### ⚙️ Admin Settings
+- HCP per spelare (realtime-update)
+- Lagindelning (green/blue)
+- Banval per runda (Skog/Park)
+- Slope/CR-justering
+- Specialhål-setup
+- Delete scores/rundor
+
+### 📱 PWA-fix iOS
+- Install-prompt med Safari-instruktioner
+- Safe-area-inset-support
+- Icon-manifest korrekt
+
+### 🎨 Identity
+- Namn fastställt: **Douche Invitational Only**
+- Trofé: **Le Douche de Golf**
+- Official DIO badge (golfer + beer) som app-ikon
+- Netflix-style splash screen (2.8s animation)
+- README + initial CHANGELOG
+
+---
+
+## 14 april 2026 (sen kväll)
+
+### 🎵 Spotify + gamification
+- Walk-up music per spelare (18 verifierade track IDs)
 - Spotify deeplinks (öppnar appen direkt)
-- 6 venue-bilder från Hooks hemsida i Supabase Storage
-- 8 achievements: First Blood, Eagle Eye, Steady Eddie, Clean Sheet, Hot Hand, On Fire, No Blanks, Hål 19
-- Favicon (guld H på svart)
+- Playlists per runda
+- Strokes + Stableford visas per hål
+- PWA-optimering: service worker, offline support
+- Install-prompt
 
-## [2026-04-14] Phase 5: Banguide, roasts, chat-fix (@filip)
-- Klicka hålnummer → modal med banguide + alla spelares resultat
-- LiveCaddie-länk per hål
-- 5-6 roasts per spelare, random rotation
-- Chat: optimistisk uppdatering (syns direkt)
-- fetchChat körs efter insert
+### 🔔 Notification center
+- Notishistorik (50 senaste)
+- Forced sound effects (eagle/birdie/zero)
+- Unread-badge
 
-## [2026-04-14] Phase 4: Spotify, streaks, specialhål (@filip)
-- Dubbla poäng hål 16-18 i lagtävling (2× multiplier)
-- Hot Hand: 3 birdies i rad = +2 bonus
-- Cold Turkey: 3 nollor i rad = -1
-- LD och NP-hål markerade per runda med badges
-- Nästa tomma hål highlighted
-- Motståndarnas progress under scorekortet
-- Spotify: 3 låtar per spelare per dag (fre/lör/sön)
-- Service Worker + PWA
-- Pep talks, team lead/trail-indikator
+### ⛳ Score-UX
+- Fullscreen score input (mobile-first)
+- Hole-för-hole navigation
+- Shoutouts auto-postade till chat (eagle/birdie)
+- Zero roasts (auto-hån)
+- Venue images per bana
 
-## [2026-04-14] Phase 3: Spelarfoton, chat, bildupload (@filip)
-- Riktiga spelarfoton från Supabase Storage
-- Avatar-komponent genom hela appen
-- Chat med bildupload (kamera + galleri)
-- Roasts synliga i Info
-- Walk-up music per spelare
-- Leaderboard med rundfördelning
-- Playing HCP visas (slope-justerat)
+---
 
-## [2026-04-14] Phase 2: Chat, admin, persistent login (@filip)
-- Live chat med Supabase realtime
-- Auto-post birdies/nollor till chatten
-- Admin-mode: Filip kan scora för alla
-- Persistent login (localStorage)
-- PWA manifest + ikoner
+## 14 april 2026 (kväll)
 
-## [2026-04-14] Phase 1: Grundapp (@filip)
-- Next.js + Supabase + Vercel
-- Login via spelarval
-- 5 vyer: Leaderboard, Score, Lag, Chat, Info
-- Live Stableford scoring med slope-justerat HCP
-- Supabase realtime – alla ser uppdateringar live
-- Shoutouts vid birdie+
-- Roasts vid 0-poängare
-- Full info: schema, tävlingar, regler
-- Bandata: Skogsbanan (CR 70.1/S128) & Parkbanan (CR 70.8/S130)
-- Alla 36 hål med par, hcp, meter, tips
+### Phase 7-9: Polish
+- Flyover-videos (36 UUIDs från CloudFront)
+- Chat: delete, @-tagging, bilduppladdning
+- Spectator-mode (ingen PIN, observera only)
+- Specialhål markerade
+- Streak-detection
+
+### Phase 5-6: Banguide
+- Modal för hole-info
+- Roterande roasts
+- Chat-fix (realtime)
+
+### Phase 3-4: UI
+- Spelarbilder
+- Streaks (Hot Hand / Cold Turkey)
+- Mood-system
+
+---
+
+## 14 april 2026 (eftermiddag–start)
+
+### Phase 1-2: Grundbygge
+- **Phase 1:** Initial app-struktur, 6 spelare, 4 rundor
+- **Phase 2:** Chat, admin-scoring, persistent login, PWA
+- Supabase-schema: players, rounds, scores, chat
+- Next.js 14 + React + Supabase realtime
+- Vercel auto-deploy
+- Mobile-first dark theme (guld/grön/cream palett)
+
+---
+
+## Teknisk stack
+
+| Lager | Tech |
+|-------|------|
+| Frontend | Next.js 14 + React + Tailwind-style inline CSS |
+| Backend | Supabase (Postgres + Realtime) |
+| Edge functions | Deno runtime (`send-push`) |
+| Push | Web Push API + VAPID |
+| Hosting | Vercel (auto-deploy från GitHub main) |
+| Repo | github.com/filip703/Hooks-inv |
+| DB ref | swagnjpgddfakncovglo |
+
+---
+
+## Databas-tabeller
+
+- `inv_players` – spelare (17 kolumner inkl. phone, email, pin, 5 notif-preferences)
+- `inv_rounds` – 4 rundor
+- `inv_scores` – score per spelare/runda/hål
+- `inv_chat` – meddelanden med text + bilder
+- `inv_expenses` – Even Steven transaktioner
+- `inv_h2h_matches` – 1v1 bets per runda
+- `inv_prop_bets` – odds-baserade prop bets
+- `inv_push_subscriptions` – push-endpoints per enhet
+- `inv_settings` – key-value settings
+
+---
+
+## Kvar att bygga
+
+- [ ] Riktigt decimal odds-betting-system med bank (spec klar)
+- [ ] Daily Loser auto-expense
+- [ ] Uppdaterad DIO-Manual PDF
+- [ ] Fulltest innan turneringen
+- [ ] Verifiera countdown-datum
+
+---
+
+**Byggd av Filip + Claude · DIO 2026 · Hooks Herrgård**
