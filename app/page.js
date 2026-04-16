@@ -46,6 +46,14 @@ export default function Home() {
   const [expenseTarget, setExpenseTarget] = useState('')
   const [propBets, setPropBets] = useState([])
   const [propForm, setPropForm] = useState({ question: '', odds: 'Even', stake: 50, options: '', banker: '' })
+  const [profileForm, setProfileForm] = useState(null)
+  useEffect(() => {
+    if (user && !profileForm) setProfileForm({
+      phone: user.phone || '', email: user.email || '', nickname: user.nickname || '',
+      song: user.song || '', image_url: user.image_url || '', pin: user.pin || '',
+      daily_summary: user.daily_summary !== false, notifications: user.notifications !== false
+    })
+  }, [user, profileForm])
   const [pep] = useState(pepTalks[Math.floor(Math.random() * pepTalks.length)])
   const chatEnd = useRef(null)
   const toastT = useRef(null)
@@ -1417,17 +1425,21 @@ export default function Home() {
                   {settlements.map((s, i) => {
                     const toPlayer = activePlayers.find(p => p.key === s.to)
                     const fromPlayer = activePlayers.find(p => p.key === s.from)
-                    const canSwish = s.from === user?.key && toPlayer?.phone
+                    const canSwish = toPlayer?.phone
                     const swishUrl = canSwish ? `swish://payment?data=${encodeURIComponent(JSON.stringify({ version: 1, payee: toPlayer.phone.replace(/\D/g, ''), amount: String(s.amount), message: `DIO 2026 – ${fromPlayer?.nickname} → ${toPlayer?.nickname}` }))}` : null
                     return (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', flexWrap: 'wrap' }}>
                         <Av p={fromPlayer} size={22} />
                         <span style={{ fontSize: 13, color: 'var(--coral)' }}>{getName(s.from)}</span>
                         <span style={{ color: 'var(--cream-muted)' }}>→</span>
                         <Av p={toPlayer} size={22} />
                         <span style={{ fontSize: 13, color: 'var(--green)' }}>{getName(s.to)}</span>
                         <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600 }}>{s.amount} kr</span>
-                        {canSwish && <a href={swishUrl} style={{ background: '#EF6C00', color: '#fff', fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 6, textDecoration: 'none', marginLeft: 6 }}>💸 Swisha</a>}
+                        {canSwish ? (
+                          <a href={swishUrl} style={{ background: '#EF6C00', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 12px', borderRadius: 6, textDecoration: 'none' }}>💸 Swisha</a>
+                        ) : (
+                          <span style={{ fontSize: 10, color: 'var(--cream-muted)', fontStyle: 'italic' }}>Inget tel</span>
+                        )}
                       </div>
                     )
                   })}
@@ -1460,9 +1472,9 @@ export default function Home() {
         </>)}
 
         {/* ===== MIN PROFIL ===== */}
-        {view === 'profile' && user && (<>
+        {view === 'profile' && user && profileForm && (<>
           <div className="section-title">👤 Min profil</div>
-          <div className="section-sub">Redigera dina uppgifter</div>
+          <div className="section-sub">Redigera dina uppgifter – glöm inte spara</div>
 
           {/* Avatar + nickname */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 16, marginBottom: 14, textAlign: 'center' }}>
@@ -1478,23 +1490,15 @@ export default function Home() {
 
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>📱 TELEFON (för Swish)</div>
-              <input type="tel" defaultValue={user.phone || ''} placeholder="070xxxxxxx"
-                onBlur={async (e) => {
-                  await supabase.from('inv_players').update({ phone: e.target.value }).eq('id', user.id)
-                  fetchAll()
-                  showToast('Telefon sparad', 'birdie')
-                }}
+              <input type="tel" value={profileForm.phone} placeholder="070xxxxxxx"
+                onChange={e => setProfileForm(f => ({...f, phone: e.target.value}))}
                 style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
             </div>
 
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>✉️ EMAIL</div>
-              <input type="email" defaultValue={user.email || ''} placeholder="din@email.se"
-                onBlur={async (e) => {
-                  await supabase.from('inv_players').update({ email: e.target.value }).eq('id', user.id)
-                  fetchAll()
-                  showToast('Email sparad', 'birdie')
-                }}
+              <input type="email" value={profileForm.email} placeholder="din@email.se"
+                onChange={e => setProfileForm(f => ({...f, email: e.target.value}))}
                 style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
             </div>
           </div>
@@ -1505,34 +1509,22 @@ export default function Home() {
 
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>NICKNAME</div>
-              <input defaultValue={user.nickname || ''}
-                onBlur={async (e) => {
-                  await supabase.from('inv_players').update({ nickname: e.target.value }).eq('id', user.id)
-                  fetchAll()
-                  showToast('Nickname uppdaterat', 'birdie')
-                }}
+              <input value={profileForm.nickname}
+                onChange={e => setProfileForm(f => ({...f, nickname: e.target.value}))}
                 style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
             </div>
 
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>🎵 WALK-UP ANTHEM</div>
-              <input defaultValue={user.song || ''} placeholder="Din låt"
-                onBlur={async (e) => {
-                  await supabase.from('inv_players').update({ song: e.target.value }).eq('id', user.id)
-                  fetchAll()
-                  showToast('Låt sparad', 'birdie')
-                }}
+              <input value={profileForm.song} placeholder="Din låt"
+                onChange={e => setProfileForm(f => ({...f, song: e.target.value}))}
                 style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
             </div>
 
             <div>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>📸 PROFILBILD (URL)</div>
-              <input defaultValue={user.image_url || ''} placeholder="https://..."
-                onBlur={async (e) => {
-                  await supabase.from('inv_players').update({ image_url: e.target.value }).eq('id', user.id)
-                  fetchAll()
-                  showToast('Bild sparad', 'birdie')
-                }}
+              <input value={profileForm.image_url} placeholder="https://..."
+                onChange={e => setProfileForm(f => ({...f, image_url: e.target.value}))}
                 style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 12, fontFamily: 'var(--mono)' }} />
             </div>
           </div>
@@ -1546,11 +1538,8 @@ export default function Home() {
                 <div style={{ fontSize: 13, color: 'var(--cream)' }}>📊 Daglig sammanfattning</div>
                 <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>Mail kl 22 med dagens stats</div>
               </div>
-              <input type="checkbox" defaultChecked={user.daily_summary !== false}
-                onChange={async (e) => {
-                  await supabase.from('inv_players').update({ daily_summary: e.target.checked }).eq('id', user.id)
-                  fetchAll()
-                }}
+              <input type="checkbox" checked={profileForm.daily_summary}
+                onChange={e => setProfileForm(f => ({...f, daily_summary: e.target.checked}))}
                 style={{ width: 20, height: 20, accentColor: 'var(--gold)' }} />
             </label>
 
@@ -1559,28 +1548,39 @@ export default function Home() {
                 <div style={{ fontSize: 13, color: 'var(--cream)' }}>🔔 Live-notiser</div>
                 <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>Ljud & badge vid birdies/eagles</div>
               </div>
-              <input type="checkbox" defaultChecked={user.notifications !== false}
-                onChange={async (e) => {
-                  await supabase.from('inv_players').update({ notifications: e.target.checked }).eq('id', user.id)
-                  fetchAll()
-                }}
+              <input type="checkbox" checked={profileForm.notifications}
+                onChange={e => setProfileForm(f => ({...f, notifications: e.target.checked}))}
                 style={{ width: 20, height: 20, accentColor: 'var(--gold)' }} />
             </label>
           </div>
 
-          {/* Säkerhet */}
+          {/* PIN */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>🔒 PIN-KOD</div>
-            <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 8 }}>Valfri 4-siffrig PIN för att skydda din profil (tom = ingen PIN)</div>
-            <input type="password" inputMode="numeric" maxLength={4} defaultValue={user.pin || ''} placeholder="••••"
-              onBlur={async (e) => {
-                const pin = e.target.value.replace(/\D/g, '').slice(0, 4)
-                await supabase.from('inv_players').update({ pin: pin || null }).eq('id', user.id)
-                fetchAll()
-                showToast(pin ? 'PIN satt' : 'PIN borttagen', 'birdie')
-              }}
+            <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 8 }}>Valfri 4-siffrig PIN (tom = ingen PIN)</div>
+            <input type="password" inputMode="numeric" maxLength={4} value={profileForm.pin} placeholder="••••"
+              onChange={e => setProfileForm(f => ({...f, pin: e.target.value.replace(/\D/g, '').slice(0, 4)}))}
               style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 18, letterSpacing: 8, textAlign: 'center', fontFamily: 'var(--mono)' }} />
           </div>
+
+          {/* SPARA-KNAPP */}
+          <button onClick={async () => {
+            await supabase.from('inv_players').update({
+              phone: profileForm.phone || null,
+              email: profileForm.email || null,
+              nickname: profileForm.nickname,
+              song: profileForm.song || null,
+              image_url: profileForm.image_url || null,
+              pin: profileForm.pin || null,
+              daily_summary: profileForm.daily_summary,
+              notifications: profileForm.notifications
+            }).eq('id', user.id)
+            await fetchAll()
+            showToast('✅ Profil sparad!', 'birdie')
+            soundScore && soundScore()
+          }} style={{ width: '100%', padding: '14px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: 'pointer', marginBottom: 14 }}>
+            💾 Spara profil
+          </button>
 
           {/* Snabbåtgärder */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
@@ -1608,7 +1608,7 @@ export default function Home() {
             }} style={{ width: '100%', padding: '12px', background: 'var(--surface2)', color: 'var(--cream)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, cursor: 'pointer', marginBottom: 8 }}>
               🔗 Dela min status
             </button>
-            <button onClick={() => { setUser(null); setView('leaderboard') }}
+            <button onClick={() => { setUser(null); setProfileForm(null); setView('leaderboard') }}
               style={{ width: '100%', padding: '12px', background: 'transparent', color: 'var(--coral)', border: '1px solid var(--coral)', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
               🚪 Logga ut
             </button>
