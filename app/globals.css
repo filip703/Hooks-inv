@@ -306,3 +306,126 @@ button, .bottom-nav-btn, .login-face-btn { -webkit-user-select: none; user-selec
   .status-bar { padding-top: 4px; }
   .page-content { padding-bottom: calc(100px + var(--safe-bottom)); }
 }
+
+/* ===== AUGUSTA DETAILS ===== */
+
+/* Splash → magnolia cream fade */
+.splash-screen {
+  background: linear-gradient(180deg, #FAF8F0 0%, #F0EAD6 40%, #E8E0C8 100%);
+}
+[data-theme="dark"] .splash-screen {
+  background: linear-gradient(180deg, #0B1410 0%, #0D1A14 40%, #101E16 100%);
+}
+
+/* Status bar: subtle Augusta green strip */
+.status-bar {
+  background: linear-gradient(90deg, var(--masters) 0%, var(--green-fairway) 100%);
+  color: #FAF8F0;
+  padding: 10px 20px;
+  font-size: 13px;
+}
+.status-bar .live-dot { background: #D4AF37; }
+
+/* Leaderboard #1: Green jacket with gold accent */
+.lb-row:first-child {
+  background: linear-gradient(135deg, rgba(27,67,50,0.08) 0%, rgba(212,175,55,0.04) 100%);
+  position: relative;
+}
+[data-theme="dark"] .lb-row:first-child {
+  background: linear-gradient(135deg, rgba(27,67,50,0.25) 0%, rgba(212,175,55,0.06) 100%);
+}
+.lb-row:first-child::after {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0; width: 3px;
+  background: linear-gradient(180deg, #D4AF37, var(--masters));
+  border-radius: 0;
+}
+
+/* Login: magnolia background with azalea hint */
+.login-screen {
+  background: linear-gradient(180deg, #FAF8F0 0%, #F0EAD6 50%, #E8E0C8 100%);
+}
+[data-theme="dark"] .login-screen {
+  background: linear-gradient(180deg, #0B1410 0%, #0D1A14 100%);
+}
+.login-screen::before {
+  background: radial-gradient(ellipse 80% 50% at 50% 30%, rgba(27,67,50,0.12) 0%, transparent 60%);
+}
+.login-face-btn {
+  background: rgba(255,255,255,0.85);
+  border: 1px solid rgba(0,0,0,0.06);
+}
+[data-theme="dark"] .login-face-btn {
+  background: var(--surface);
+  border: 1px solid var(--card-border);
+}
+
+/* Scorecard total: green jacket gradient */
+.sc-total-bar {
+  background: linear-gradient(135deg, var(--masters), var(--green-fairway));
+  color: #FAF8F0;
+  border: none;
+}
+.sc-total-pts { color: #D4AF37; }
+.sc-total-label { color: rgba(250,248,240,0.6); }
+
+/* Team cards: deeper gradients */
+.team-green-bg {
+  background: linear-gradient(165deg, #E8F5E9, #C8E6C9, #A5D6A7);
+  border-color: rgba(27,67,50,0.15);
+}
+[data-theme="dark"] .team-green-bg {
+  background: linear-gradient(165deg, #0D2818, #1A3A2A, #2A5040);
+  border-color: rgba(107,191,127,0.15);
+}
+.team-blue-bg {
+  background: linear-gradient(165deg, #E3F2FD, #BBDEFB, #90CAF9);
+  border-color: rgba(26,85,136,0.15);
+}
+[data-theme="dark"] .team-blue-bg {
+  background: linear-gradient(165deg, #0D1D2E, #1A3550, #2A4570);
+  border-color: rgba(138,180,214,0.15);
+}
+
+/* Floating nav: magnolia tint in light mode */
+.bottom-nav {
+  bottom: 14px; left: 18px; right: 18px;
+}
+[data-theme="light"] .bottom-nav, :root:not([data-theme="dark"]) .bottom-nav {
+  background: rgba(250,248,240,0.92);
+  border: 1px solid rgba(27,67,50,0.1);
+}
+
+/* Feed cards: subtle left border in Augusta green */
+.feed-card { border-left: 3px solid var(--green-fairway); }
+.feed-card.birdie { border-left-color: #2E7D32; }
+.feed-card.eagle { border-left-color: #D4AF37; }
+.feed-card.zero { border-left-color: var(--coral); }
+
+/* Toast: richer colors */
+.shoutout-toast { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.shoutout-toast.eagle-toast { background: linear-gradient(135deg, rgba(212,175,55,0.15), rgba(212,175,55,0.08)); border-color: #D4AF37; }
+
+/* Pin flag dots for extra strokes (in scorecard) */
+.stableford-dots { display: flex; gap: 3px; margin-top: 4px; }
+.stableford-dots .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green-fairway);
+}
+[data-theme="dark"] .stableford-dots .dot { background: #6BBF7F; }
+
+/* Section divider: thin gold line */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,55,0.3), transparent);
+  margin: 24px 0;
+}
+
+/* Smooth page transitions */
+.page-content { animation: fadeInUp 0.25s ease; }
+
+/* Menu: Augusta green header in light mode */
+[data-theme="light"] .menu-panel, :root:not([data-theme="dark"]) .menu-panel {
+  background: linear-gradient(180deg, #FAF8F0 0%, #F0EAD6 100%);
+}

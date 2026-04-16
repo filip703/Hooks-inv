@@ -177,7 +177,7 @@ export default function Home() {
   const [notifications, setNotifications] = useState([])
   const [showNotifs, setShowNotifs] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
-  const [darkMode, setDarkMode] = useState(true)
+  const [darkMode, setDarkMode] = useState(false)
   useEffect(() => {
     const saved = typeof window !== 'undefined' && localStorage?.getItem('dio_theme')
     if (saved === 'light') setDarkMode(false)
@@ -604,6 +604,7 @@ export default function Home() {
       </div>
       <div className="splash-year">2026</div>
       <div className="splash-location">HOOKS HERRGÅRD · SMÅLAND</div>
+      <div style={{ fontFamily: 'var(--serif)', fontSize: 14, color: 'var(--gold)', marginTop: 12, fontStyle: 'italic', opacity: 0, animation: 'splashTextIn 1s ease-out 1.6s forwards' }}>Le Douche de Golf</div>
     </div>
   )
 
@@ -876,14 +877,16 @@ export default function Home() {
         )
       })()}
 
-      <div className="status-bar" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span className="live-dot" /><Av p={user} size={18} /><span>{user.nickname}</span>
+      <div className="status-bar" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className="live-dot" /><Av p={user} size={20} /><span style={{ fontSize: 13, fontWeight: 500 }}>{user.nickname}</span>
         {isAdmin && <Badge text="ADMIN" color="var(--gold)" bg="rgba(201,168,76,0.15)" />}
-        {/* Notification bell */}
-        <button onClick={() => { setShowNotifs(!showNotifs); setUnread(0) }} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: unread > 0 ? 'var(--gold)' : 'var(--cream-muted)', fontSize: 16, cursor: 'pointer', position: 'relative', padding: '4px' }}>
-          🔔
-          {unread > 0 && <span style={{ position: 'absolute', top: 0, right: 0, background: 'var(--coral)', color: '#fff', fontSize: 8, fontWeight: 600, borderRadius: '50%', width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unread > 9 ? '9+' : unread}</span>}
-        </button>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => setDarkMode(d => !d)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: '4px', lineHeight: 1 }}>{darkMode ? '☀️' : '🌙'}</button>
+          <button onClick={() => { setShowNotifs(!showNotifs); setUnread(0) }} style={{ background: 'none', border: 'none', color: unread > 0 ? 'var(--gold)' : 'var(--cream-muted)', fontSize: 16, cursor: 'pointer', position: 'relative', padding: '4px' }}>
+            🔔
+            {unread > 0 && <span style={{ position: 'absolute', top: 0, right: 0, background: 'var(--coral)', color: '#fff', fontSize: 8, fontWeight: 600, borderRadius: '50%', width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unread > 9 ? '9+' : unread}</span>}
+          </button>
+        </div>
         <button onClick={() => { setUser(null); localStorage?.removeItem('inv_user') }} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 10, cursor: 'pointer' }}>Byt</button>
       </div>
 
@@ -2550,7 +2553,7 @@ export default function Home() {
       {showMenu && (
         <div onClick={(e) => { if (e.target === e.currentTarget) setShowMenu(false) }}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 500, display: 'flex', justifyContent: 'flex-end', animation: 'fadeIn 0.2s ease' }}>
-          <div style={{ width: '280px', maxWidth: '85vw', background: 'linear-gradient(180deg, var(--surface) 0%, #0E1A12 100%)', height: '100%', overflowY: 'auto', paddingTop: 'var(--safe-top)', animation: 'slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+          <div style={{ width: '300px', maxWidth: '85vw', background: 'var(--surface)', height: '100%', overflowY: 'auto', paddingTop: 'var(--safe-top)', animation: 'slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1)', borderLeft: '1px solid var(--card-border)' }}>
             {/* Header */}
             <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -2588,9 +2591,6 @@ export default function Home() {
 
             {/* Footer */}
             <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.04)', marginTop: 10 }}>
-              <button onClick={() => setDarkMode(d => !d)} style={{ width: '100%', padding: '12px', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 10, color: 'var(--cream-muted)', fontSize: 13, cursor: 'pointer', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                {darkMode ? '☀️' : '🌙'} {darkMode ? 'Ljust läge' : 'Mörkt läge'}
-              </button>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', textAlign: 'center', letterSpacing: 2 }}>DIO · 2026 · HOOKS HERRGÅRD</div>
               <div style={{ fontSize: 9, color: 'var(--cream-muted)', textAlign: 'center', marginTop: 4 }}>⛳ Le Douche de Golf</div>
             </div>
