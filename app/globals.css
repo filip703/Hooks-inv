@@ -92,14 +92,15 @@ body {
   min-height: 100vh;
   min-height: -webkit-fill-available;
   overflow-x: hidden;
-  padding-top: var(--safe-top);
+  padding-top: 0;
   transition: background 0.3s, color 0.3s;
 }
 
 /* ===== LOGIN ===== */
 .login-screen {
   min-height: 100vh; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; padding: 32px;
+  align-items: center; justify-content: center;
+  padding: 32px; padding-top: calc(32px + var(--safe-top)); padding-bottom: calc(32px + var(--safe-bottom));
   text-align: center; position: relative; overflow: hidden;
 }
 .login-screen::before {
@@ -127,15 +128,15 @@ body {
 
 /* ===== BOTTOM NAV ===== */
 .bottom-nav {
-  position: fixed; bottom: 12px; left: 16px; right: 16px;
+  position: fixed; bottom: 0; left: 0; right: 0;
   background: var(--nav-bg);
   backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--nav-border);
-  border-radius: 20px;
+  border-top: 1px solid var(--nav-border);
+  border-radius: 0;
   display: flex; z-index: 100;
-  padding: 4px;
-  padding-bottom: calc(4px + var(--safe-bottom));
-  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  padding: 4px 8px;
+  padding-bottom: calc(8px + var(--safe-bottom));
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
 }
 [data-theme="dark"] .bottom-nav { box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
 .bottom-nav-btn {
@@ -271,7 +272,7 @@ body {
 
 /* ===== TOAST ===== */
 .shoutout-toast {
-  position: fixed; top: 60px; left: 20px; right: 20px;
+  position: fixed; top: calc(60px + var(--safe-top)); left: 20px; right: 20px;
   background: var(--badge-green-bg); border: 2px solid var(--green);
   border-radius: 16px; padding: 16px 18px; z-index: 200;
   animation: toastIn 0.3s ease-out, fadeOut 0.4s ease 3.6s forwards;
@@ -282,7 +283,7 @@ body {
 @keyframes fadeOut { to { opacity: 0; transform: translateY(-20px); } }
 
 /* ===== SPLASH ===== */
-.splash-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; overflow: hidden; }
+.splash-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; overflow: hidden; padding-top: var(--safe-top); }
 .splash-screen::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(212,175,55,0.06) 0%, transparent 70%); animation: splashGlow 2.8s ease-in-out; }
 .splash-badge { animation: splashBadgeIn 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: scale(0.3); }
 .splash-img { width: 220px; height: auto; }
@@ -322,7 +323,11 @@ button, .bottom-nav-btn, .login-face-btn { -webkit-user-select: none; user-selec
   background: linear-gradient(90deg, var(--masters) 0%, var(--green-fairway) 100%);
   color: #FAF8F0;
   padding: 10px 20px;
+  padding-top: calc(10px + var(--safe-top));
   font-size: 13px;
+  position: sticky;
+  top: 0;
+  z-index: 90;
 }
 .status-bar .live-dot { background: #D4AF37; }
 

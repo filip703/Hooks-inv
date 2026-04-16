@@ -97,7 +97,7 @@ function SwishModal({ open, onClose, toPlayer, fromPlayer, amount, onMarkPaid })
             </div>
             <div style={{ fontSize: 11, color: 'var(--cream-dim)', marginTop: 6, marginBottom: 10 }}>{message}</div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={copyPhone} style={{ flex: 1, padding: '10px', background: 'var(--surface)', color: 'var(--cream)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>📋 Nummer</button>
+              <button onClick={copyPhone} style={{ flex: 1, padding: '10px', background: 'var(--surface)', color: 'var(--cream)', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>📋 Nummer</button>
               <button onClick={copyAll} style={{ flex: 1, padding: '10px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📋 Allt</button>
             </div>
           </div>
@@ -153,8 +153,8 @@ function Av({ p, size = 36 }) {
   const bg = p.team === 'green' ? '#1A3A2A' : '#1A3550'
   const c = p.team === 'green' ? '#6BBF7F' : '#8AB4D6'
   return p.image_url
-    ? <img src={p.image_url} alt={p.name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)', flexShrink: 0 }} />
-    : <div style={{ width: size, height: size, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size*0.38, fontWeight: 500, color: c, border: '2px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>{p.name?.charAt(0)}</div>
+    ? <img src={p.image_url} alt={p.name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--card-border)', flexShrink: 0 }} />
+    : <div style={{ width: size, height: size, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size*0.38, fontWeight: 500, color: c, border: '2px solid var(--card-border)', flexShrink: 0 }}>{p.name?.charAt(0)}</div>
 }
 
 function Badge({ text, color, bg }) {
@@ -630,7 +630,7 @@ export default function Home() {
                     } else { setPinError('Fel PIN – försök igen'); setPinInput('') }
                   }
                 }}
-                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'var(--cream)', padding: '14px', fontSize: 28, letterSpacing: 16, textAlign: 'center', fontFamily: 'var(--mono)', marginBottom: 8 }} />
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 10, color: 'var(--cream)', padding: '14px', fontSize: 28, letterSpacing: 16, textAlign: 'center', fontFamily: 'var(--mono)', marginBottom: 8 }} />
               {pinError && <div style={{ fontSize: 12, color: 'var(--coral)', marginBottom: 8 }}>{pinError}</div>}
               <button onClick={() => {
                 if (pinInput === pendingUser.pin) {
@@ -650,12 +650,12 @@ export default function Home() {
               <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 4, textAlign: 'left' }}>NY PIN (4 siffror)</div>
               <input type="password" inputMode="numeric" autoFocus maxLength={4} value={newPin}
                 onChange={e => { setNewPin(e.target.value.replace(/\D/g, '').slice(0,4)); setPinError('') }}
-                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'var(--cream)', padding: '12px', fontSize: 22, letterSpacing: 12, textAlign: 'center', fontFamily: 'var(--mono)', marginBottom: 10 }} />
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 10, color: 'var(--cream)', padding: '12px', fontSize: 22, letterSpacing: 12, textAlign: 'center', fontFamily: 'var(--mono)', marginBottom: 10 }} />
 
               <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 4, textAlign: 'left' }}>BEKRÄFTA PIN</div>
               <input type="password" inputMode="numeric" maxLength={4} value={confirmPin}
                 onChange={e => { setConfirmPin(e.target.value.replace(/\D/g, '').slice(0,4)); setPinError('') }}
-                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'var(--cream)', padding: '12px', fontSize: 22, letterSpacing: 12, textAlign: 'center', fontFamily: 'var(--mono)', marginBottom: 8 }} />
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 10, color: 'var(--cream)', padding: '12px', fontSize: 22, letterSpacing: 12, textAlign: 'center', fontFamily: 'var(--mono)', marginBottom: 8 }} />
 
               {pinError && <div style={{ fontSize: 12, color: 'var(--coral)', marginBottom: 8 }}>{pinError}</div>}
 
@@ -717,7 +717,7 @@ export default function Home() {
       {/* Spectator login separate */}
       {players.find(p => p.key === 'spectator') && (
         <button onClick={() => { initAudio(); setUser(players.find(p => p.key === 'spectator')); setView('leaderboard') }}
-          style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 24px', color: 'var(--cream-muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--mono)' }}>
+          style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 24px', color: 'var(--cream-muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--mono)' }}>
           👀 Gå med som Åskådare
         </button>
       )}
@@ -735,7 +735,7 @@ export default function Home() {
       {/* BANGUIDE MODAL */}
       {guideHole && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 300, display: 'flex', flexDirection: 'column', overflowY: 'auto' }} onClick={() => setGuideHole(null)}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--surface)', position: 'sticky', top: 0, zIndex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', background: 'var(--surface)', position: 'sticky', top: 0, zIndex: 1 }}>
             <div>
               <span style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--gold)', fontWeight: 500 }}>Hål {guideHole}</span>
               <span style={{ fontSize: 12, color: 'var(--cream-dim)', marginLeft: 8 }}>{course?.name} · Par {course?.holes.find(h=>h.hole===guideHole)?.par} · {course?.holes.find(h=>h.hole===guideHole)?.meters}m</span>
@@ -759,7 +759,7 @@ export default function Home() {
             {players.filter(p => p.key !== 'spectator').map(p => {
               const s = roundId ? pSc(p.id, roundId).find(x => x.hole === guideHole) : null
               return (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--card-border)' }}>
                   <Av p={p} size={24} />
                   <div style={{ flex: 1, fontSize: 12, color: 'var(--cream-dim)' }}>{p.nickname}</div>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: s?.strokes ? 'var(--cream)' : 'var(--cream-muted)' }}>{s?.strokes || '–'}</div>
@@ -786,7 +786,7 @@ export default function Home() {
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)', zIndex: 400, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* Top bar */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--surface)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', background: 'var(--surface)', borderBottom: '1px solid var(--card-border)' }}>
               <button onClick={() => setActiveHole(null)} style={{ background: 'none', border: 'none', color: 'var(--cream)', fontSize: 16, cursor: 'pointer' }}>← Alla hål</button>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--cream-muted)' }}>{RL[selRound]} · {course.name}</div>
             </div>
@@ -829,14 +829,14 @@ export default function Home() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
                   <button onClick={() => { if (currentVal > 1) save(h.hole, currentVal - 1) }}
-                    style={{ width: 64, height: 64, borderRadius: 16, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--cream)', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                    style={{ width: 64, height: 64, borderRadius: 16, background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
                   <div onClick={() => { if (!strokes) save(h.hole, h.par) }}
-                    style={{ width: 80, height: 80, borderRadius: 20, background: strokes ? 'var(--surface2)' : 'rgba(201,168,76,0.1)', border: strokes ? '2px solid rgba(255,255,255,0.1)' : '2px solid var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: strokes ? 'default' : 'pointer' }}>
+                    style={{ width: 80, height: 80, borderRadius: 20, background: strokes ? 'var(--surface2)' : 'rgba(201,168,76,0.1)', border: strokes ? '2px solid var(--card-border)' : '2px solid var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: strokes ? 'default' : 'pointer' }}>
                     <div style={{ fontFamily: 'var(--mono)', fontSize: 36, fontWeight: 500, color: strokes ? 'var(--cream)' : 'var(--gold)' }}>{strokes || h.par}</div>
                     {!strokes && <div style={{ fontSize: 9, color: 'var(--gold)', marginTop: -4 }}>TRYCK</div>}
                   </div>
                   <button onClick={() => { if (currentVal < 15) save(h.hole, currentVal + 1) }}
-                    style={{ width: 64, height: 64, borderRadius: 16, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--cream)', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                    style={{ width: 64, height: 64, borderRadius: 16, background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                 </div>
                 {/* Points display */}
                 {pts !== null && (
@@ -855,7 +855,7 @@ export default function Home() {
                 {activePlayers.filter(p => p.id !== scoreFor?.id).map(p => {
                   const s = roundId ? pSc(p.id, roundId).find(x => x.hole === h.hole) : null
                   return (
-                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--card-border)' }}>
                       <Av p={p} size={24} />
                       <div style={{ flex: 1, fontSize: 13, color: 'var(--cream-dim)' }}>{p.nickname}</div>
                       <div style={{ fontFamily: 'var(--mono)', fontSize: 14 }}>{s?.strokes || '–'}</div>
@@ -867,9 +867,9 @@ export default function Home() {
             </div>
 
             {/* Bottom nav: prev / next */}
-            <div style={{ display: 'flex', gap: 8, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0))', background: 'var(--surface)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ display: 'flex', gap: 8, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0))', background: 'var(--surface)', borderTop: '1px solid var(--card-border)' }}>
               <button onClick={() => prevHole && setActiveHole(prevHole)} disabled={!prevHole}
-                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'var(--surface2)' : 'transparent', border: '1px solid rgba(255,255,255,0.06)', color: prevHole ? 'var(--cream)' : 'var(--cream-muted)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← Hål {prevHole || ''}</button>
+                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'var(--surface2)' : 'transparent', border: '1px solid var(--card-border)', color: prevHole ? 'var(--cream)' : 'var(--cream-muted)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← Hål {prevHole || ''}</button>
               <button onClick={() => nextH ? setActiveHole(nextH) : setActiveHole(null)}
                 style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: 'var(--gold)', border: 'none', color: '#0A0A08', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
             </div>
@@ -892,14 +892,14 @@ export default function Home() {
 
       {/* Notification Center Panel */}
       {showNotifs && (
-        <div style={{ position: 'fixed', top: 36, right: 8, width: 'calc(100vw - 16px)', maxWidth: 340, maxHeight: '60vh', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, zIndex: 250, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ position: 'fixed', top: 'calc(50px + env(safe-area-inset-top, 0px))', right: 8, width: 'calc(100vw - 16px)', maxWidth: 340, maxHeight: '60vh', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 14, zIndex: 250, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--gold)', letterSpacing: 1 }}>NOTISER</span>
             {notifications.length > 0 && <button onClick={() => setNotifications([])} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 10, cursor: 'pointer' }}>Rensa</button>}
           </div>
           {notifications.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: 'var(--cream-muted)', fontSize: 12 }}>Inga notiser än</div>}
           {notifications.map(n => (
-            <div key={n.id} style={{ padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)', borderLeft: `3px solid ${n.type === 'eagle' ? 'var(--gold-bright)' : n.type === 'birdie' ? 'var(--green)' : n.type === 'zero' ? 'var(--coral)' : 'var(--cream-muted)'}` }}>
+            <div key={n.id} style={{ padding: '8px 14px', borderBottom: '1px solid var(--card-border)', borderLeft: `3px solid ${n.type === 'eagle' ? 'var(--gold-bright)' : n.type === 'birdie' ? 'var(--green)' : n.type === 'zero' ? 'var(--coral)' : 'var(--cream-muted)'}` }}>
               <div style={{ fontSize: 12, color: 'var(--cream-dim)', lineHeight: 1.4 }}>{n.msg}</div>
               <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', marginTop: 2 }}>{n.time}</div>
             </div>
@@ -944,14 +944,14 @@ export default function Home() {
           </div>
           {/* Compact round table */}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: 'var(--mono)', marginTop: 12 }}>
-            <thead><tr style={{ color: 'var(--cream-muted)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <thead><tr style={{ color: 'var(--cream-muted)', borderBottom: '1px solid var(--card-border)' }}>
               <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 400 }}></th>
               {[1,2,3,4].map(r => <th key={r} style={{ padding: '6px 2px', fontWeight: 400, fontSize: 9 }}>{RL[r]}</th>)}
               <th style={{ padding: '6px 4px', fontWeight: 500 }}>Tot</th>
               <th style={{ padding: '6px 4px', color: 'var(--coral)' }}>💀</th>
             </tr></thead>
             <tbody>{lb.map(p => (
-              <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <tr key={p.id} style={{ borderBottom: '1px solid var(--card-border)' }}>
                 <td style={{ padding: '5px 4px', color: 'var(--cream-dim)' }}>{p.name.split(' ')[0]}</td>
                 {[1,2,3,4].map(r => <td key={r} style={{ textAlign: 'center', padding: '5px 2px', color: 'var(--cream-muted)' }}>{pRoundRaw(p.id, r) || '-'}</td>)}
                 <td style={{ textAlign: 'center', padding: '5px 4px', fontWeight: 500, color: 'var(--gold-bright)' }}>{pTotal(p.id) || '-'}</td>
@@ -1009,7 +1009,7 @@ export default function Home() {
                   const h = calcH2h(pair[0], pair[1])
                   if (!h) return null
                   return (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--card-border)' }}>
                       <div style={{ textAlign: 'center', flex: 1 }}>
                         <Av p={h.p1} size={28} />
                         <div style={{ fontSize: 10, fontWeight: 500, marginTop: 2 }}>{h.p1.nickname}</div>
@@ -1032,11 +1032,11 @@ export default function Home() {
 
                 {/* Add new matchup */}
                 <div style={{ display: 'flex', gap: 4, marginTop: pairs.length > 0 ? 8 : 0 }}>
-                  <select id="h2h-add-p1" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '6px', fontSize: 11 }}>
+                  <select id="h2h-add-p1" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '6px', fontSize: 11 }}>
                     <option value="">Spelare 1</option>
                     {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
                   </select>
-                  <select id="h2h-add-p2" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '6px', fontSize: 11 }}>
+                  <select id="h2h-add-p2" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '6px', fontSize: 11 }}>
                     <option value="">Spelare 2</option>
                     {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
                   </select>
@@ -1073,9 +1073,9 @@ export default function Home() {
           </div>
 
           {isAdmin && <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
-            <button onClick={() => setAdminPid(null)} style={{ fontSize: 9, padding: '3px 7px', border: !adminPid ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.06)', background: !adminPid ? 'rgba(201,168,76,0.1)' : 'transparent', color: !adminPid ? 'var(--gold)' : 'var(--cream-muted)', borderRadius: 5, cursor: 'pointer', fontFamily: 'var(--mono)' }}>Mig</button>
+            <button onClick={() => setAdminPid(null)} style={{ fontSize: 9, padding: '3px 7px', border: !adminPid ? '1px solid var(--gold)' : '1px solid var(--card-border)', background: !adminPid ? 'rgba(201,168,76,0.1)' : 'transparent', color: !adminPid ? 'var(--gold)' : 'var(--cream-muted)', borderRadius: 5, cursor: 'pointer', fontFamily: 'var(--mono)' }}>Mig</button>
             {players.filter(p => p.id !== user.id).map(p => (
-              <button key={p.id} onClick={() => setAdminPid(p.id)} style={{ fontSize: 9, padding: '3px 7px', border: adminPid === p.id ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.06)', background: adminPid === p.id ? 'rgba(201,168,76,0.1)' : 'transparent', color: adminPid === p.id ? 'var(--gold)' : 'var(--cream-muted)', borderRadius: 5, cursor: 'pointer', fontFamily: 'var(--mono)' }}>{p.name.split(' ')[0]}</button>
+              <button key={p.id} onClick={() => setAdminPid(p.id)} style={{ fontSize: 9, padding: '3px 7px', border: adminPid === p.id ? '1px solid var(--gold)' : '1px solid var(--card-border)', background: adminPid === p.id ? 'rgba(201,168,76,0.1)' : 'transparent', color: adminPid === p.id ? 'var(--gold)' : 'var(--cream-muted)', borderRadius: 5, cursor: 'pointer', fontFamily: 'var(--mono)' }}>{p.name.split(' ')[0]}</button>
             ))}
           </div>}
 
@@ -1126,11 +1126,11 @@ export default function Home() {
                     </div>
                     {/* +/- Score input defaulting to par */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-                      <button onClick={() => { if (currentVal > 1) save(h.hole, currentVal - 1) }} style={{ width: 28, height: 36, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px 0 0 8px', color: 'var(--cream)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                      <div onClick={() => { if (!strokes) save(h.hole, h.par) }} style={{ width: 36, height: 36, background: strokes ? 'var(--surface3)' : 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)', borderLeft: 'none', borderRight: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 500, color: strokes ? 'var(--cream)' : 'var(--cream-muted)', cursor: strokes ? 'default' : 'pointer' }}>
+                      <button onClick={() => { if (currentVal > 1) save(h.hole, currentVal - 1) }} style={{ width: 28, height: 36, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: '8px 0 0 8px', color: 'var(--cream)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                      <div onClick={() => { if (!strokes) save(h.hole, h.par) }} style={{ width: 36, height: 36, background: strokes ? 'var(--surface3)' : 'var(--surface2)', border: '1px solid var(--card-border)', borderLeft: 'none', borderRight: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 500, color: strokes ? 'var(--cream)' : 'var(--cream-muted)', cursor: strokes ? 'default' : 'pointer' }}>
                         {strokes || h.par}
                       </div>
-                      <button onClick={() => { if (currentVal < 15) save(h.hole, currentVal + 1) }} style={{ width: 28, height: 36, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '0 8px 8px 0', color: 'var(--cream)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                      <button onClick={() => { if (currentVal < 15) save(h.hole, currentVal + 1) }} style={{ width: 28, height: 36, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: '0 8px 8px 0', color: 'var(--cream)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                     </div>
                     <div style={{ minWidth: 36, textAlign: 'center' }}>
                       {pts !== null && <div className={`sc-pts-badge pts-${pts}`}>{isDouble ? pts * 2 : pts}</div>}
@@ -1160,7 +1160,7 @@ export default function Home() {
               const rPts = pRoundRaw(p.id, selRound)
               const played = roundId ? pSc(p.id, roundId).filter(x => x.strokes).length : 0
               return (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--card-border)' }}>
                   <Av p={p} size={28} />
                   <div style={{ flex: 1, fontSize: 13 }}>{p.nickname}</div>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)' }}>{played}/18</div>
@@ -1231,7 +1231,7 @@ export default function Home() {
                 })
               }
               return (
-                <div key={m.id || i} style={{ marginBottom: 6, padding: '8px 10px', background: sys ? 'rgba(255,255,255,0.02)' : 'var(--surface2)', borderRadius: 10, borderLeft: `3px solid ${brd}`, position: 'relative' }}>
+                <div key={m.id || i} style={{ marginBottom: 6, padding: '8px 10px', background: sys ? 'var(--surface2)' : 'var(--surface2)', borderRadius: 10, borderLeft: `3px solid ${brd}`, position: 'relative' }}>
                   {!sys && <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
                     <Av p={m.inv_players || { name: '?', team: 'green' }} size={18} />
                     <span style={{ fontSize: 11, fontWeight: 500, color: me ? 'var(--gold)' : 'var(--cream-dim)' }}>{m.inv_players?.nickname || '?'}</span>
@@ -1257,17 +1257,17 @@ export default function Home() {
             return (
               <div style={{ display: 'flex', gap: 4, padding: '6px 0', flexWrap: 'wrap' }}>
                 {suggestions.map(p => (
-                  <button key={p.id} onClick={() => setChatMsg(chatMsg.replace(/@\w*$/, `@${p.name.split(' ')[0]} `))} style={{ fontSize: 11, padding: '4px 8px', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', cursor: 'pointer' }}>@{p.name.split(' ')[0]}</button>
+                  <button key={p.id} onClick={() => setChatMsg(chatMsg.replace(/@\w*$/, `@${p.name.split(' ')[0]} `))} style={{ fontSize: 11, padding: '4px 8px', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', cursor: 'pointer' }}>@{p.name.split(' ')[0]}</button>
                 ))}
               </div>
             )
           })()}
           <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-            <label style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer', fontSize: 16 }}>
+            <label style={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer', fontSize: 16 }}>
               📷<input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if(e.target.files[0]) uploadImg(e.target.files[0]) }} />
             </label>
             <input value={chatMsg} onChange={e => setChatMsg(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') sendMsg() }}
-              placeholder="Skriv något... @namn för att tagga" style={{ flex: 1, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--cream)', padding: '10px 14px', borderRadius: 10, fontSize: 14, fontFamily: 'var(--sans)', outline: 'none' }} />
+              placeholder="Skriv något... @namn för att tagga" style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '10px 14px', borderRadius: 10, fontSize: 14, fontFamily: 'var(--sans)', outline: 'none' }} />
             <button onClick={sendMsg} style={{ background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 10, padding: '10px 16px', fontWeight: 600, cursor: 'pointer' }}>↑</button>
           </div>
         </>)}
@@ -1307,7 +1307,7 @@ export default function Home() {
 
                 if (cats.length === 0) return <div style={{ fontSize: 12, color: 'var(--cream-muted)', textAlign: 'center', padding: 10 }}>Spela först – vinnare avslöjas här</div>
                 return cats.map((c, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--card-border)' }}>
                     <div style={{ fontSize: 22 }}>{c.icon}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--gold)' }}>{c.title}</div>
@@ -1336,7 +1336,7 @@ export default function Home() {
                   const bestPlayer = bestHole ? activePlayers.find(p => p.id === bestHole.player_id) : null
                   const topScorer = activePlayers.sort((a,b) => pRoundRaw(b.id, rn) - pRoundRaw(a.id, rn))[0]
                   return (
-                    <div key={rn} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div key={rn} style={{ padding: '8px 0', borderBottom: '1px solid var(--card-border)' }}>
                       <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--cream)', marginBottom: 4 }}>R{rn} – {RC[rn]}</div>
                       <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--cream-muted)' }}>
                         <span>🐦 {birdiesPlus} birdies+</span>
@@ -1355,7 +1355,7 @@ export default function Home() {
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>SPELLISTOR FÖR HELGEN</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
             {playlists.map((pl, i) => (
-              <a key={i} href={pl.url} target="_blank" rel="noopener noreferrer" style={{ background: 'var(--surface)', borderRadius: 12, padding: '14px 12px', textDecoration: 'none', color: 'inherit', border: '1px solid rgba(255,255,255,0.04)' }}>
+              <a key={i} href={pl.url} target="_blank" rel="noopener noreferrer" style={{ background: 'var(--surface)', borderRadius: 12, padding: '14px 12px', textDecoration: 'none', color: 'inherit', border: '1px solid var(--card-border)' }}>
                 <div style={{ fontSize: 18, marginBottom: 4 }}>{pl.name.split(' ')[0]}</div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--cream)' }}>{pl.name.split(' ').slice(1).join(' ')}</div>
                 <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 2 }}>{pl.desc}</div>
@@ -1387,7 +1387,7 @@ export default function Home() {
             const dayMap = { 'fredag': 'Fredag', 'lördag': 'Lördag', 'söndag': 'Söndag' }
             const song = today?.find(s => s.day === dayMap[dayName]) || today?.[0]
             return song ? (
-              <a key={p.id} href={song.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', textDecoration: 'none', color: 'inherit', alignItems: 'center' }}>
+              <a key={p.id} href={song.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--card-border)', textDecoration: 'none', color: 'inherit', alignItems: 'center' }}>
                 <Av p={p} size={32} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name.split(' ')[0]}</div>
@@ -1401,7 +1401,7 @@ export default function Home() {
           {/* Players with roasts */}
           <div style={{ marginTop: 20, fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>SPELARNA</div>
           {players.map(p => (
-            <div key={p.id} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <div key={p.id} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--card-border)' }}>
               <Av p={p} size={40} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 500 }}>{p.name} <span style={{ fontSize: 11, color: p.team === 'green' ? 'var(--green)' : 'var(--blue)', fontFamily: 'var(--mono)' }}>{p.hcp}</span></div>
@@ -1436,7 +1436,7 @@ export default function Home() {
               { k: 'ROOKIE RULE', v: 'Martin capped på 36 hcp.', c: 'var(--cream-muted)' },
               { k: 'NOLLPOÄNGAREN', v: 'Hatt + tacktal + runda nästa år.', c: 'var(--coral)' },
             ].map((r, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, padding: '5px 0', borderBottom: i < 6 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+              <div key={i} style={{ display: 'flex', gap: 8, padding: '5px 0', borderBottom: i < 6 ? '1px solid var(--card-border)' : 'none' }}>
                 <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: r.c, minWidth: 90 }}>{r.k}</span>
                 <span style={{ fontSize: 12, color: 'var(--cream-dim)' }}>{r.v}</span>
               </div>
@@ -1461,7 +1461,7 @@ export default function Home() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <Av p={p} size={16} />
                           <span style={{ fontSize: 10, color: '#fff' }}>{p.nickname || '?'}</span>
-                          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', marginLeft: 'auto' }}>{new Date(m.created_at).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                          <span style={{ fontSize: 9, color: 'var(--cream-muted)', marginLeft: 'auto' }}>{new Date(m.created_at).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                       </div>
                     </div>
@@ -1479,7 +1479,7 @@ export default function Home() {
             <button onClick={() => {
               fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments(); fetchOdds(); fetchAll()
               showToast('🔄 Uppdaterad!', 'birdie')
-            }} style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream-dim)', padding: '8px 12px', fontSize: 12, cursor: 'pointer' }}>🔄 Uppdatera</button>
+            }} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream-dim)', padding: '8px 12px', fontSize: 12, cursor: 'pointer' }}>🔄 Uppdatera</button>
           </div>
           <div className="section-sub">Utgifter & settlement (Swish)</div>
           </>)}
@@ -1490,7 +1490,7 @@ export default function Home() {
             <button onClick={() => {
               fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments(); fetchOdds(); fetchAll()
               showToast('🔄 Uppdaterad!', 'birdie')
-            }} style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream-dim)', padding: '8px 12px', fontSize: 12, cursor: 'pointer' }}>🔄 Uppdatera</button>
+            }} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream-dim)', padding: '8px 12px', fontSize: 12, cursor: 'pointer' }}>🔄 Uppdatera</button>
           </div>
           <div className="section-sub">Odds, H2H och LD/NP – allt sidospel</div>
 
@@ -1506,7 +1506,7 @@ export default function Home() {
               const banker = activePlayers.find(p => p.key === bet.banker_key)
               const totalPool = wagers.reduce((s, w) => s + parseFloat(w.amount), 0)
               return (
-                <div key={bet.id} style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div key={bet.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--card-border)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--cream)' }}>{bet.question}</div>
@@ -1520,7 +1520,7 @@ export default function Home() {
                         await supabase.from('inv_odds_bets').update({ locked: !bet.locked }).eq('id', bet.id)
                         fetchOdds()
                         showToast(bet.locked ? '🔓 Bet öppnad' : '🔒 Bet låst', 'birdie')
-                      }} style={{ background: bet.locked ? 'rgba(232,99,74,0.15)' : 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', color: bet.locked ? 'var(--coral)' : 'var(--cream-dim)', fontSize: 11, padding: '3px 8px', borderRadius: 6, cursor: 'pointer' }}>
+                      }} style={{ background: bet.locked ? 'rgba(232,99,74,0.15)' : 'var(--surface2)', border: '1px solid var(--card-border)', color: bet.locked ? 'var(--coral)' : 'var(--cream-dim)', fontSize: 11, padding: '3px 8px', borderRadius: 6, cursor: 'pointer' }}>
                         {bet.locked ? '🔒 Låst' : '🔓 Lås'}
                       </button>
                       <button onClick={async () => {
@@ -1563,7 +1563,7 @@ export default function Home() {
                                   if (amt > 0) { placeWager(bet.id, opt.id, amt); setWagerInputs(w => ({...w, [`${bet.id}-${opt.id}`]: ''})) }
                                 }
                               }}
-                              style={{ width: 60, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, color: 'var(--cream)', padding: '4px 6px', fontSize: 12, textAlign: 'right', fontFamily: 'var(--mono)' }} />
+                              style={{ width: 60, background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 4, color: 'var(--cream)', padding: '4px 6px', fontSize: 12, textAlign: 'right', fontFamily: 'var(--mono)' }} />
                           )}
                           {optWagers.length > 0 && <span style={{ fontSize: 9, color: 'var(--cream-muted)' }}>{optWagers.length}🎯</span>}
                         </div>
@@ -1579,7 +1579,7 @@ export default function Home() {
                   {/* Admin/banker: avgör */}
                   {(isAdmin || bet.banker_key === user.key) && (
                     <select onChange={e => { if (e.target.value) settleOddsBet(bet, e.target.value) }}
-                      style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 11, marginTop: 4 }}>
+                      style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 11, marginTop: 4 }}>
                       <option value="">Avgör vinnare...</option>
                       {opts.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
                     </select>
@@ -1589,12 +1589,12 @@ export default function Home() {
             })}
 
             {/* Skapa ny odds-bet */}
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12, marginTop: 10 }}>
+            <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: 12, marginTop: 10 }}>
               <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', letterSpacing: 1.5, marginBottom: 6 }}>SNABB-BETS (auto-odds från HCP)</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
                 {STANDARD_BETS.map((b, i) => (
                   <button key={i} onClick={() => createStandardBet(b)}
-                    style={{ fontSize: 10, padding: '5px 9px', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--cream-dim)', borderRadius: 6, cursor: 'pointer' }}>
+                    style={{ fontSize: 10, padding: '5px 9px', background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream-dim)', borderRadius: 6, cursor: 'pointer' }}>
                     + {b.q}
                   </button>
                 ))}
@@ -1605,7 +1605,7 @@ export default function Home() {
                 <div style={{ marginTop: 8 }}>
                   <input placeholder="Fråga? (t.ex. Vem chipar in först?)" value={oddsForm.question}
                     onChange={e => setOddsForm(f => ({...f, question: e.target.value}))}
-                    style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '8px', fontSize: 12, marginBottom: 8 }} />
+                    style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '8px', fontSize: 12, marginBottom: 8 }} />
 
                   <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>ALTERNATIV (välj spelare → auto-odds)</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
@@ -1618,7 +1618,7 @@ export default function Home() {
                           } else {
                             setOddsForm(f => ({...f, options: [...f.options, { label: p.nickname, odds: calcAutoOdds(p), player_key: p.key }]}))
                           }
-                        }} style={{ fontSize: 11, padding: '5px 9px', background: included ? 'rgba(201,168,76,0.15)' : 'var(--surface2)', border: included ? '1px solid var(--gold-dim)' : '1px solid rgba(255,255,255,0.1)', color: included ? 'var(--gold)' : 'var(--cream-dim)', borderRadius: 6, cursor: 'pointer' }}>
+                        }} style={{ fontSize: 11, padding: '5px 9px', background: included ? 'rgba(201,168,76,0.15)' : 'var(--surface2)', border: included ? '1px solid var(--gold-dim)' : '1px solid var(--card-border)', color: included ? 'var(--gold)' : 'var(--cream-dim)', borderRadius: 6, cursor: 'pointer' }}>
                           {p.nickname} ({calcAutoOdds(p).toFixed(1)}x)
                         </button>
                       )
@@ -1637,7 +1637,7 @@ export default function Home() {
                               newOpts[i].odds = parseFloat(e.target.value) || 1
                               setOddsForm(f => ({...f, options: newOpts}))
                             }}
-                            style={{ width: 60, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, color: 'var(--gold)', padding: '3px 6px', fontSize: 12, textAlign: 'right', fontFamily: 'var(--mono)' }} />
+                            style={{ width: 60, background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 4, color: 'var(--gold)', padding: '3px 6px', fontSize: 12, textAlign: 'right', fontFamily: 'var(--mono)' }} />
                           <span style={{ fontSize: 10, color: 'var(--cream-muted)' }}>x</span>
                         </div>
                       ))}
@@ -1646,7 +1646,7 @@ export default function Home() {
 
                   <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>🏦 BANK (betalar ut vinster)</div>
                   <select value={oddsForm.banker} onChange={e => setOddsForm(f => ({...f, banker: e.target.value}))}
-                    style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px', fontSize: 12, marginBottom: 10 }}>
+                    style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '6px', fontSize: 12, marginBottom: 10 }}>
                     <option value="">Jag är bank ({user?.nickname})</option>
                     {activePlayers.filter(p => p.key !== user?.key).map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
                   </select>
@@ -1696,7 +1696,7 @@ export default function Home() {
                     const p2 = activePlayers.find(p => p.key === m.player2_key)
                     const w = m.winner_key ? activePlayers.find(p => p.key === m.winner_key) : null
                     return (
-                      <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0', borderBottom: '1px solid var(--card-border)' }}>
                         <Av p={p1} size={20} /><span style={{ fontSize: 11, color: m.winner_key === m.player1_key ? 'var(--green)' : 'var(--cream-dim)' }}>{p1?.nickname}</span>
                         <span style={{ fontSize: 10, color: 'var(--cream-muted)' }}>vs</span>
                         <Av p={p2} size={20} /><span style={{ fontSize: 11, color: m.winner_key === m.player2_key ? 'var(--green)' : 'var(--cream-dim)' }}>{p2?.nickname}</span>
@@ -1723,7 +1723,7 @@ export default function Home() {
                               type: 'h2h',
                               prefKey: 'notif_bets'
                             })
-                          }} style={{ width: 70, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '3px', fontSize: 10 }}>
+                          }} style={{ width: 70, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '3px', fontSize: 10 }}>
                             <option value="">Vinnare?</option>
                             <option value={m.player1_key}>{p1?.nickname}</option>
                             <option value={m.player2_key}>{p2?.nickname}</option>
@@ -1740,11 +1740,11 @@ export default function Home() {
                     )
                   })}
                   <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-                      <select id={`h2h-p1-${rn}`} style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px', fontSize: 10 }}>
+                      <select id={`h2h-p1-${rn}`} style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px', fontSize: 10 }}>
                         <option value="">Spelare 1</option>
                         {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
                       </select>
-                      <select id={`h2h-p2-${rn}`} style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px', fontSize: 10 }}>
+                      <select id={`h2h-p2-${rn}`} style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px', fontSize: 10 }}>
                         <option value="">Spelare 2</option>
                         {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
                       </select>
@@ -1771,7 +1771,7 @@ export default function Home() {
               const ldExpense = expenses.find(e => e.bet_type === 'ld' && e.description?.includes(`R${rn}`))
               const npExpense = expenses.find(e => e.bet_type === 'np' && e.description?.includes(`R${rn}`))
               return (
-                <div key={rn} style={{ padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div key={rn} style={{ padding: '6px 0', borderBottom: '1px solid var(--card-border)' }}>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1 }}>R{rn}</div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                     <div style={{ flex: 1 }}>
@@ -1789,7 +1789,7 @@ export default function Home() {
                               })
                             }
                             fetchExpenses(); showToast(`${winner.nickname} vinner LD R${rn}!`, 'birdie')
-                          }} style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, color: 'var(--cream)', padding: '2px', fontSize: 10 }}>
+                          }} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 4, color: 'var(--cream)', padding: '2px', fontSize: 10 }}>
                             <option value="">Vinnare?</option>
                             {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
                           </select>
@@ -1809,7 +1809,7 @@ export default function Home() {
                               })
                             }
                             fetchExpenses(); showToast(`${winner.nickname} vinner NP R${rn}!`, 'birdie')
-                          }} style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, color: 'var(--cream)', padding: '2px', fontSize: 10 }}>
+                          }} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 4, color: 'var(--cream)', padding: '2px', fontSize: 10 }}>
                             <option value="">Vinnare?</option>
                             {activePlayers.map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
                           </select>
@@ -1828,9 +1828,9 @@ export default function Home() {
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>LÄGG TILL UTGIFT</div>
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
               <input placeholder="Vad?" value={expenseForm.description} onChange={e => setExpenseForm(f => ({...f, description: e.target.value}))}
-                style={{ flex: 2, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
+                style={{ flex: 2, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
               <input placeholder="SEK" type="number" value={expenseForm.amount} onChange={e => setExpenseForm(f => ({...f, amount: e.target.value}))}
-                style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14, fontFamily: 'var(--mono)' }} />
+                style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14, fontFamily: 'var(--mono)' }} />
             </div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
               {['mat','dryck','golf','spa','transport','bet','övrigt'].map(t => (
@@ -1843,7 +1843,7 @@ export default function Home() {
             {/* Target player (optional – person-to-person) */}
             <div style={{ marginBottom: 8 }}>
               <select value={expenseTarget} onChange={e => setExpenseTarget(e.target.value)}
-                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '8px', fontSize: 12 }}>
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '8px', fontSize: 12 }}>
                 <option value="">Delas av alla</option>
                 {activePlayers.filter(p => p.key !== user?.key).map(p => (
                   <option key={p.key} value={p.key}>{p.nickname} ska betala (1-till-1)</option>
@@ -1940,7 +1940,7 @@ export default function Home() {
                 {playerKeys.map(k => {
                   const p = activePlayers.find(x => x.key === k); const bal = balances[k]
                   return (
-                    <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--card-border)' }}>
                       <Av p={p} size={22} />
                       <div style={{ flex: 1, fontSize: 12 }}>{p?.nickname}</div>
                       <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)', minWidth: 55, textAlign: 'right' }}>{Math.round(totals[k]?.paid || 0)} kr</div>
@@ -1960,7 +1960,7 @@ export default function Home() {
                     const isMyDebt = s.from === user?.key
                     const canSwish = isMyDebt && toPlayer?.phone
                     return (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', flexWrap: 'wrap' }}>
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--card-border)', flexWrap: 'wrap' }}>
                         <Av p={fromPlayer} size={22} />
                         <span style={{ fontSize: 13, color: 'var(--coral)' }}>{getName(s.from)}</span>
                         <span style={{ color: 'var(--cream-muted)' }}>→</span>
@@ -1992,7 +1992,7 @@ export default function Home() {
               const target = e.target_player ? activePlayers.find(x => x.key === e.target_player) : null
               const tagEmoji = { mat: '🍔', dryck: '🍺', golf: '⛳', spa: '🧖', transport: '🚗', bet: '🎰', övrigt: '📦' }
               return (
-                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0', borderBottom: '1px solid var(--card-border)' }}>
                   <Av p={p} size={18} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 11, color: 'var(--cream)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tagEmoji[e.tag] || '📦'} {e.description}</div>
@@ -2027,14 +2027,14 @@ export default function Home() {
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>📱 TELEFON (för Swish)</div>
               <input type="tel" value={profileForm.phone} placeholder="070xxxxxxx"
                 onChange={e => setProfileForm(f => ({...f, phone: e.target.value}))}
-                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
             </div>
 
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>✉️ EMAIL</div>
               <input type="email" value={profileForm.email} placeholder="din@email.se"
                 onChange={e => setProfileForm(f => ({...f, email: e.target.value}))}
-                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
             </div>
           </div>
 
@@ -2046,21 +2046,21 @@ export default function Home() {
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>NICKNAME</div>
               <input value={profileForm.nickname}
                 onChange={e => setProfileForm(f => ({...f, nickname: e.target.value}))}
-                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
             </div>
 
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>🎵 WALK-UP ANTHEM</div>
               <input value={profileForm.song} placeholder="Din låt"
                 onChange={e => setProfileForm(f => ({...f, song: e.target.value}))}
-                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
             </div>
 
             <div>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>📸 PROFILBILD (URL)</div>
               <input value={profileForm.image_url} placeholder="https://..."
                 onChange={e => setProfileForm(f => ({...f, image_url: e.target.value}))}
-                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 12, fontFamily: 'var(--mono)' }} />
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 12, fontFamily: 'var(--mono)' }} />
             </div>
           </div>
 
@@ -2081,7 +2081,7 @@ export default function Home() {
               { key: 'notif_debts', label: '💰 Nya skulder', desc: 'När någon la ut åt dig' },
               { key: 'notif_leader', label: '👑 Ny ledare', desc: 'Förstaplatsen byter händer' },
             ].map(n => (
-              <label key={n.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
+              <label key={n.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--card-border)', cursor: 'pointer' }}>
                 <div>
                   <div style={{ fontSize: 13, color: 'var(--cream)' }}>{n.label}</div>
                   <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>{n.desc}</div>
@@ -2097,7 +2097,7 @@ export default function Home() {
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>ÖVRIGT</div>
 
-            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--card-border)', cursor: 'pointer' }}>
               <div>
                 <div style={{ fontSize: 13, color: 'var(--cream)' }}>📊 Daglig sammanfattning</div>
                 <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>Mail kl 22 med dagens stats</div>
@@ -2124,7 +2124,7 @@ export default function Home() {
             <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 8 }}>Valfri 4-siffrig PIN (tom = ingen PIN)</div>
             <input type="password" inputMode="numeric" maxLength={4} value={profileForm.pin} placeholder="••••"
               onChange={e => setProfileForm(f => ({...f, pin: e.target.value.replace(/\D/g, '').slice(0, 4)}))}
-              style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 18, letterSpacing: 8, textAlign: 'center', fontFamily: 'var(--mono)' }} />
+              style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 18, letterSpacing: 8, textAlign: 'center', fontFamily: 'var(--mono)' }} />
           </div>
 
           {/* SPARA-KNAPP */}
@@ -2169,7 +2169,7 @@ export default function Home() {
               } else {
                 showToast('Lägg till email först', 'zero')
               }
-            }} style={{ width: '100%', padding: '12px', background: 'var(--surface2)', color: 'var(--cream)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, cursor: 'pointer', marginBottom: 8 }}>
+            }} style={{ width: '100%', padding: '12px', background: 'var(--surface2)', color: 'var(--cream)', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 13, cursor: 'pointer', marginBottom: 8 }}>
               📧 Maila dagens sammanfattning
             </button>
             <button onClick={() => {
@@ -2181,7 +2181,7 @@ export default function Home() {
                 navigator.clipboard.writeText(text)
                 showToast('Kopierat!', 'birdie')
               }
-            }} style={{ width: '100%', padding: '12px', background: 'var(--surface2)', color: 'var(--cream)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, cursor: 'pointer', marginBottom: 8 }}>
+            }} style={{ width: '100%', padding: '12px', background: 'var(--surface2)', color: 'var(--cream)', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 13, cursor: 'pointer', marginBottom: 8 }}>
               🔗 Dela min status
             </button>
             <button onClick={() => { setUser(null); setProfileForm(null); setView('leaderboard') }}
@@ -2199,10 +2199,10 @@ export default function Home() {
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>HANDICAP</div>
             {activePlayers.map(p => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--card-border)' }}>
                 <Av p={p} size={24} />
                 <div style={{ flex: 1, fontSize: 13 }}>{p.nickname}</div>
-                <input type="number" step="0.1" defaultValue={p.hcp} style={{ width: 60, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, textAlign: 'center', fontFamily: 'var(--mono)' }}
+                <input type="number" step="0.1" defaultValue={p.hcp} style={{ width: 60, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, textAlign: 'center', fontFamily: 'var(--mono)' }}
                   onBlur={async (e) => {
                     const v = parseFloat(e.target.value)
                     if (!isNaN(v) && v !== parseFloat(p.hcp)) {
@@ -2220,10 +2220,10 @@ export default function Home() {
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 6 }}>📱 SWISH-NUMMER</div>
             <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 10 }}>Används för "💸 Swisha"-knapparna i settlement</div>
             {activePlayers.map(p => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--card-border)' }}>
                 <Av p={p} size={24} />
                 <div style={{ flex: 1, fontSize: 13 }}>{p.nickname}</div>
-                <input type="tel" defaultValue={p.phone || ''} placeholder="070xxxxxxx" style={{ width: 130, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 12, fontFamily: 'var(--mono)' }}
+                <input type="tel" defaultValue={p.phone || ''} placeholder="070xxxxxxx" style={{ width: 130, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 12, fontFamily: 'var(--mono)' }}
                   onBlur={async (e) => {
                     const phone = e.target.value.replace(/\s/g, '')
                     if (phone !== (p.phone || '')) {
@@ -2241,13 +2241,13 @@ export default function Home() {
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 6 }}>🔒 PIN-HANTERING</div>
             <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 10 }}>Sätt eller återställ PIN för spelare. Reset → 0000 + kräver byte vid nästa login.</div>
             {activePlayers.filter(p => p.key !== 'spectator').map(p => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--card-border)' }}>
                 <Av p={p} size={24} />
                 <div style={{ flex: 1, fontSize: 13 }}>
                   {p.nickname}
                   {p.must_change_pin && <span style={{ fontSize: 9, color: 'var(--coral)', marginLeft: 6 }}>⚠️ ej bytt</span>}
                 </div>
-                <input type="text" inputMode="numeric" maxLength={4} placeholder="••••" style={{ width: 70, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 14, fontFamily: 'var(--mono)', letterSpacing: 4, textAlign: 'center' }}
+                <input type="text" inputMode="numeric" maxLength={4} placeholder="••••" style={{ width: 70, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 14, fontFamily: 'var(--mono)', letterSpacing: 4, textAlign: 'center' }}
                   onKeyDown={async (e) => {
                     if (e.key === 'Enter') {
                       const pin = e.target.value.replace(/\D/g, '').slice(0, 4)
@@ -2265,7 +2265,7 @@ export default function Home() {
                     fetchAll()
                     showToast(`${p.nickname} PIN återställd`, 'birdie')
                   }
-                }} style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--cream-muted)', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>
+                }} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream-muted)', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>
                   🔄 Reset
                 </button>
               </div>
@@ -2289,7 +2289,7 @@ export default function Home() {
                 { t: '📸 Grupp-foto', b: 'Alla till first tee för gruppfoto' },
               ].map((q, i) => (
                 <button key={i} onClick={() => setBroadcastForm(f => ({ ...f, title: q.t, body: q.b }))}
-                  style={{ fontSize: 10, padding: '6px 10px', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--cream-dim)', borderRadius: 6, cursor: 'pointer' }}>
+                  style={{ fontSize: 10, padding: '6px 10px', background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream-dim)', borderRadius: 6, cursor: 'pointer' }}>
                   {q.t}
                 </button>
               ))}
@@ -2298,7 +2298,7 @@ export default function Home() {
             {/* Mottagare */}
             <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>MOTTAGARE</div>
             <select value={broadcastForm.target} onChange={e => setBroadcastForm(f => ({...f, target: e.target.value}))}
-              style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 13, marginBottom: 10 }}>
+              style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 13, marginBottom: 10 }}>
               <option value="all">📣 Alla spelare</option>
               <option value="others">📣 Alla utom mig</option>
               {activePlayers.filter(p => p.key !== 'spectator').map(p => (
@@ -2310,13 +2310,13 @@ export default function Home() {
             <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>TITEL</div>
             <input value={broadcastForm.title} onChange={e => setBroadcastForm(f => ({...f, title: e.target.value}))}
               placeholder="t.ex. ⛳ Dags för tee-off!" maxLength={60}
-              style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 13, marginBottom: 10 }} />
+              style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 13, marginBottom: 10 }} />
 
             {/* Body */}
             <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>MEDDELANDE</div>
             <textarea value={broadcastForm.body} onChange={e => setBroadcastForm(f => ({...f, body: e.target.value}))}
               placeholder="Skriv ditt meddelande..." maxLength={200} rows={3}
-              style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 13, marginBottom: 4, resize: 'vertical', fontFamily: 'inherit' }} />
+              style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 13, marginBottom: 4, resize: 'vertical', fontFamily: 'inherit' }} />
             <div style={{ fontSize: 9, color: 'var(--cream-muted)', textAlign: 'right', marginBottom: 12 }}>{broadcastForm.body.length}/200</div>
 
             {/* Förhandsgranskning */}
@@ -2365,10 +2365,10 @@ export default function Home() {
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>LAGINDELNING</div>
             {activePlayers.map(p => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--card-border)' }}>
                 <Av p={p} size={24} />
                 <div style={{ flex: 1, fontSize: 13 }}>{p.nickname}</div>
-                <select defaultValue={p.team} style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 12 }}
+                <select defaultValue={p.team} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 12 }}
                   onChange={async (e) => {
                     await supabase.from('inv_players').update({ team: e.target.value }).eq('id', p.id)
                     fetchAll()
@@ -2385,9 +2385,9 @@ export default function Home() {
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>RUNDOR & BANVAL</div>
             {[1,2,3,4].map(rn => (
-              <div key={rn} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div key={rn} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--card-border)' }}>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--cream)', minWidth: 30 }}>R{rn}</div>
-                <select defaultValue={rounds.find(x => x.round_number === rn)?.course || RC[rn]} style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}
+                <select defaultValue={rounds.find(x => x.round_number === rn)?.course || RC[rn]} style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}
                   onChange={async (e) => {
                     const r = rounds.find(x => x.round_number === rn)
                     if (r) {
@@ -2413,7 +2413,7 @@ export default function Home() {
                 <div style={{ display: 'flex', gap: 8 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>SLOPE</div>
-                    <input type="number" defaultValue={c.slope} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
+                    <input type="number" defaultValue={c.slope} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
                       onBlur={async (e) => {
                         const v = parseInt(e.target.value)
                         if (!isNaN(v) && v !== c.slope) {
@@ -2424,7 +2424,7 @@ export default function Home() {
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>CR</div>
-                    <input type="number" step="0.1" defaultValue={c.cr} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
+                    <input type="number" step="0.1" defaultValue={c.cr} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
                       onBlur={async (e) => {
                         const v = parseFloat(e.target.value)
                         if (!isNaN(v)) {
@@ -2444,12 +2444,12 @@ export default function Home() {
             {[1,2,3,4].map(rn => {
               const s = sp || specialHoles[rn] || {}
               return (
-                <div key={rn} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div key={rn} style={{ padding: '8px 0', borderBottom: '1px solid var(--card-border)' }}>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream)', marginBottom: 6 }}>R{rn} – {RC[rn]}</div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>🏌️ LD HÅL</div>
-                      <input type="number" min="1" max="18" defaultValue={specialHoles[rn]?.ld} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
+                      <input type="number" min="1" max="18" defaultValue={specialHoles[rn]?.ld} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
                         onBlur={async (e) => {
                           const v = parseInt(e.target.value)
                           if (v >= 1 && v <= 18) {
@@ -2463,7 +2463,7 @@ export default function Home() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>🎯 NP HÅL</div>
-                      <input type="number" min="1" max="18" defaultValue={specialHoles[rn]?.np} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
+                      <input type="number" min="1" max="18" defaultValue={specialHoles[rn]?.np} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
                         onBlur={async (e) => {
                           const v = parseInt(e.target.value)
                           if (v >= 1 && v <= 18) {
@@ -2477,7 +2477,7 @@ export default function Home() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>⚡ 2× FRÅN</div>
-                      <input type="number" min="1" max="18" defaultValue={specialHoles[rn]?.doubleStart || 16} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
+                      <input type="number" min="1" max="18" defaultValue={specialHoles[rn]?.doubleStart || 16} style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px 6px', fontSize: 14, fontFamily: 'var(--mono)' }}
                         onBlur={async (e) => {
                           const v = parseInt(e.target.value)
                           if (v >= 1 && v <= 18) {
@@ -2499,13 +2499,13 @@ export default function Home() {
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>RADERA SCORE</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <select id="del-player" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}>
+              <select id="del-player" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}>
                 {activePlayers.map(p => <option key={p.id} value={p.id}>{p.nickname}</option>)}
               </select>
-              <select id="del-round" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}>
+              <select id="del-round" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}>
                 {[1,2,3,4].map(r => <option key={r} value={r}>R{r}</option>)}
               </select>
-              <input id="del-hole" type="number" min="1" max="18" placeholder="Hål" style={{ width: 50, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px', fontSize: 12, fontFamily: 'var(--mono)' }} />
+              <input id="del-hole" type="number" min="1" max="18" placeholder="Hål" style={{ width: 50, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '6px', fontSize: 12, fontFamily: 'var(--mono)' }} />
             </div>
             <button onClick={async () => {
               const pid = document.getElementById('del-player').value
@@ -2529,7 +2529,7 @@ export default function Home() {
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--coral)', letterSpacing: 2, marginBottom: 10 }}>DANGER ZONE</div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <select id="reset-round" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}>
+              <select id="reset-round" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '6px 8px', fontSize: 12 }}>
                 {[1,2,3,4].map(r => <option key={r} value={r}>R{r} – {RC[r]}</option>)}
               </select>
               <button onClick={async () => {
@@ -2555,7 +2555,7 @@ export default function Home() {
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 500, display: 'flex', justifyContent: 'flex-end', animation: 'fadeIn 0.2s ease' }}>
           <div style={{ width: '300px', maxWidth: '85vw', background: 'var(--surface)', height: '100%', overflowY: 'auto', paddingTop: 'var(--safe-top)', animation: 'slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1)', borderLeft: '1px solid var(--card-border)' }}>
             {/* Header */}
-            <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--card-border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <Av p={user} size={44} />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -2590,7 +2590,7 @@ export default function Home() {
             </div>
 
             {/* Footer */}
-            <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.04)', marginTop: 10 }}>
+            <div style={{ padding: '16px 20px', borderTop: '1px solid var(--card-border)', marginTop: 10 }}>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', textAlign: 'center', letterSpacing: 2 }}>DIO · 2026 · HOOKS HERRGÅRD</div>
               <div style={{ fontSize: 9, color: 'var(--cream-muted)', textAlign: 'center', marginTop: 4 }}>⛳ Le Douche de Golf</div>
             </div>
