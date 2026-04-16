@@ -16,8 +16,6 @@ function SwishModal({ open, onClose, toPlayer, fromPlayer, amount }) {
   useEffect(() => {
     if (!open || !toPlayer?.phone) return
     const phone = toPlayer.phone.replace(/\D/g, '').replace(/^0/, '46')
-    // Swish QR payload format (officiellt spec för privat swish)
-    // C för mottagare-nummer, #-separerat: C{phone};{amount};{message};{lock}
     const msg = `DIO 2026 - ${fromPlayer?.nickname} till ${toPlayer?.nickname}`.replace(/[^a-zA-Z0-9 åäöÅÄÖ:.,?!()]/g, '')
     const qrPayload = `C${phone};${amount};${msg};0`
     QRCode.toDataURL(qrPayload, { width: 280, margin: 2, color: { dark: '#0A0F0A', light: '#F5F0E8' } })
@@ -27,9 +25,17 @@ function SwishModal({ open, onClose, toPlayer, fromPlayer, amount }) {
   if (!open || !toPlayer) return null
 
   const phone = toPlayer.phone?.replace(/\D/g, '') || ''
+  const message = `DIO 2026 - ${fromPlayer?.nickname} till ${toPlayer?.nickname}`
+
+  const openSwishDirect = () => {
+    const phoneSwedish = phone.replace(/^46/, '0')
+    const url = `swish://payment?data=${encodeURIComponent(JSON.stringify({ version: 1, payee: { value: phoneSwedish, editable: false }, amount: { value: amount, editable: false }, message: { value: message, editable: true } }))}`
+    window.location.href = url
+  }
+
   const copyAll = async () => {
-    const text = `Swish: ${phone}\nBelopp: ${amount} kr\nMedd: DIO 2026 - ${fromPlayer?.nickname} till ${toPlayer?.nickname}`
-    try { await navigator.clipboard.writeText(text); alert('✅ Kopierat! Klistra in i Swish') } catch {}
+    const text = `Swish: ${phone}\nBelopp: ${amount} kr\nMedd: ${message}`
+    try { await navigator.clipboard.writeText(text); alert('✅ Kopierat! Öppna Swish och klistra in') } catch {}
   }
   const copyPhone = async () => {
     try { await navigator.clipboard.writeText(phone); alert('✅ ' + phone + ' kopierat') } catch {}
@@ -44,7 +50,7 @@ function SwishModal({ open, onClose, toPlayer, fromPlayer, amount }) {
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 22, cursor: 'pointer', padding: 4 }}>✕</button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
           <Av p={fromPlayer} size={32} />
           <span style={{ color: 'var(--coral)', fontSize: 14 }}>{fromPlayer?.nickname}</span>
           <span style={{ color: 'var(--cream-muted)', fontSize: 16 }}>→</span>
@@ -54,33 +60,43 @@ function SwishModal({ open, onClose, toPlayer, fromPlayer, amount }) {
 
         <div style={{ fontFamily: 'var(--mono)', fontSize: 32, color: 'var(--gold)', marginBottom: 14 }}>{amount} kr</div>
 
+        {/* Primär: Öppna Swish direkt */}
+        <button onClick={openSwishDirect} style={{ width: '100%', padding: '14px', background: '#EF6C00', color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: 'pointer', marginBottom: 10 }}>
+          🚀 Öppna Swish direkt
+        </button>
+
+        <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 14, lineHeight: 1.4 }}>
+          Om knappen inte öppnar Swish → använd QR-koden eller kopiera manuellt nedan
+        </div>
+
         {qrDataUrl && (
-          <div style={{ background: '#F5F0E8', padding: 12, borderRadius: 12, marginBottom: 12, display: 'inline-block' }}>
-            <img src={qrDataUrl} alt="Swish QR" style={{ width: 240, height: 240, display: 'block' }} />
-          </div>
+          <details style={{ marginBottom: 10, textAlign: 'left' }}>
+            <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--cream-dim)', padding: '8px 0', textAlign: 'center' }}>📲 Visa QR-kod</summary>
+            <div style={{ background: '#F5F0E8', padding: 12, borderRadius: 12, marginTop: 8, textAlign: 'center' }}>
+              <img src={qrDataUrl} alt="Swish QR" style={{ width: 240, height: 240, display: 'inline-block' }} />
+              <div style={{ fontSize: 10, color: '#0A0F0A', marginTop: 6 }}>Öppna Swish → kamera-ikonen → skanna</div>
+            </div>
+          </details>
         )}
 
-        <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 14, lineHeight: 1.5 }}>
-          Öppna Swish → Skanna QR-kod (kamera-ikonen) → bekräfta med BankID
-        </div>
-
-        <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 12, marginBottom: 12, textAlign: 'left' }}>
-          <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', letterSpacing: 1.5, marginBottom: 6 }}>MANUELLT</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-            <span style={{ color: 'var(--cream-muted)' }}>Nummer:</span>
-            <span style={{ fontFamily: 'var(--mono)', color: 'var(--cream)' }}>{phone}</span>
+        <details style={{ textAlign: 'left' }}>
+          <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--cream-dim)', padding: '8px 0', textAlign: 'center' }}>📋 Kopiera manuellt</summary>
+          <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 12, marginTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+              <span style={{ color: 'var(--cream-muted)' }}>Nummer:</span>
+              <span style={{ fontFamily: 'var(--mono)', color: 'var(--cream)' }}>{phone}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+              <span style={{ color: 'var(--cream-muted)' }}>Belopp:</span>
+              <span style={{ fontFamily: 'var(--mono)', color: 'var(--cream)' }}>{amount} kr</span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--cream-dim)', marginTop: 6, marginBottom: 10 }}>{message}</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={copyPhone} style={{ flex: 1, padding: '10px', background: 'var(--surface)', color: 'var(--cream)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>📋 Nummer</button>
+              <button onClick={copyAll} style={{ flex: 1, padding: '10px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📋 Allt</button>
+            </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-            <span style={{ color: 'var(--cream-muted)' }}>Belopp:</span>
-            <span style={{ fontFamily: 'var(--mono)', color: 'var(--cream)' }}>{amount} kr</span>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--cream-dim)', marginTop: 6 }}>DIO 2026 – {fromPlayer?.nickname} → {toPlayer?.nickname}</div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={copyPhone} style={{ flex: 1, padding: '11px', background: 'var(--surface2)', color: 'var(--cream)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>📋 Nummer</button>
-          <button onClick={copyAll} style={{ flex: 1, padding: '11px', background: '#EF6C00', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📋 Allt</button>
-        </div>
+        </details>
       </div>
     </div>
   )
@@ -1703,20 +1719,6 @@ export default function Home() {
                     const fromPlayer = activePlayers.find(p => p.key === s.from)
                     const isMyDebt = s.from === user?.key
                     const canSwish = isMyDebt && toPlayer?.phone
-                    const handleSwish = () => {
-                      const phone = toPlayer.phone.replace(/\D/g, '').replace(/^46/, '0')
-                      const msg = `DIO 2026 - ${fromPlayer?.nickname} till ${toPlayer?.nickname}`
-                      const swishUrl = `swish://payment?data=${encodeURIComponent(JSON.stringify({ version: 1, payee: { value: phone, editable: false }, amount: { value: s.amount, editable: false }, message: { value: msg, editable: true } }))}`
-                      // Detect PWA mode (standalone)
-                      const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone
-                      if (isPWA) {
-                        // In PWA: show QR modal
-                        setSwishModal({ toPlayer, fromPlayer, amount: s.amount })
-                      } else {
-                        // In browser: try direct swish:// URL
-                        window.location.href = swishUrl
-                      }
-                    }
                     return (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', flexWrap: 'wrap' }}>
                         <Av p={fromPlayer} size={22} />
@@ -1725,7 +1727,7 @@ export default function Home() {
                         <Av p={toPlayer} size={22} />
                         <span style={{ fontSize: 13, color: 'var(--green)' }}>{getName(s.to)}</span>
                         <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600 }}>{s.amount} kr</span>
-                        {canSwish && <button onClick={handleSwish} style={{ background: '#EF6C00', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 12px', borderRadius: 6, border: 'none', cursor: 'pointer' }}>💸 Swisha</button>}
+                        {canSwish && <button onClick={() => setSwishModal({ toPlayer, fromPlayer, amount: s.amount })} style={{ background: '#EF6C00', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 12px', borderRadius: 6, border: 'none', cursor: 'pointer' }}>💸 Swisha</button>}
                         {isMyDebt && !toPlayer?.phone && <span style={{ fontSize: 10, color: 'var(--cream-muted)', fontStyle: 'italic' }}>Inget tel</span>}
                       </div>
                     )
