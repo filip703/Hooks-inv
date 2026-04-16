@@ -1703,6 +1703,20 @@ export default function Home() {
                     const fromPlayer = activePlayers.find(p => p.key === s.from)
                     const isMyDebt = s.from === user?.key
                     const canSwish = isMyDebt && toPlayer?.phone
+                    const handleSwish = () => {
+                      const phone = toPlayer.phone.replace(/\D/g, '').replace(/^46/, '0')
+                      const msg = `DIO 2026 - ${fromPlayer?.nickname} till ${toPlayer?.nickname}`
+                      const swishUrl = `swish://payment?data=${encodeURIComponent(JSON.stringify({ version: 1, payee: { value: phone, editable: false }, amount: { value: s.amount, editable: false }, message: { value: msg, editable: true } }))}`
+                      // Detect PWA mode (standalone)
+                      const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone
+                      if (isPWA) {
+                        // In PWA: show QR modal
+                        setSwishModal({ toPlayer, fromPlayer, amount: s.amount })
+                      } else {
+                        // In browser: try direct swish:// URL
+                        window.location.href = swishUrl
+                      }
+                    }
                     return (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', flexWrap: 'wrap' }}>
                         <Av p={fromPlayer} size={22} />
@@ -1711,7 +1725,7 @@ export default function Home() {
                         <Av p={toPlayer} size={22} />
                         <span style={{ fontSize: 13, color: 'var(--green)' }}>{getName(s.to)}</span>
                         <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600 }}>{s.amount} kr</span>
-                        {canSwish && <button onClick={() => setSwishModal({ toPlayer, fromPlayer, amount: s.amount })} style={{ background: '#EF6C00', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 12px', borderRadius: 6, border: 'none', cursor: 'pointer' }}>💸 Swisha</button>}
+                        {canSwish && <button onClick={handleSwish} style={{ background: '#EF6C00', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 12px', borderRadius: 6, border: 'none', cursor: 'pointer' }}>💸 Swisha</button>}
                         {isMyDebt && !toPlayer?.phone && <span style={{ fontSize: 10, color: 'var(--cream-muted)', fontStyle: 'italic' }}>Inget tel</span>}
                       </div>
                     )
