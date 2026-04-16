@@ -10,7 +10,7 @@ const RC_DEFAULT = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Skogsbanan', 4: 'Parkb
 const RL = { 1: 'R1 Fre', 2: 'R2 Lör FM', 3: 'R3 Lör EM', 4: 'R4 Sön' }
 const DAYS = { 1: 'Fredag', 2: 'Lördag', 3: 'Lördag', 4: 'Söndag' }
 
-function SwishModal({ open, onClose, toPlayer, fromPlayer, amount }) {
+function SwishModal({ open, onClose, toPlayer, fromPlayer, amount, onMarkPaid }) {
   const [qrDataUrl, setQrDataUrl] = useState('')
 
   useEffect(() => {
@@ -63,6 +63,11 @@ function SwishModal({ open, onClose, toPlayer, fromPlayer, amount }) {
         {/* Primär: Öppna Swish direkt */}
         <button onClick={openSwishDirect} style={{ width: '100%', padding: '14px', background: '#EF6C00', color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: 'pointer', marginBottom: 10 }}>
           🚀 Öppna Swish direkt
+        </button>
+
+        {/* Markera som betald */}
+        <button onClick={() => { onMarkPaid && onMarkPaid(); onClose() }} style={{ width: '100%', padding: '12px', background: 'rgba(107,191,127,0.15)', color: 'var(--green)', border: '1px solid var(--green)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 10 }}>
+          ✅ Markera som betald
         </button>
 
         <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 14, lineHeight: 1.4 }}>
@@ -176,6 +181,7 @@ export default function Home() {
   const [showInstall, setShowInstall] = useState(false)
   const [splash, setSplash] = useState(true)
   const [expenses, setExpenses] = useState([])
+  const [payments, setPayments] = useState([])
   const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', tag: 'mat' })
   const [h2hPlayers, setH2hPlayers] = useState([])
   const [h2hMatches, setH2hMatches] = useState([])
@@ -239,6 +245,11 @@ export default function Home() {
     const { data } = await supabase.from('inv_expenses').select('*').order('created_at', { ascending: false })
     if (data) setExpenses(data)
   }, [])
+  const fetchPayments = useCallback(async () => {
+    if (!supabase) return
+    const { data } = await supabase.from('inv_payments').select('*').order('created_at', { ascending: false })
+    if (data) setPayments(data)
+  }, [])
   const fetchH2h = useCallback(async () => {
     if (!supabase) return
     const { data } = await supabase.from('inv_h2h_matches').select('*').order('round_number')
@@ -249,7 +260,7 @@ export default function Home() {
     const { data } = await supabase.from('inv_prop_bets').select('*').order('created_at', { ascending: false })
     if (data) setPropBets(data)
   }, [])
-  useEffect(() => { fetchAll(); fetchChat(); fetchExpenses(); fetchH2h(); fetchProps() }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps])
+  useEffect(() => { fetchAll(); fetchChat(); fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments() }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments])
   useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth' }) }, [chat])
 
   // Realtime
@@ -269,10 +280,11 @@ export default function Home() {
     }).subscribe()
     const c2 = supabase.channel('c1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_chat' }, (p) => { setTimeout(() => fetchChat(), 300); if (p.new?.player_id !== user?.id) soundChat() }).subscribe()
     const c3 = supabase.channel('e1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_expenses' }, () => fetchExpenses()).subscribe()
+    const c6 = supabase.channel('pay1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_payments' }, () => fetchPayments()).subscribe()
     const c4 = supabase.channel('h2h1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_h2h_matches' }, () => fetchH2h()).subscribe()
     const c5 = supabase.channel('prop1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_prop_bets' }, () => fetchProps()).subscribe()
-    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4); supabase.removeChannel(c5) }
-  }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, players])
+    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4); supabase.removeChannel(c5); supabase.removeChannel(c6) }
+  }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, players])
 
   const addNotif = (msg, type) => {
     const n = { id: Date.now(), msg, type, time: new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }) }
@@ -1677,6 +1689,12 @@ export default function Home() {
                 split.forEach(k => { if (totals[k]) totals[k].owes += share })
               }
             })
+            // Apply payments (Swish-betalningar): from_key pays to_key → reducerar skuld
+            payments.forEach(p => {
+              const amt = parseFloat(p.amount)
+              if (totals[p.from_key]) totals[p.from_key].paid += amt
+              if (totals[p.to_key]) totals[p.to_key].owes += amt
+            })
             const balances = {}
             playerKeys.forEach(k => { balances[k] = Math.round((totals[k].paid - totals[k].owes) * 100) / 100 })
             const debtors = playerKeys.filter(k => balances[k] < -0.01).map(k => ({ key: k, amount: -balances[k] })).sort((a,b) => b.amount - a.amount)
@@ -1728,6 +1746,12 @@ export default function Home() {
                         <span style={{ fontSize: 13, color: 'var(--green)' }}>{getName(s.to)}</span>
                         <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600 }}>{s.amount} kr</span>
                         {canSwish && <button onClick={() => setSwishModal({ toPlayer, fromPlayer, amount: s.amount })} style={{ background: '#EF6C00', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 12px', borderRadius: 6, border: 'none', cursor: 'pointer' }}>💸 Swisha</button>}
+                        {isMyDebt && <button onClick={async () => {
+                          if (!confirm(`Markera ${s.amount} kr till ${toPlayer?.nickname} som betald?`)) return
+                          await supabase.from('inv_payments').insert({ from_key: s.from, to_key: s.to, amount: s.amount, method: 'swish', created_by: user.key })
+                          fetchPayments()
+                          showToast(`✅ Betalning registrerad`, 'birdie')
+                        }} style={{ background: 'rgba(107,191,127,0.15)', color: 'var(--green)', fontSize: 11, fontWeight: 600, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--green)', cursor: 'pointer' }}>✅ Betald</button>}
                         {isMyDebt && !toPlayer?.phone && <span style={{ fontSize: 10, color: 'var(--cream-muted)', fontStyle: 'italic' }}>Inget tel</span>}
                       </div>
                     )
@@ -2353,7 +2377,16 @@ export default function Home() {
 
       {/* ===== SWISH MODAL ===== */}
       <SwishModal open={!!swishModal} onClose={() => setSwishModal(null)}
-        toPlayer={swishModal?.toPlayer} fromPlayer={swishModal?.fromPlayer} amount={swishModal?.amount} />
+        toPlayer={swishModal?.toPlayer} fromPlayer={swishModal?.fromPlayer} amount={swishModal?.amount}
+        onMarkPaid={async () => {
+          if (!swishModal) return
+          await supabase.from('inv_payments').insert({
+            from_key: swishModal.fromPlayer.key, to_key: swishModal.toPlayer.key,
+            amount: swishModal.amount, method: 'swish', created_by: user.key
+          })
+          fetchPayments()
+          showToast('✅ Betalning registrerad', 'birdie')
+        }} />
 
       {/* ===== BOTTOM NAV (2 main + hamburger) ===== */}
       <nav className="bottom-nav">
