@@ -1425,7 +1425,8 @@ export default function Home() {
                   {settlements.map((s, i) => {
                     const toPlayer = activePlayers.find(p => p.key === s.to)
                     const fromPlayer = activePlayers.find(p => p.key === s.from)
-                    const canSwish = toPlayer?.phone
+                    const isMyDebt = s.from === user?.key
+                    const canSwish = isMyDebt && toPlayer?.phone
                     const swishUrl = canSwish ? `swish://payment?data=${encodeURIComponent(JSON.stringify({ version: 1, payee: toPlayer.phone.replace(/\D/g, ''), amount: String(s.amount), message: `DIO 2026 – ${fromPlayer?.nickname} → ${toPlayer?.nickname}` }))}` : null
                     return (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', flexWrap: 'wrap' }}>
@@ -1435,11 +1436,8 @@ export default function Home() {
                         <Av p={toPlayer} size={22} />
                         <span style={{ fontSize: 13, color: 'var(--green)' }}>{getName(s.to)}</span>
                         <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600 }}>{s.amount} kr</span>
-                        {canSwish ? (
-                          <a href={swishUrl} style={{ background: '#EF6C00', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 12px', borderRadius: 6, textDecoration: 'none' }}>💸 Swisha</a>
-                        ) : (
-                          <span style={{ fontSize: 10, color: 'var(--cream-muted)', fontStyle: 'italic' }}>Inget tel</span>
-                        )}
+                        {canSwish && <a href={swishUrl} style={{ background: '#EF6C00', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 12px', borderRadius: 6, textDecoration: 'none' }}>💸 Swisha</a>}
+                        {isMyDebt && !toPlayer?.phone && <span style={{ fontSize: 10, color: 'var(--cream-muted)', fontStyle: 'italic' }}>Inget tel</span>}
                       </div>
                     )
                   })}
