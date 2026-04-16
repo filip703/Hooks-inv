@@ -177,6 +177,15 @@ export default function Home() {
   const [notifications, setNotifications] = useState([])
   const [showNotifs, setShowNotifs] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
+  const [darkMode, setDarkMode] = useState(true)
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' && localStorage?.getItem('dio_theme')
+    if (saved === 'light') setDarkMode(false)
+  }, [])
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light')
+    localStorage?.setItem('dio_theme', darkMode ? 'dark' : 'light')
+  }, [darkMode])
   const [unread, setUnread] = useState(0)
   const [showInstall, setShowInstall] = useState(false)
   const [splash, setSplash] = useState(true)
@@ -2579,6 +2588,9 @@ export default function Home() {
 
             {/* Footer */}
             <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.04)', marginTop: 10 }}>
+              <button onClick={() => setDarkMode(d => !d)} style={{ width: '100%', padding: '12px', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 10, color: 'var(--cream-muted)', fontSize: 13, cursor: 'pointer', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                {darkMode ? '☀️' : '🌙'} {darkMode ? 'Ljust läge' : 'Mörkt läge'}
+              </button>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', textAlign: 'center', letterSpacing: 2 }}>DIO · 2026 · HOOKS HERRGÅRD</div>
               <div style={{ fontSize: 9, color: 'var(--cream-muted)', textAlign: 'center', marginTop: 4 }}>⛳ Le Douche de Golf</div>
             </div>
