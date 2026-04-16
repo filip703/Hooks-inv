@@ -1414,16 +1414,23 @@ export default function Home() {
               {settlements.length > 0 && (
                 <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>GÖR UPP 🤝</div>
-                  {settlements.map((s, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <Av p={activePlayers.find(p => p.key === s.from)} size={22} />
-                      <span style={{ fontSize: 13, color: 'var(--coral)' }}>{getName(s.from)}</span>
-                      <span style={{ color: 'var(--cream-muted)' }}>→</span>
-                      <Av p={activePlayers.find(p => p.key === s.to)} size={22} />
-                      <span style={{ fontSize: 13, color: 'var(--green)' }}>{getName(s.to)}</span>
-                      <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600 }}>{s.amount} kr</span>
-                    </div>
-                  ))}
+                  {settlements.map((s, i) => {
+                    const toPlayer = activePlayers.find(p => p.key === s.to)
+                    const fromPlayer = activePlayers.find(p => p.key === s.from)
+                    const canSwish = s.from === user?.key && toPlayer?.phone
+                    const swishUrl = canSwish ? `swish://payment?data=${encodeURIComponent(JSON.stringify({ version: 1, payee: toPlayer.phone.replace(/\D/g, ''), amount: String(s.amount), message: `DIO 2026 – ${fromPlayer?.nickname} → ${toPlayer?.nickname}` }))}` : null
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <Av p={fromPlayer} size={22} />
+                        <span style={{ fontSize: 13, color: 'var(--coral)' }}>{getName(s.from)}</span>
+                        <span style={{ color: 'var(--cream-muted)' }}>→</span>
+                        <Av p={toPlayer} size={22} />
+                        <span style={{ fontSize: 13, color: 'var(--green)' }}>{getName(s.to)}</span>
+                        <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600 }}>{s.amount} kr</span>
+                        {canSwish && <a href={swishUrl} style={{ background: '#EF6C00', color: '#fff', fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 6, textDecoration: 'none', marginLeft: 6 }}>💸 Swisha</a>}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </>)
@@ -1452,6 +1459,162 @@ export default function Home() {
           </div>
         </>)}
 
+        {/* ===== MIN PROFIL ===== */}
+        {view === 'profile' && user && (<>
+          <div className="section-title">👤 Min profil</div>
+          <div className="section-sub">Redigera dina uppgifter</div>
+
+          {/* Avatar + nickname */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 16, marginBottom: 14, textAlign: 'center' }}>
+            <Av p={user} size={80} />
+            <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--gold)', marginTop: 8 }}>{user.nickname}</div>
+            <div style={{ fontSize: 12, color: 'var(--cream-muted)' }}>{user.name}</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)', marginTop: 4 }}>HCP {user.hcp} · {user.team === 'green' ? '🟢 Smaragderna' : '🔵 Stålklubban'}</div>
+          </div>
+
+          {/* Kontaktuppgifter */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>KONTAKT</div>
+
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>📱 TELEFON (för Swish)</div>
+              <input type="tel" defaultValue={user.phone || ''} placeholder="070xxxxxxx"
+                onBlur={async (e) => {
+                  await supabase.from('inv_players').update({ phone: e.target.value }).eq('id', user.id)
+                  fetchAll()
+                  showToast('Telefon sparad', 'birdie')
+                }}
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
+            </div>
+
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>✉️ EMAIL</div>
+              <input type="email" defaultValue={user.email || ''} placeholder="din@email.se"
+                onBlur={async (e) => {
+                  await supabase.from('inv_players').update({ email: e.target.value }).eq('id', user.id)
+                  fetchAll()
+                  showToast('Email sparad', 'birdie')
+                }}
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
+            </div>
+          </div>
+
+          {/* Profilinställningar */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>PROFIL</div>
+
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>NICKNAME</div>
+              <input defaultValue={user.nickname || ''}
+                onBlur={async (e) => {
+                  await supabase.from('inv_players').update({ nickname: e.target.value }).eq('id', user.id)
+                  fetchAll()
+                  showToast('Nickname uppdaterat', 'birdie')
+                }}
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
+            </div>
+
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>🎵 WALK-UP ANTHEM</div>
+              <input defaultValue={user.song || ''} placeholder="Din låt"
+                onBlur={async (e) => {
+                  await supabase.from('inv_players').update({ song: e.target.value }).eq('id', user.id)
+                  fetchAll()
+                  showToast('Låt sparad', 'birdie')
+                }}
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
+            </div>
+
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>📸 PROFILBILD (URL)</div>
+              <input defaultValue={user.image_url || ''} placeholder="https://..."
+                onBlur={async (e) => {
+                  await supabase.from('inv_players').update({ image_url: e.target.value }).eq('id', user.id)
+                  fetchAll()
+                  showToast('Bild sparad', 'birdie')
+                }}
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 12, fontFamily: 'var(--mono)' }} />
+            </div>
+          </div>
+
+          {/* Notifieringar */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>NOTISER</div>
+
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
+              <div>
+                <div style={{ fontSize: 13, color: 'var(--cream)' }}>📊 Daglig sammanfattning</div>
+                <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>Mail kl 22 med dagens stats</div>
+              </div>
+              <input type="checkbox" defaultChecked={user.daily_summary !== false}
+                onChange={async (e) => {
+                  await supabase.from('inv_players').update({ daily_summary: e.target.checked }).eq('id', user.id)
+                  fetchAll()
+                }}
+                style={{ width: 20, height: 20, accentColor: 'var(--gold)' }} />
+            </label>
+
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', cursor: 'pointer' }}>
+              <div>
+                <div style={{ fontSize: 13, color: 'var(--cream)' }}>🔔 Live-notiser</div>
+                <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>Ljud & badge vid birdies/eagles</div>
+              </div>
+              <input type="checkbox" defaultChecked={user.notifications !== false}
+                onChange={async (e) => {
+                  await supabase.from('inv_players').update({ notifications: e.target.checked }).eq('id', user.id)
+                  fetchAll()
+                }}
+                style={{ width: 20, height: 20, accentColor: 'var(--gold)' }} />
+            </label>
+          </div>
+
+          {/* Säkerhet */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>🔒 PIN-KOD</div>
+            <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 8 }}>Valfri 4-siffrig PIN för att skydda din profil (tom = ingen PIN)</div>
+            <input type="password" inputMode="numeric" maxLength={4} defaultValue={user.pin || ''} placeholder="••••"
+              onBlur={async (e) => {
+                const pin = e.target.value.replace(/\D/g, '').slice(0, 4)
+                await supabase.from('inv_players').update({ pin: pin || null }).eq('id', user.id)
+                fetchAll()
+                showToast(pin ? 'PIN satt' : 'PIN borttagen', 'birdie')
+              }}
+              style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 18, letterSpacing: 8, textAlign: 'center', fontFamily: 'var(--mono)' }} />
+          </div>
+
+          {/* Snabbåtgärder */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>SNABBÅTGÄRDER</div>
+            <button onClick={() => {
+              if (user.email) {
+                const subject = `DIO 2026 – Dagens sammanfattning`
+                const body = `Hej ${user.nickname}!\n\nHär är dagens snabbinfo från DIO-appen:\n\n📊 Ledare: ${lb[0]?.nickname || '–'} (${lb[0] ? pTotal(lb[0].id) : 0}p)\n🎯 Din plats: ${lb.findIndex(p => p.id === user.id) + 1} av ${lb.length}\n💰 Din poäng: ${pTotal(user.id)}p\n\n⛳ Fortsätt köra!\nDIO-appen`
+                window.location.href = `mailto:${user.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+              } else {
+                showToast('Lägg till email först', 'zero')
+              }
+            }} style={{ width: '100%', padding: '12px', background: 'var(--surface2)', color: 'var(--cream)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, cursor: 'pointer', marginBottom: 8 }}>
+              📧 Maila dagens sammanfattning
+            </button>
+            <button onClick={() => {
+              const shareUrl = window.location.origin
+              const text = `Häng med i DIO 2026! Jag ligger #${lb.findIndex(p => p.id === user.id) + 1} med ${pTotal(user.id)}p. ${shareUrl}`
+              if (navigator.share) {
+                navigator.share({ title: 'DIO 2026', text, url: shareUrl })
+              } else {
+                navigator.clipboard.writeText(text)
+                showToast('Kopierat!', 'birdie')
+              }
+            }} style={{ width: '100%', padding: '12px', background: 'var(--surface2)', color: 'var(--cream)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 13, cursor: 'pointer', marginBottom: 8 }}>
+              🔗 Dela min status
+            </button>
+            <button onClick={() => { setUser(null); setView('leaderboard') }}
+              style={{ width: '100%', padding: '12px', background: 'transparent', color: 'var(--coral)', border: '1px solid var(--coral)', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+              🚪 Logga ut
+            </button>
+          </div>
+        </>)}
+
         {/* ===== SETTINGS (ADMIN ONLY) ===== */}
         {view === 'settings' && isAdmin && (<>
           <div className="section-title">⚙️ Admin Settings</div>
@@ -1470,6 +1633,27 @@ export default function Home() {
                       await supabase.from('inv_players').update({ hcp: v }).eq('id', p.id)
                       fetchAll()
                       showToast(`${p.nickname} HCP → ${v}`, 'birdie')
+                    }
+                  }} />
+              </div>
+            ))}
+          </div>
+
+          {/* 📱 Swish-nummer */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 6 }}>📱 SWISH-NUMMER</div>
+            <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 10 }}>Används för "💸 Swisha"-knapparna i settlement</div>
+            {activePlayers.map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <Av p={p} size={24} />
+                <div style={{ flex: 1, fontSize: 13 }}>{p.nickname}</div>
+                <input type="tel" defaultValue={p.phone || ''} placeholder="070xxxxxxx" style={{ width: 130, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 12, fontFamily: 'var(--mono)' }}
+                  onBlur={async (e) => {
+                    const phone = e.target.value.replace(/\s/g, '')
+                    if (phone !== (p.phone || '')) {
+                      await supabase.from('inv_players').update({ phone: phone || null }).eq('id', p.id)
+                      fetchAll()
+                      showToast(`${p.nickname} telefon sparad`, 'birdie')
                     }
                   }} />
               </div>
@@ -1674,6 +1858,7 @@ export default function Home() {
           { key: 'expenses', icon: '💰', label: 'SPLIT' },
           { key: 'gallery', icon: '📸', label: 'FOTO' },
           { key: 'info', icon: '📋', label: 'INFO' },
+          { key: 'profile', icon: '👤', label: 'MIN' },
           ...(isAdmin ? [{ key: 'settings', icon: '⚙️', label: 'ADMIN' }] : []),
         ].map(t => (
           <button key={t.key} className={`bottom-nav-btn ${view === t.key ? 'active' : ''}`} onClick={() => setView(t.key)}>
