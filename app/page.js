@@ -51,16 +51,16 @@ export default function Home() {
   const [pendingUser, setPendingUser] = useState(null)
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState('')
-  const [pinMode, setPinMode] = useState('verify') // 'verify' | 'change'
+  const [pinMode, setPinMode] = useState('verify')
   const [newPin, setNewPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
   useEffect(() => {
-    if (user && !profileForm) setProfileForm({
+    if (user && view === 'profile') setProfileForm({
       phone: user.phone || '', email: user.email || '', nickname: user.nickname || '',
       song: user.song || '', image_url: user.image_url || '', pin: user.pin || '',
       daily_summary: user.daily_summary !== false, notifications: user.notifications !== false
     })
-  }, [user, profileForm])
+  }, [user?.id, view])
   const [pep] = useState(pepTalks[Math.floor(Math.random() * pepTalks.length)])
   const chatEnd = useRef(null)
   const toastT = useRef(null)
@@ -1646,7 +1646,7 @@ export default function Home() {
 
           {/* SPARA-KNAPP */}
           <button onClick={async () => {
-            await supabase.from('inv_players').update({
+            const updates = {
               phone: profileForm.phone || null,
               email: profileForm.email || null,
               nickname: profileForm.nickname,
@@ -1655,7 +1655,14 @@ export default function Home() {
               pin: profileForm.pin || null,
               daily_summary: profileForm.daily_summary,
               notifications: profileForm.notifications
-            }).eq('id', user.id)
+            }
+            const { error } = await supabase.from('inv_players').update(updates).eq('id', user.id)
+            if (error) {
+              showToast('❌ Spara misslyckades', 'zero')
+              console.error('Save error:', error)
+              return
+            }
+            setUser(u => ({ ...u, ...updates }))
             await fetchAll()
             showToast('✅ Profil sparad!', 'birdie')
             soundScore && soundScore()
