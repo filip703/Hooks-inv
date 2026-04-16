@@ -47,6 +47,12 @@ export default function Home() {
   const [propBets, setPropBets] = useState([])
   const [propForm, setPropForm] = useState({ question: '', odds: 'Even', stake: 50, options: '', banker: '' })
   const [profileForm, setProfileForm] = useState(null)
+  const [pendingUser, setPendingUser] = useState(null)
+  const [pinInput, setPinInput] = useState('')
+  const [pinError, setPinError] = useState('')
+  const [pinMode, setPinMode] = useState('verify') // 'verify' | 'change'
+  const [newPin, setNewPin] = useState('')
+  const [confirmPin, setConfirmPin] = useState('')
   useEffect(() => {
     if (user && !profileForm) setProfileForm({
       phone: user.phone || '', email: user.email || '', nickname: user.nickname || '',
@@ -251,6 +257,73 @@ export default function Home() {
   // ===== LOGIN =====
   if (!user) return (
     <div className="login-screen">
+      {/* PIN MODAL */}
+      {pendingUser && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={(e) => { if (e.target === e.currentTarget) { setPendingUser(null) } }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, maxWidth: 340, width: '100%', textAlign: 'center' }}>
+            <Av p={pendingUser} size={72} />
+            <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--gold)', marginTop: 10 }}>{pendingUser.nickname}</div>
+            <div style={{ fontSize: 12, color: 'var(--cream-muted)', marginBottom: 20 }}>{pendingUser.name}</div>
+
+            {pinMode === 'verify' ? (<>
+              <div style={{ fontSize: 13, color: 'var(--cream-dim)', marginBottom: 12 }}>Ange din PIN-kod</div>
+              <input type="password" inputMode="numeric" autoFocus maxLength={4} value={pinInput}
+                onChange={e => { setPinInput(e.target.value.replace(/\D/g, '').slice(0,4)); setPinError('') }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && pinInput.length === 4) {
+                    if (pinInput === pendingUser.pin) {
+                      setUser(pendingUser); setView('leaderboard'); setPendingUser(null)
+                    } else { setPinError('Fel PIN – försök igen'); setPinInput('') }
+                  }
+                }}
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'var(--cream)', padding: '14px', fontSize: 28, letterSpacing: 16, textAlign: 'center', fontFamily: 'var(--mono)', marginBottom: 8 }} />
+              {pinError && <div style={{ fontSize: 12, color: 'var(--coral)', marginBottom: 8 }}>{pinError}</div>}
+              <button onClick={() => {
+                if (pinInput === pendingUser.pin) {
+                  setUser(pendingUser); setView('leaderboard'); setPendingUser(null)
+                } else { setPinError('Fel PIN – försök igen'); setPinInput('') }
+              }} disabled={pinInput.length !== 4}
+                style={{ width: '100%', padding: '12px', background: pinInput.length === 4 ? 'var(--gold)' : 'var(--surface2)', color: pinInput.length === 4 ? '#0A0A08' : 'var(--cream-muted)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: pinInput.length === 4 ? 'pointer' : 'not-allowed', marginBottom: 8 }}>
+                🔓 Logga in
+              </button>
+              <button onClick={() => setPendingUser(null)} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 12, cursor: 'pointer' }}>Avbryt</button>
+            </>) : (<>
+              <div style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid var(--gold-dim)', borderRadius: 10, padding: 10, marginBottom: 16 }}>
+                <div style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 600, marginBottom: 4 }}>⚠️ Första inloggning</div>
+                <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.5 }}>Välj din egen 4-siffriga PIN-kod. Använd inte 0000 – den är default.</div>
+              </div>
+
+              <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 4, textAlign: 'left' }}>NY PIN (4 siffror)</div>
+              <input type="password" inputMode="numeric" autoFocus maxLength={4} value={newPin}
+                onChange={e => { setNewPin(e.target.value.replace(/\D/g, '').slice(0,4)); setPinError('') }}
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'var(--cream)', padding: '12px', fontSize: 22, letterSpacing: 12, textAlign: 'center', fontFamily: 'var(--mono)', marginBottom: 10 }} />
+
+              <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 4, textAlign: 'left' }}>BEKRÄFTA PIN</div>
+              <input type="password" inputMode="numeric" maxLength={4} value={confirmPin}
+                onChange={e => { setConfirmPin(e.target.value.replace(/\D/g, '').slice(0,4)); setPinError('') }}
+                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'var(--cream)', padding: '12px', fontSize: 22, letterSpacing: 12, textAlign: 'center', fontFamily: 'var(--mono)', marginBottom: 8 }} />
+
+              {pinError && <div style={{ fontSize: 12, color: 'var(--coral)', marginBottom: 8 }}>{pinError}</div>}
+
+              <button onClick={async () => {
+                if (newPin.length !== 4) { setPinError('PIN måste vara 4 siffror'); return }
+                if (newPin === '0000') { setPinError('Välj något annat än 0000'); return }
+                if (newPin !== confirmPin) { setPinError('PIN-koderna matchar inte'); return }
+                await supabase.from('inv_players').update({ pin: newPin, must_change_pin: false }).eq('id', pendingUser.id)
+                await fetchAll()
+                setUser({ ...pendingUser, pin: newPin, must_change_pin: false }); setView('leaderboard')
+                setPendingUser(null); setPinInput(''); setNewPin(''); setConfirmPin('')
+                showToast('✅ PIN sparad!', 'birdie')
+              }} disabled={newPin.length !== 4 || confirmPin.length !== 4}
+                style={{ width: '100%', padding: '12px', background: (newPin.length === 4 && confirmPin.length === 4) ? 'var(--gold)' : 'var(--surface2)', color: (newPin.length === 4 && confirmPin.length === 4) ? '#0A0A08' : 'var(--cream-muted)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
+                💾 Spara PIN & logga in
+              </button>
+              <button onClick={() => setPendingUser(null)} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 12, cursor: 'pointer' }}>Avbryt</button>
+            </>)}
+          </div>
+        </div>
+      )}
+
       {/* iOS Install Prompt */}
       {showInstall && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--surface)', borderTop: '1px solid var(--gold-dim)', padding: '16px', zIndex: 500, paddingBottom: 'calc(16px + var(--safe-bottom))' }}>
@@ -271,7 +344,16 @@ export default function Home() {
       <p className="login-subtitle">Tryck på ditt ansikte för att börja</p>
       <div className="login-faces">
         {activePlayers.map(p => (
-          <button key={p.id} className="login-face-btn" onClick={() => { initAudio(); setUser(p); setView('leaderboard') }}>
+          <button key={p.id} className="login-face-btn" onClick={() => {
+            initAudio()
+            if (p.key === 'spectator' || !p.pin) {
+              setUser(p); setView('leaderboard')
+            } else {
+              setPendingUser(p)
+              setPinMode(p.must_change_pin ? 'change' : 'verify')
+              setPinInput(''); setNewPin(''); setConfirmPin(''); setPinError('')
+            }
+          }}>
             <Av p={p} size={64} />
             <div className="login-player-name">{p.name.split(' ')[0]}</div>
             <div className="login-player-nick">{p.nickname}</div>
