@@ -36,6 +36,7 @@ export default function Home() {
   const [activeHole, setActiveHole] = useState(null)
   const [notifications, setNotifications] = useState([])
   const [showNotifs, setShowNotifs] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
   const [unread, setUnread] = useState(0)
   const [showInstall, setShowInstall] = useState(false)
   const [splash, setSplash] = useState(true)
@@ -752,7 +753,7 @@ export default function Home() {
                 const accent = isLD ? 'var(--gold)' : isNP ? 'var(--green)' : isDouble ? 'var(--coral)' : null
                 const currentVal = strokes ? parseInt(strokes) : h.par
                 return (
-                  <div className="sc-hole-card" key={h.hole} id={`hole-${h.hole}`} style={{
+                  <div className={`sc-hole-card ${h.hcp <= 3 ? 'hole-hard' : h.hcp >= 16 ? 'hole-easy' : ''}`} key={h.hole} id={`hole-${h.hole}`} style={{
                     borderLeft: accent ? `3px solid ${accent}` : isNext ? '3px solid rgba(201,168,76,0.4)' : '3px solid transparent',
                     background: isNext ? 'var(--surface2)' : isDouble ? 'rgba(232,99,74,0.03)' : 'var(--surface)',
                     gridTemplateColumns: '36px 1fr auto auto',
@@ -1964,23 +1965,67 @@ export default function Home() {
 
       </div>
 
-      {/* ===== BOTTOM NAV ===== */}
+      {/* ===== SIDE MENU (hamburger) ===== */}
+      {showMenu && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowMenu(false) }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 500, display: 'flex', justifyContent: 'flex-end', animation: 'fadeIn 0.2s ease' }}>
+          <div style={{ width: '280px', maxWidth: '85vw', background: 'linear-gradient(180deg, var(--surface) 0%, #0E1A12 100%)', height: '100%', overflowY: 'auto', paddingTop: 'var(--safe-top)', animation: 'slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+            {/* Header */}
+            <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Av p={user} size={44} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--gold)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.nickname}</div>
+                  <div style={{ fontSize: 11, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>#{lb.findIndex(p => p.id === user.id) + 1} · {pTotal(user.id)}p</div>
+                </div>
+                <button onClick={() => setShowMenu(false)} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 22, cursor: 'pointer', padding: 4 }}>✕</button>
+              </div>
+            </div>
+
+            {/* Menu items */}
+            <div style={{ padding: 12 }}>
+              {[
+                { key: 'teams', icon: '⚔️', label: 'Lag-battle', desc: 'Smaragderna vs Stålklubban' },
+                { key: 'feed', icon: '💬', label: 'Chat', desc: 'Trash talk i realtid' },
+                { key: 'expenses', icon: '💰', label: 'Even Steven', desc: 'Utgifter, bets & Swish' },
+                { key: 'gallery', icon: '📸', label: 'Foton', desc: 'Helgen i bilder' },
+                { key: 'info', icon: '📋', label: 'Turneringsinfo', desc: 'Schema, stats, awards' },
+                { key: 'profile', icon: '👤', label: 'Min profil', desc: 'Inställningar & kontakt' },
+                ...(isAdmin ? [{ key: 'settings', icon: '⚙️', label: 'Admin', desc: 'HCP, lag, bana, PIN' }] : []),
+              ].map(t => (
+                <button key={t.key} onClick={() => { setView(t.key); setShowMenu(false) }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '12px 12px', background: view === t.key ? 'rgba(201,168,76,0.1)' : 'transparent', border: view === t.key ? '1px solid var(--gold-dim)' : '1px solid transparent', borderRadius: 10, cursor: 'pointer', textAlign: 'left', marginBottom: 4 }}>
+                  <span style={{ fontSize: 24 }}>{t.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: view === t.key ? 'var(--gold)' : 'var(--cream)' }}>{t.label}</div>
+                    <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 1 }}>{t.desc}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.04)', marginTop: 10 }}>
+              <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', textAlign: 'center', letterSpacing: 2 }}>DIO · 2026 · HOOKS HERRGÅRD</div>
+              <div style={{ fontSize: 9, color: 'var(--cream-muted)', textAlign: 'center', marginTop: 4 }}>⛳ Le Douche de Golf</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== BOTTOM NAV (2 main + hamburger) ===== */}
       <nav className="bottom-nav">
         {[
           { key: 'leaderboard', icon: '🏆', label: 'LEDARE' },
-          { key: 'scorecard', icon: '📝', label: 'SCORE' },
-          { key: 'teams', icon: '⚔️', label: 'LAG' },
-          { key: 'feed', icon: '💬', label: 'CHAT' },
-          { key: 'expenses', icon: '💰', label: 'SPLIT' },
-          { key: 'gallery', icon: '📸', label: 'FOTO' },
-          { key: 'info', icon: '📋', label: 'INFO' },
-          { key: 'profile', icon: '👤', label: 'MIN' },
-          ...(isAdmin ? [{ key: 'settings', icon: '⚙️', label: 'ADMIN' }] : []),
+          { key: 'scorecard', icon: '⛳', label: 'SCORE' },
         ].map(t => (
           <button key={t.key} className={`bottom-nav-btn ${view === t.key ? 'active' : ''}`} onClick={() => setView(t.key)}>
             <span className="nav-icon">{t.icon}</span>{t.label}
           </button>
         ))}
+        <button className="bottom-nav-btn" onClick={() => setShowMenu(true)}>
+          <span className="nav-icon">☰</span>MENY
+        </button>
       </nav>
     </div>
   )
