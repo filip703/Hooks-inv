@@ -3,10 +3,52 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven } from '../lib/courses'
 import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio } from '../lib/sounds'
+import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush, sendPush } from '../lib/push'
 
 const RC_DEFAULT = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Skogsbanan', 4: 'Parkbanan' }
 const RL = { 1: 'R1 Fre', 2: 'R2 Lör FM', 3: 'R3 Lör EM', 4: 'R4 Sön' }
 const DAYS = { 1: 'Fredag', 2: 'Lördag', 3: 'Lördag', 4: 'Söndag' }
+
+function PushSubscribeButton({ playerId }) {
+  const [status, setStatus] = useState('loading')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    getSubscriptionStatus().then(setStatus)
+  }, [])
+
+  const subscribe = async () => {
+    setBusy(true)
+    try {
+      await subscribeToPush(playerId)
+      setStatus('subscribed')
+    } catch (err) {
+      alert('Kunde inte aktivera: ' + err.message)
+    }
+    setBusy(false)
+  }
+
+  const unsub = async () => {
+    setBusy(true)
+    await unsubscribeFromPush(playerId)
+    setStatus('default')
+    setBusy(false)
+  }
+
+  if (status === 'loading') return <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>Kollar status...</div>
+  if (status === 'unsupported') return <div style={{ fontSize: 11, color: 'var(--coral)' }}>❌ Notiser stöds inte i denna browser</div>
+  if (status === 'denied') return <div style={{ fontSize: 11, color: 'var(--coral)' }}>🚫 Notiser blockerade – aktivera i systemsettings</div>
+  if (status === 'subscribed') return (
+    <button onClick={unsub} disabled={busy} style={{ width: '100%', padding: '10px', background: 'rgba(107,191,127,0.15)', color: 'var(--green)', border: '1px solid var(--green)', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: 500 }}>
+      ✅ Notiser aktiverade – klicka för att stänga av
+    </button>
+  )
+  return (
+    <button onClick={subscribe} disabled={busy} style={{ width: '100%', padding: '12px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+      {busy ? '...' : '🔔 Aktivera push-notiser på denna enhet'}
+    </button>
+  )
+}
 
 function Av({ p, size = 36 }) {
   if (!p) return null
@@ -58,13 +100,17 @@ export default function Home() {
     if (user && view === 'profile') setProfileForm({
       phone: user.phone || '', email: user.email || '', nickname: user.nickname || '',
       song: user.song || '', image_url: user.image_url || '', pin: user.pin || '',
-      daily_summary: user.daily_summary !== false, notifications: user.notifications !== false
+      daily_summary: user.daily_summary !== false, notifications: user.notifications !== false,
+      notif_eagles: user.notif_eagles !== false, notif_bets: user.notif_bets !== false,
+      notif_mentions: user.notif_mentions !== false, notif_debts: user.notif_debts !== false,
+      notif_leader: user.notif_leader !== false
     })
   }, [user?.id, view])
   const [pep] = useState(pepTalks[Math.floor(Math.random() * pepTalks.length)])
   const chatEnd = useRef(null)
   const toastT = useRef(null)
   const fileRef = useRef(null)
+  const leaderRef = useRef(null)
 
   useEffect(() => { if (typeof window !== 'undefined') { const s = localStorage.getItem('inv_user'); if (s) try { setUser(JSON.parse(s)) } catch(e) {} } }, [])
   useEffect(() => { if (user && typeof window !== 'undefined') localStorage.setItem('inv_user', JSON.stringify(user)) }, [user])
@@ -213,6 +259,14 @@ export default function Home() {
     if (pts >= 3) {
       const m = getShoutout(scoreFor.name, scoreFor.nickname, pts)
       if (m) { showToast(m.replace('{{hole}}', hole), pts >= 4 ? 'eagle' : 'birdie'); supabase.from('inv_chat').insert({ player_id: scoreFor.id, message: m.replace('{{hole}}', hole), msg_type: 'shoutout' }) }
+      // Push notis till alla utom scoraren
+      sendPush({
+        title: pts >= 4 ? `🦅 EAGLE! ${scoreFor.nickname}` : `🐦 BIRDIE! ${scoreFor.nickname}`,
+        body: `Hål ${hole} · ${pts} poäng · ${c.name}`,
+        type: 'score',
+        excludePlayerId: scoreFor.id,
+        prefKey: 'notif_eagles'
+      })
     } else if (pts === 0) {
       const m = getZeroRoast(scoreFor.nickname).replace('{{hole}}', hole)
       showToast(m, 'zero')
@@ -220,7 +274,25 @@ export default function Home() {
     } else {
       soundScore()
     }
+    // Kolla om ledare bytt
+    checkLeaderChange()
     fetchAll()
+  }
+
+  const checkLeaderChange = () => {
+    const sorted = [...activePlayers].filter(p => p.key !== 'spectator').map(p => ({ p, pts: pTotal(p.id) })).sort((a,b) => b.pts - a.pts)
+    const newLeader = sorted[0]?.p
+    if (!newLeader) return
+    if (leaderRef.current && leaderRef.current !== newLeader.id) {
+      sendPush({
+        title: `👑 Ny ledare: ${newLeader.nickname}!`,
+        body: `${newLeader.nickname} toppar nu leaderboarden med ${sorted[0].pts}p`,
+        type: 'leader',
+        excludePlayerId: newLeader.id,
+        prefKey: 'notif_leader'
+      })
+    }
+    leaderRef.current = newLeader.id
   }
 
   const sendMsg = async () => {
@@ -230,6 +302,21 @@ export default function Home() {
     // Optimistic: add immediately so sender sees it
     setChat(prev => [...prev, { id: 'tmp-' + Date.now(), player_id: user.id, message: msg, msg_type: 'chat', created_at: new Date().toISOString(), inv_players: { name: user.name, nickname: user.nickname, image_url: user.image_url, team: user.team } }])
     await supabase.from('inv_chat').insert({ player_id: user.id, message: msg, msg_type: 'chat' })
+    // @-mentions → push
+    const mentions = msg.match(/@(\w+)/g) || []
+    for (const m of mentions) {
+      const name = m.slice(1).toLowerCase()
+      const target = activePlayers.find(p => p.id !== user.id && (p.nickname?.toLowerCase().includes(name) || p.name?.toLowerCase().includes(name) || p.key?.toLowerCase() === name))
+      if (target) {
+        sendPush({
+          title: `💬 ${user.nickname} nämnde dig`,
+          body: msg.length > 80 ? msg.slice(0, 80) + '…' : msg,
+          type: 'mention',
+          targetPlayerId: target.id,
+          prefKey: 'notif_mentions'
+        })
+      }
+    }
     fetchChat()
   }
   const uploadImg = async file => {
@@ -1207,6 +1294,13 @@ export default function Home() {
                       }
                       fetchProps(); fetchExpenses()
                       showToast(`Prop avgjord: ${e.target.value}!`, 'birdie')
+                      // Push till alla
+                      sendPush({
+                        title: `🎲 Prop avgjord!`,
+                        body: `"${bet.question}" → ${e.target.value} vann`,
+                        type: 'prop',
+                        prefKey: 'notif_bets'
+                      })
                     }} style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '3px 6px', fontSize: 10, marginTop: 4 }}>
                       <option value="">Avgör vinnare...</option>
                       {opts.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
@@ -1301,6 +1395,19 @@ export default function Home() {
                 ins.split_between = activePlayers.map(p => p.key)
               }
               await supabase.from('inv_expenses').insert(ins)
+              // Push till target_player om någon specifik
+              if (expenseTarget) {
+                const targetP = activePlayers.find(p => p.key === expenseTarget)
+                if (targetP && targetP.id !== user.id) {
+                  sendPush({
+                    title: `💰 Ny skuld: ${ins.amount} kr`,
+                    body: `${user.nickname} la ut "${ins.description}" – du är skyldig`,
+                    type: 'expense',
+                    targetPlayerId: targetP.id,
+                    prefKey: 'notif_debts'
+                  })
+                }
+              }
               setExpenseForm({ description: '', amount: '', tag: 'mat' })
               setExpenseTarget('')
               fetchExpenses()
@@ -1346,6 +1453,12 @@ export default function Home() {
                             })
                             fetchH2h(); fetchExpenses()
                             showToast(`${winnerP?.nickname} vinner H2H!`, 'birdie')
+                            sendPush({
+                              title: `⚔️ H2H avgjord!`,
+                              body: `${winnerP?.nickname} besegrade ${loserP?.nickname} (${m.stake} kr) R${rn}`,
+                              type: 'h2h',
+                              prefKey: 'notif_bets'
+                            })
                           }} style={{ width: 70, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '3px', fontSize: 10 }}>
                             <option value="">Vinnare?</option>
                             <option value={m.player1_key}>{p1?.nickname}</option>
@@ -1610,11 +1723,40 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Notifieringar */}
+          {/* Push-notiser */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>NOTISER</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>🔔 PUSH-NOTISER</div>
+            <PushSubscribeButton playerId={user.id} />
+            <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 10, marginBottom: 10, lineHeight: 1.5 }}>
+              På iPhone: lägg till appen på hemskärmen först. Öppna sedan därifrån och aktivera notiser.
+            </div>
 
-            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1.5, marginTop: 14, marginBottom: 6 }}>VAD VILL DU FÅ?</div>
+
+            {[
+              { key: 'notif_eagles', label: '🦅 Eagles & Birdies', desc: 'När någon gör 3+ poäng' },
+              { key: 'notif_bets', label: '🎲 Bet-avgöranden', desc: 'H2H, LD/NP, Prop bets' },
+              { key: 'notif_mentions', label: '💬 @-mentions i chat', desc: 'När någon taggar dig' },
+              { key: 'notif_debts', label: '💰 Nya skulder', desc: 'När någon la ut åt dig' },
+              { key: 'notif_leader', label: '👑 Ny ledare', desc: 'Förstaplatsen byter händer' },
+            ].map(n => (
+              <label key={n.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
+                <div>
+                  <div style={{ fontSize: 13, color: 'var(--cream)' }}>{n.label}</div>
+                  <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>{n.desc}</div>
+                </div>
+                <input type="checkbox" checked={profileForm[n.key] !== false}
+                  onChange={e => setProfileForm(f => ({...f, [n.key]: e.target.checked}))}
+                  style={{ width: 20, height: 20, accentColor: 'var(--gold)' }} />
+              </label>
+            ))}
+          </div>
+
+          {/* Övriga inställningar */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>ÖVRIGT</div>
+
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
               <div>
                 <div style={{ fontSize: 13, color: 'var(--cream)' }}>📊 Daglig sammanfattning</div>
                 <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>Mail kl 22 med dagens stats</div>
@@ -1624,10 +1766,10 @@ export default function Home() {
                 style={{ width: 20, height: 20, accentColor: 'var(--gold)' }} />
             </label>
 
-            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', cursor: 'pointer' }}>
               <div>
-                <div style={{ fontSize: 13, color: 'var(--cream)' }}>🔔 Live-notiser</div>
-                <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>Ljud & badge vid birdies/eagles</div>
+                <div style={{ fontSize: 13, color: 'var(--cream)' }}>🔊 Ljudeffekter i appen</div>
+                <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>Ljud vid birdies/eagles när appen är öppen</div>
               </div>
               <input type="checkbox" checked={profileForm.notifications}
                 onChange={e => setProfileForm(f => ({...f, notifications: e.target.checked}))}
@@ -1654,7 +1796,12 @@ export default function Home() {
               image_url: profileForm.image_url || null,
               pin: profileForm.pin || null,
               daily_summary: profileForm.daily_summary,
-              notifications: profileForm.notifications
+              notifications: profileForm.notifications,
+              notif_eagles: profileForm.notif_eagles,
+              notif_bets: profileForm.notif_bets,
+              notif_mentions: profileForm.notif_mentions,
+              notif_debts: profileForm.notif_debts,
+              notif_leader: profileForm.notif_leader
             }
             const { error } = await supabase.from('inv_players').update(updates).eq('id', user.id)
             if (error) {
