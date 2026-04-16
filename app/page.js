@@ -182,6 +182,11 @@ export default function Home() {
   const [splash, setSplash] = useState(true)
   const [expenses, setExpenses] = useState([])
   const [payments, setPayments] = useState([])
+  const [oddsBets, setOddsBets] = useState([])
+  const [oddsOptions, setOddsOptions] = useState([])
+  const [oddsWagers, setOddsWagers] = useState([])
+  const [oddsForm, setOddsForm] = useState({ question: '', options: [], banker: '', useAutoOdds: true })
+  const [wagerInputs, setWagerInputs] = useState({})
   const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', tag: 'mat' })
   const [h2hPlayers, setH2hPlayers] = useState([])
   const [h2hMatches, setH2hMatches] = useState([])
@@ -250,6 +255,17 @@ export default function Home() {
     const { data } = await supabase.from('inv_payments').select('*').order('created_at', { ascending: false })
     if (data) setPayments(data)
   }, [])
+  const fetchOdds = useCallback(async () => {
+    if (!supabase) return
+    const [b, o, w] = await Promise.all([
+      supabase.from('inv_odds_bets').select('*').order('created_at', { ascending: false }),
+      supabase.from('inv_odds_options').select('*'),
+      supabase.from('inv_odds_wagers').select('*')
+    ])
+    if (b.data) setOddsBets(b.data)
+    if (o.data) setOddsOptions(o.data)
+    if (w.data) setOddsWagers(w.data)
+  }, [])
   const fetchH2h = useCallback(async () => {
     if (!supabase) return
     const { data } = await supabase.from('inv_h2h_matches').select('*').order('round_number')
@@ -260,7 +276,7 @@ export default function Home() {
     const { data } = await supabase.from('inv_prop_bets').select('*').order('created_at', { ascending: false })
     if (data) setPropBets(data)
   }, [])
-  useEffect(() => { fetchAll(); fetchChat(); fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments() }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments])
+  useEffect(() => { fetchAll(); fetchChat(); fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments(); fetchOdds() }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds])
   useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth' }) }, [chat])
 
   // Realtime
@@ -281,10 +297,13 @@ export default function Home() {
     const c2 = supabase.channel('c1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_chat' }, (p) => { setTimeout(() => fetchChat(), 300); if (p.new?.player_id !== user?.id) soundChat() }).subscribe()
     const c3 = supabase.channel('e1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_expenses' }, () => fetchExpenses()).subscribe()
     const c6 = supabase.channel('pay1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_payments' }, () => fetchPayments()).subscribe()
+    const c7 = supabase.channel('odds1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_odds_bets' }, () => fetchOdds()).subscribe()
+    const c8 = supabase.channel('odds2').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_odds_options' }, () => fetchOdds()).subscribe()
+    const c9 = supabase.channel('odds3').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_odds_wagers' }, () => fetchOdds()).subscribe()
     const c4 = supabase.channel('h2h1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_h2h_matches' }, () => fetchH2h()).subscribe()
     const c5 = supabase.channel('prop1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_prop_bets' }, () => fetchProps()).subscribe()
-    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4); supabase.removeChannel(c5); supabase.removeChannel(c6) }
-  }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, players])
+    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4); supabase.removeChannel(c5); supabase.removeChannel(c6); supabase.removeChannel(c7); supabase.removeChannel(c8); supabase.removeChannel(c9) }
+  }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds, players])
 
   const addNotif = (msg, type) => {
     const n = { id: Date.now(), msg, type, time: new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }) }
@@ -401,6 +420,118 @@ export default function Home() {
       })
     }
     leaderRef.current = newLeader.id
+  }
+
+  // === ODDS-BETTING HELPERS ===
+  const calcAutoOdds = (player) => {
+    if (!player) return 2.0
+    const hcp = parseFloat(player.hcp) || 18
+    // Base odds: 1 + hcp/10 → Filip 7.5 = 1.75, Martin 40 = 5.0
+    let odds = 1 + hcp / 10
+    // Form adjustment: senaste 2 rundornas snitt vs HCP-förväntning
+    const total = pTotal(player.id)
+    const completedHoles = scores.filter(s => s.player_id === player.id && s.strokes).length
+    if (completedHoles >= 9) {
+      const avgPts = total / completedHoles
+      // Förväntat snitt ≈ 1.8-2.0 för normal HCP-prestation
+      if (avgPts > 2.2) odds *= 0.8 // I form → lägre odds
+      else if (avgPts < 1.5) odds *= 1.3 // Dålig form → högre odds
+    }
+    return Math.max(1.2, Math.min(8.0, Math.round(odds * 10) / 10))
+  }
+
+  const placeWager = async (betId, optionId, amount) => {
+    if (!user || amount <= 0) return
+    // Check if player already has wager on this bet
+    const existing = oddsWagers.find(w => w.bet_id === betId && w.player_key === user.key)
+    if (existing) {
+      await supabase.from('inv_odds_wagers').update({ option_id: optionId, amount }).eq('id', existing.id)
+    } else {
+      await supabase.from('inv_odds_wagers').insert({ bet_id: betId, option_id: optionId, player_key: user.key, amount })
+    }
+    fetchOdds()
+    showToast(`💰 Bet lagt: ${amount} kr`, 'birdie')
+  }
+
+  const settleOddsBet = async (bet, winnerOptionId) => {
+    const winnerOpt = oddsOptions.find(o => o.id === winnerOptionId)
+    if (!winnerOpt) return
+    const allWagers = oddsWagers.filter(w => w.bet_id === bet.id)
+    // Settle each wager
+    for (const w of allWagers) {
+      const opt = oddsOptions.find(o => o.id === w.option_id)
+      if (!opt) continue
+      if (w.option_id === winnerOptionId) {
+        // Winner: bank pays out (insats × odds - insats = vinst)
+        const payout = Math.round(w.amount * parseFloat(opt.odds))
+        const winnings = payout - w.amount // net vinst från bank
+        if (bet.banker_key && bet.banker_key !== w.player_key) {
+          await supabase.from('inv_expenses').insert({
+            paid_by: bet.banker_key, amount: winnings,
+            description: `🎲 Odds-vinst: "${bet.question}" (${opt.label} @ ${opt.odds})`,
+            tag: 'bet', target_player: w.player_key, split_between: [w.player_key],
+            bet_type: 'odds', created_by: user.key
+          })
+        }
+      } else {
+        // Loser: insats går till bank
+        if (bet.banker_key && bet.banker_key !== w.player_key) {
+          await supabase.from('inv_expenses').insert({
+            paid_by: w.player_key, amount: w.amount,
+            description: `🎲 Odds-förlust: "${bet.question}" (${opt.label})`,
+            tag: 'bet', target_player: bet.banker_key, split_between: [bet.banker_key],
+            bet_type: 'odds', created_by: user.key
+          })
+        }
+      }
+    }
+    await supabase.from('inv_odds_bets').update({ status: 'settled', winner_option_id: winnerOptionId }).eq('id', bet.id)
+    fetchOdds(); fetchExpenses()
+    showToast(`🎲 Bet avgjord: ${winnerOpt.label}!`, 'birdie')
+    sendPush({
+      title: `🎲 Odds-bet avgjord!`,
+      body: `"${bet.question}" → ${winnerOpt.label} vann (${opt.odds}x)`,
+      type: 'odds',
+      prefKey: 'notif_bets'
+    })
+  }
+
+  const STANDARD_BETS = [
+    { q: 'Vem vinner Le Douche de Golf 2026?', useAllPlayers: true },
+    { q: 'Vem gör flest birdies totalt?', useAllPlayers: true },
+    { q: 'Vem är Daily Loser Round 1?', useAllPlayers: true },
+    { q: 'Vem gör första eagle?', extra: ['Ingen eagle'], useAllPlayers: true },
+    { q: 'Vem dricker mest öl?', useAllPlayers: true },
+    { q: 'Vem hittar flest bollar i vattnet?', useAllPlayers: true },
+  ]
+
+  const createOddsBet = async (question, options, banker = null) => {
+    const { data: bet } = await supabase.from('inv_odds_bets').insert({ question, banker_key: banker || null, created_by: user.key }).select().single()
+    if (!bet) return
+    for (const opt of options) {
+      await supabase.from('inv_odds_options').insert({ bet_id: bet.id, label: opt.label, odds: opt.odds, player_key: opt.player_key || null })
+    }
+    fetchOdds()
+    showToast(`🎲 Bet skapad!`, 'birdie')
+    sendPush({
+      title: `🎲 Ny odds-bet!`,
+      body: question,
+      type: 'odds',
+      excludePlayerId: user.id,
+      prefKey: 'notif_bets'
+    })
+  }
+
+  const createStandardBet = async (template) => {
+    const opts = activePlayers.map(p => ({
+      label: p.nickname,
+      odds: calcAutoOdds(p),
+      player_key: p.key
+    }))
+    if (template.extra) {
+      template.extra.forEach(e => opts.push({ label: e, odds: 3.0, player_key: null }))
+    }
+    await createOddsBet(template.q, opts, user.key) // user är bank by default
   }
 
   const sendMsg = async () => {
@@ -1461,8 +1592,171 @@ export default function Home() {
               </div>
           </div>
 
+          {/* 🎰 ODDS BETTING */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>🎰 ODDS BETTING</div>
 
-          {/* Add expense form */}
+            {/* Aktiva bets */}
+            {oddsBets.filter(b => b.status === 'open').map(bet => {
+              const opts = oddsOptions.filter(o => o.bet_id === bet.id)
+              const wagers = oddsWagers.filter(w => w.bet_id === bet.id)
+              const myWager = wagers.find(w => w.player_key === user.key)
+              const banker = activePlayers.find(p => p.key === bet.banker_key)
+              const totalPool = wagers.reduce((s, w) => s + parseFloat(w.amount), 0)
+              return (
+                <div key={bet.id} style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--cream)' }}>{bet.question}</div>
+                      <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 2 }}>
+                        {banker && <span>🏦 Bank: {banker.nickname} · </span>}
+                        Pott: {totalPool} kr · {wagers.length} bets
+                      </div>
+                    </div>
+                    {(isAdmin || bet.created_by === user.key) && <button onClick={async () => {
+                      if (confirm('Radera denna odds-bet?')) {
+                        await supabase.from('inv_odds_bets').delete().eq('id', bet.id)
+                        fetchOdds()
+                      }
+                    }} style={{ background: 'none', border: 'none', color: 'var(--coral)', fontSize: 14, cursor: 'pointer' }}>✕</button>}
+                  </div>
+                  {/* Options med odds */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 6 }}>
+                    {opts.map(opt => {
+                      const optWagers = wagers.filter(w => w.option_id === opt.id)
+                      const isMyChoice = myWager?.option_id === opt.id
+                      const cantBetOnSelf = opt.player_key === user.key
+                      return (
+                        <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', background: isMyChoice ? 'rgba(201,168,76,0.1)' : 'var(--surface2)', borderRadius: 6, border: isMyChoice ? '1px solid var(--gold-dim)' : '1px solid transparent' }}>
+                          <div style={{ flex: 1, fontSize: 12, color: 'var(--cream)' }}>{opt.label}</div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--gold)', fontWeight: 600, minWidth: 38 }}>{parseFloat(opt.odds).toFixed(2)}x</div>
+                          {cantBetOnSelf ? <span style={{ fontSize: 9, color: 'var(--cream-muted)', fontStyle: 'italic', minWidth: 60, textAlign: 'right' }}>du själv</span> : (
+                            <input type="number" placeholder="kr" value={wagerInputs[`${bet.id}-${opt.id}`] || ''}
+                              onChange={e => setWagerInputs(w => ({...w, [`${bet.id}-${opt.id}`]: e.target.value}))}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  const amt = parseFloat(e.target.value)
+                                  if (amt > 0) { placeWager(bet.id, opt.id, amt); setWagerInputs(w => ({...w, [`${bet.id}-${opt.id}`]: ''})) }
+                                }
+                              }}
+                              style={{ width: 60, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, color: 'var(--cream)', padding: '4px 6px', fontSize: 12, textAlign: 'right', fontFamily: 'var(--mono)' }} />
+                          )}
+                          {optWagers.length > 0 && <span style={{ fontSize: 9, color: 'var(--cream-muted)' }}>{optWagers.length}🎯</span>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {myWager && (() => {
+                    const myOpt = opts.find(o => o.id === myWager.option_id)
+                    if (!myOpt) return null
+                    const potential = Math.round(myWager.amount * parseFloat(myOpt.odds))
+                    return <div style={{ fontSize: 10, color: 'var(--green)', marginBottom: 4 }}>💰 Du: {myWager.amount} kr på {myOpt.label} → potentiell vinst {potential} kr</div>
+                  })()}
+                  {/* Admin/banker: avgör */}
+                  {(isAdmin || bet.banker_key === user.key) && (
+                    <select onChange={e => { if (e.target.value) settleOddsBet(bet, e.target.value) }}
+                      style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 11, marginTop: 4 }}>
+                      <option value="">Avgör vinnare...</option>
+                      {opts.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                    </select>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Skapa ny odds-bet */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12, marginTop: 10 }}>
+              <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', letterSpacing: 1.5, marginBottom: 6 }}>SNABB-BETS (auto-odds från HCP)</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
+                {STANDARD_BETS.map((b, i) => (
+                  <button key={i} onClick={() => createStandardBet(b)}
+                    style={{ fontSize: 10, padding: '5px 9px', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--cream-dim)', borderRadius: 6, cursor: 'pointer' }}>
+                    + {b.q}
+                  </button>
+                ))}
+              </div>
+
+              <details>
+                <summary style={{ cursor: 'pointer', fontSize: 11, color: 'var(--cream-muted)', padding: '6px 0' }}>🛠️ Skapa custom odds-bet</summary>
+                <div style={{ marginTop: 8 }}>
+                  <input placeholder="Fråga? (t.ex. Vem chipar in först?)" value={oddsForm.question}
+                    onChange={e => setOddsForm(f => ({...f, question: e.target.value}))}
+                    style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '8px', fontSize: 12, marginBottom: 8 }} />
+
+                  <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>ALTERNATIV (välj spelare → auto-odds)</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                    {activePlayers.map(p => {
+                      const included = oddsForm.options.some(o => o.player_key === p.key)
+                      return (
+                        <button key={p.key} onClick={() => {
+                          if (included) {
+                            setOddsForm(f => ({...f, options: f.options.filter(o => o.player_key !== p.key)}))
+                          } else {
+                            setOddsForm(f => ({...f, options: [...f.options, { label: p.nickname, odds: calcAutoOdds(p), player_key: p.key }]}))
+                          }
+                        }} style={{ fontSize: 11, padding: '5px 9px', background: included ? 'rgba(201,168,76,0.15)' : 'var(--surface2)', border: included ? '1px solid var(--gold-dim)' : '1px solid rgba(255,255,255,0.1)', color: included ? 'var(--gold)' : 'var(--cream-dim)', borderRadius: 6, cursor: 'pointer' }}>
+                          {p.nickname} ({calcAutoOdds(p).toFixed(1)}x)
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {oddsForm.options.length > 0 && (
+                    <div style={{ background: 'var(--surface2)', borderRadius: 6, padding: 8, marginBottom: 8 }}>
+                      <div style={{ fontSize: 9, color: 'var(--cream-muted)', marginBottom: 4 }}>JUSTERA ODDS</div>
+                      {oddsForm.options.map((o, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0' }}>
+                          <span style={{ flex: 1, fontSize: 12, color: 'var(--cream)' }}>{o.label}</span>
+                          <input type="number" step="0.1" value={o.odds}
+                            onChange={e => {
+                              const newOpts = [...oddsForm.options]
+                              newOpts[i].odds = parseFloat(e.target.value) || 1
+                              setOddsForm(f => ({...f, options: newOpts}))
+                            }}
+                            style={{ width: 60, background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, color: 'var(--gold)', padding: '3px 6px', fontSize: 12, textAlign: 'right', fontFamily: 'var(--mono)' }} />
+                          <span style={{ fontSize: 10, color: 'var(--cream-muted)' }}>x</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>🏦 BANK (betalar ut vinster)</div>
+                  <select value={oddsForm.banker} onChange={e => setOddsForm(f => ({...f, banker: e.target.value}))}
+                    style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '6px', fontSize: 12, marginBottom: 10 }}>
+                    <option value="">Jag är bank ({user?.nickname})</option>
+                    {activePlayers.filter(p => p.key !== user?.key).map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
+                  </select>
+
+                  <button onClick={async () => {
+                    if (!oddsForm.question || oddsForm.options.length < 2) {
+                      showToast('Behöver fråga + minst 2 alternativ', 'zero')
+                      return
+                    }
+                    const banker = oddsForm.banker || user.key
+                    await createOddsBet(oddsForm.question, oddsForm.options, banker)
+                    setOddsForm({ question: '', options: [], banker: '', useAutoOdds: true })
+                  }} style={{ width: '100%', padding: '10px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    🎰 Skapa odds-bet
+                  </button>
+                </div>
+              </details>
+            </div>
+
+            {/* Settled bets (collapsed) */}
+            {oddsBets.filter(b => b.status === 'settled').length > 0 && (
+              <details style={{ marginTop: 10 }}>
+                <summary style={{ cursor: 'pointer', fontSize: 11, color: 'var(--cream-muted)' }}>📜 Avgjorda bets ({oddsBets.filter(b => b.status === 'settled').length})</summary>
+                {oddsBets.filter(b => b.status === 'settled').map(bet => {
+                  const winnerOpt = oddsOptions.find(o => o.id === bet.winner_option_id)
+                  return (
+                    <div key={bet.id} style={{ fontSize: 11, color: 'var(--cream-dim)', padding: '4px 0' }}>
+                      ✅ {bet.question} → <strong style={{ color: 'var(--green)' }}>{winnerOpt?.label}</strong> @ {winnerOpt?.odds}x
+                    </div>
+                  )
+                })}
+              </details>
+            )}
+          </div>
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>LÄGG TILL UTGIFT</div>
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
