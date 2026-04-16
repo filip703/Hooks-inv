@@ -90,6 +90,8 @@ export default function Home() {
   const [propBets, setPropBets] = useState([])
   const [propForm, setPropForm] = useState({ question: '', odds: 'Even', stake: 50, options: '', banker: '' })
   const [profileForm, setProfileForm] = useState(null)
+  const [broadcastForm, setBroadcastForm] = useState({ title: '', body: '', target: 'all' })
+  const [broadcastSending, setBroadcastSending] = useState(false)
   const [pendingUser, setPendingUser] = useState(null)
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState('')
@@ -1929,6 +1931,95 @@ export default function Home() {
                 </button>
               </div>
             ))}
+          </div>
+
+          {/* 📢 BROADCAST – Skicka custom push */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 6 }}>📢 SKICKA PUSH-NOTIS</div>
+            <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 12 }}>Skicka ett custom meddelande till alla eller en specifik spelare</div>
+
+            {/* Snabbval */}
+            <div style={{ fontSize: 9, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', letterSpacing: 1.5, marginBottom: 6 }}>SNABBVAL</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+              {[
+                { t: '⏰ Tee-off om 30 min', b: 'Dags att värma upp på rangen!' },
+                { t: '🍺 Möts i baren', b: 'Samling i baren nu – dags för drinkar' },
+                { t: '🧖 Spa kl 20:00', b: 'Dags att slappna av – spa öppnar nu' },
+                { t: '🍽️ Middag serveras', b: 'Kom till matsalen – middagen är serverad' },
+                { t: '🏆 Prisutdelning!', b: 'Samling för Le Douche de Golf-ceremonin' },
+                { t: '📸 Grupp-foto', b: 'Alla till first tee för gruppfoto' },
+              ].map((q, i) => (
+                <button key={i} onClick={() => setBroadcastForm(f => ({ ...f, title: q.t, body: q.b }))}
+                  style={{ fontSize: 10, padding: '6px 10px', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--cream-dim)', borderRadius: 6, cursor: 'pointer' }}>
+                  {q.t}
+                </button>
+              ))}
+            </div>
+
+            {/* Mottagare */}
+            <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>MOTTAGARE</div>
+            <select value={broadcastForm.target} onChange={e => setBroadcastForm(f => ({...f, target: e.target.value}))}
+              style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 13, marginBottom: 10 }}>
+              <option value="all">📣 Alla spelare</option>
+              <option value="others">📣 Alla utom mig</option>
+              {activePlayers.filter(p => p.key !== 'spectator').map(p => (
+                <option key={p.id} value={p.id}>👤 {p.nickname} ({p.name.split(' ')[0]})</option>
+              ))}
+            </select>
+
+            {/* Titel */}
+            <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>TITEL</div>
+            <input value={broadcastForm.title} onChange={e => setBroadcastForm(f => ({...f, title: e.target.value}))}
+              placeholder="t.ex. ⛳ Dags för tee-off!" maxLength={60}
+              style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 13, marginBottom: 10 }} />
+
+            {/* Body */}
+            <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>MEDDELANDE</div>
+            <textarea value={broadcastForm.body} onChange={e => setBroadcastForm(f => ({...f, body: e.target.value}))}
+              placeholder="Skriv ditt meddelande..." maxLength={200} rows={3}
+              style={{ width: '100%', background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 13, marginBottom: 4, resize: 'vertical', fontFamily: 'inherit' }} />
+            <div style={{ fontSize: 9, color: 'var(--cream-muted)', textAlign: 'right', marginBottom: 12 }}>{broadcastForm.body.length}/200</div>
+
+            {/* Förhandsgranskning */}
+            {(broadcastForm.title || broadcastForm.body) && (
+              <div style={{ background: 'linear-gradient(135deg, #0D2818 0%, #1A3A2A 100%)', border: '1px solid var(--green-fairway)', borderRadius: 10, padding: 12, marginBottom: 12 }}>
+                <div style={{ fontSize: 9, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', letterSpacing: 1.5, marginBottom: 6 }}>FÖRHANDSGRANSKNING</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--cream)', marginBottom: 2 }}>{broadcastForm.title || '(titel saknas)'}</div>
+                <div style={{ fontSize: 12, color: 'var(--cream-dim)', lineHeight: 1.4 }}>{broadcastForm.body || '(meddelande saknas)'}</div>
+              </div>
+            )}
+
+            {/* Skicka */}
+            <button onClick={async () => {
+              if (!broadcastForm.title || !broadcastForm.body) {
+                showToast('Fyll i både titel och meddelande', 'zero')
+                return
+              }
+              setBroadcastSending(true)
+              try {
+                const payload = {
+                  title: broadcastForm.title,
+                  body: broadcastForm.body,
+                  type: 'broadcast'
+                }
+                if (broadcastForm.target === 'all') {
+                  // Skicka till alla – ingen exclude
+                } else if (broadcastForm.target === 'others') {
+                  payload.excludePlayerId = user.id
+                } else {
+                  payload.targetPlayerId = broadcastForm.target
+                }
+                await sendPush(payload)
+                showToast(`📢 Push skickad till ${broadcastForm.target === 'all' ? 'alla' : broadcastForm.target === 'others' ? 'alla utom dig' : activePlayers.find(p => p.id === broadcastForm.target)?.nickname}!`, 'birdie')
+                setBroadcastForm({ title: '', body: '', target: 'all' })
+              } catch (err) {
+                showToast('❌ Kunde inte skicka: ' + err.message, 'zero')
+              }
+              setBroadcastSending(false)
+            }} disabled={broadcastSending || !broadcastForm.title || !broadcastForm.body}
+              style={{ width: '100%', padding: '12px', background: (broadcastForm.title && broadcastForm.body && !broadcastSending) ? 'var(--gold)' : 'var(--surface2)', color: (broadcastForm.title && broadcastForm.body && !broadcastSending) ? '#0A0A08' : 'var(--cream-muted)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: broadcastSending ? 'wait' : 'pointer' }}>
+              {broadcastSending ? '⏳ Skickar...' : '🚀 Skicka push-notis'}
+            </button>
           </div>
 
           {/* Lagindelning */}
