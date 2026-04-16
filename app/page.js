@@ -1740,6 +1740,42 @@ export default function Home() {
             ))}
           </div>
 
+          {/* 🔒 PIN-hantering (admin) */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 6 }}>🔒 PIN-HANTERING</div>
+            <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 10 }}>Sätt eller återställ PIN för spelare. Reset → 0000 + kräver byte vid nästa login.</div>
+            {activePlayers.filter(p => p.key !== 'spectator').map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <Av p={p} size={24} />
+                <div style={{ flex: 1, fontSize: 13 }}>
+                  {p.nickname}
+                  {p.must_change_pin && <span style={{ fontSize: 9, color: 'var(--coral)', marginLeft: 6 }}>⚠️ ej bytt</span>}
+                </div>
+                <input type="text" inputMode="numeric" maxLength={4} placeholder="••••" style={{ width: 70, background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 14, fontFamily: 'var(--mono)', letterSpacing: 4, textAlign: 'center' }}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter') {
+                      const pin = e.target.value.replace(/\D/g, '').slice(0, 4)
+                      if (pin.length === 4) {
+                        await supabase.from('inv_players').update({ pin, must_change_pin: pin === '0000' }).eq('id', p.id)
+                        fetchAll()
+                        showToast(`${p.nickname} PIN satt`, 'birdie')
+                        e.target.value = ''
+                      }
+                    }
+                  }} />
+                <button onClick={async () => {
+                  if (confirm(`Återställ ${p.nickname}s PIN till 0000? Måste bytas vid nästa inloggning.`)) {
+                    await supabase.from('inv_players').update({ pin: '0000', must_change_pin: true }).eq('id', p.id)
+                    fetchAll()
+                    showToast(`${p.nickname} PIN återställd`, 'birdie')
+                  }
+                }} style={{ background: 'var(--surface2)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--cream-muted)', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>
+                  🔄 Reset
+                </button>
+              </div>
+            ))}
+          </div>
+
           {/* Lagindelning */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>LAGINDELNING</div>
