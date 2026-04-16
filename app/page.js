@@ -4,10 +4,87 @@ import { supabase } from '../lib/supabase'
 import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven } from '../lib/courses'
 import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio } from '../lib/sounds'
 import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush, sendPush } from '../lib/push'
+import QRCode from 'qrcode'
 
 const RC_DEFAULT = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Skogsbanan', 4: 'Parkbanan' }
 const RL = { 1: 'R1 Fre', 2: 'R2 Lör FM', 3: 'R3 Lör EM', 4: 'R4 Sön' }
 const DAYS = { 1: 'Fredag', 2: 'Lördag', 3: 'Lördag', 4: 'Söndag' }
+
+function SwishModal({ open, onClose, toPlayer, fromPlayer, amount }) {
+  const [qrDataUrl, setQrDataUrl] = useState('')
+
+  useEffect(() => {
+    if (!open || !toPlayer?.phone) return
+    const phone = toPlayer.phone.replace(/\D/g, '').replace(/^0/, '46')
+    // Swish QR payload format (officiellt spec för privat swish)
+    // C för mottagare-nummer, #-separerat: C{phone};{amount};{message};{lock}
+    const msg = `DIO 2026 - ${fromPlayer?.nickname} till ${toPlayer?.nickname}`.replace(/[^a-zA-Z0-9 åäöÅÄÖ:.,?!()]/g, '')
+    const qrPayload = `C${phone};${amount};${msg};0`
+    QRCode.toDataURL(qrPayload, { width: 280, margin: 2, color: { dark: '#0A0F0A', light: '#F5F0E8' } })
+      .then(setQrDataUrl).catch(console.error)
+  }, [open, toPlayer, fromPlayer, amount])
+
+  if (!open || !toPlayer) return null
+
+  const phone = toPlayer.phone?.replace(/\D/g, '') || ''
+  const copyAll = async () => {
+    const text = `Swish: ${phone}\nBelopp: ${amount} kr\nMedd: DIO 2026 - ${fromPlayer?.nickname} till ${toPlayer?.nickname}`
+    try { await navigator.clipboard.writeText(text); alert('✅ Kopierat! Klistra in i Swish') } catch {}
+  }
+  const copyPhone = async () => {
+    try { await navigator.clipboard.writeText(phone); alert('✅ ' + phone + ' kopierat') } catch {}
+  }
+
+  return (
+    <div onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 20, maxWidth: 360, width: '100%', textAlign: 'center', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ fontFamily: 'var(--serif)', fontSize: 20, color: 'var(--gold)' }}>💸 Swisha</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 22, cursor: 'pointer', padding: 4 }}>✕</button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 14 }}>
+          <Av p={fromPlayer} size={32} />
+          <span style={{ color: 'var(--coral)', fontSize: 14 }}>{fromPlayer?.nickname}</span>
+          <span style={{ color: 'var(--cream-muted)', fontSize: 16 }}>→</span>
+          <Av p={toPlayer} size={32} />
+          <span style={{ color: 'var(--green)', fontSize: 14 }}>{toPlayer?.nickname}</span>
+        </div>
+
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 32, color: 'var(--gold)', marginBottom: 14 }}>{amount} kr</div>
+
+        {qrDataUrl && (
+          <div style={{ background: '#F5F0E8', padding: 12, borderRadius: 12, marginBottom: 12, display: 'inline-block' }}>
+            <img src={qrDataUrl} alt="Swish QR" style={{ width: 240, height: 240, display: 'block' }} />
+          </div>
+        )}
+
+        <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 14, lineHeight: 1.5 }}>
+          Öppna Swish → Skanna QR-kod (kamera-ikonen) → bekräfta med BankID
+        </div>
+
+        <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 12, marginBottom: 12, textAlign: 'left' }}>
+          <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', letterSpacing: 1.5, marginBottom: 6 }}>MANUELLT</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+            <span style={{ color: 'var(--cream-muted)' }}>Nummer:</span>
+            <span style={{ fontFamily: 'var(--mono)', color: 'var(--cream)' }}>{phone}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+            <span style={{ color: 'var(--cream-muted)' }}>Belopp:</span>
+            <span style={{ fontFamily: 'var(--mono)', color: 'var(--cream)' }}>{amount} kr</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--cream-dim)', marginTop: 6 }}>DIO 2026 – {fromPlayer?.nickname} → {toPlayer?.nickname}</div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={copyPhone} style={{ flex: 1, padding: '11px', background: 'var(--surface2)', color: 'var(--cream)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>📋 Nummer</button>
+          <button onClick={copyAll} style={{ flex: 1, padding: '11px', background: '#EF6C00', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📋 Allt</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function PushSubscribeButton({ playerId }) {
   const [status, setStatus] = useState('loading')
@@ -92,6 +169,7 @@ export default function Home() {
   const [profileForm, setProfileForm] = useState(null)
   const [broadcastForm, setBroadcastForm] = useState({ title: '', body: '', target: 'all' })
   const [broadcastSending, setBroadcastSending] = useState(false)
+  const [swishModal, setSwishModal] = useState(null)
   const [pendingUser, setPendingUser] = useState(null)
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState('')
@@ -1625,20 +1703,6 @@ export default function Home() {
                     const fromPlayer = activePlayers.find(p => p.key === s.from)
                     const isMyDebt = s.from === user?.key
                     const canSwish = isMyDebt && toPlayer?.phone
-                    const openSwish = () => {
-                      if (!toPlayer?.phone) return
-                      const phone = toPlayer.phone.replace(/\D/g, '').replace(/^0/, '46')
-                      const msg = `DIO 2026 – ${fromPlayer?.nickname} → ${toPlayer?.nickname}`
-                      const swishData = JSON.stringify({ version: 1, payee: { value: phone }, amount: { value: s.amount }, message: { value: msg, editable: false } })
-                      const primaryUrl = `https://app.swish.nu/1/p/sw/?sw=${encodeURIComponent(swishData)}&callbackurl=${encodeURIComponent(window.location.href)}`
-                      // Primary: universal link (funkar i PWA på iOS)
-                      window.location.href = primaryUrl
-                      // Fallback efter 1.5s: visa info + kopiera nummer till urklipp
-                      setTimeout(() => {
-                        try { navigator.clipboard.writeText(toPlayer.phone) } catch {}
-                        showToast(`Om Swish inte öppnades: nummer ${toPlayer.phone} kopierat`, 'birdie')
-                      }, 1500)
-                    }
                     return (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', flexWrap: 'wrap' }}>
                         <Av p={fromPlayer} size={22} />
@@ -1647,7 +1711,7 @@ export default function Home() {
                         <Av p={toPlayer} size={22} />
                         <span style={{ fontSize: 13, color: 'var(--green)' }}>{getName(s.to)}</span>
                         <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600 }}>{s.amount} kr</span>
-                        {canSwish && <button onClick={openSwish} style={{ background: '#EF6C00', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 12px', borderRadius: 6, border: 'none', cursor: 'pointer' }}>💸 Swisha</button>}
+                        {canSwish && <button onClick={() => setSwishModal({ toPlayer, fromPlayer, amount: s.amount })} style={{ background: '#EF6C00', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 12px', borderRadius: 6, border: 'none', cursor: 'pointer' }}>💸 Swisha</button>}
                         {isMyDebt && !toPlayer?.phone && <span style={{ fontSize: 10, color: 'var(--cream-muted)', fontStyle: 'italic' }}>Inget tel</span>}
                       </div>
                     )
@@ -2270,6 +2334,10 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* ===== SWISH MODAL ===== */}
+      <SwishModal open={!!swishModal} onClose={() => setSwishModal(null)}
+        toPlayer={swishModal?.toPlayer} fromPlayer={swishModal?.fromPlayer} amount={swishModal?.amount} />
 
       {/* ===== BOTTOM NAV (2 main + hamburger) ===== */}
       <nav className="bottom-nav">
