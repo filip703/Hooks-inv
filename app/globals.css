@@ -301,15 +301,70 @@ body {
 @keyframes fadeOut { to { opacity: 0; transform: translateY(-20px); } }
 
 /* ===== SPLASH ===== */
-.splash-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; overflow: hidden; padding-top: var(--safe-top); }
-.splash-screen::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(212,175,55,0.06) 0%, transparent 70%); animation: splashGlow 2.8s ease-in-out; }
-.splash-badge { animation: splashBadgeIn 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: scale(0.3); }
-.splash-img { width: 220px; height: auto; }
-.splash-year { font-family: var(--mono); font-size: 15px; letter-spacing: 6px; color: var(--gold); margin-top: 20px; animation: splashTextIn 1s ease-out 1s forwards; opacity: 0; }
-.splash-location { font-family: var(--mono); font-size: 11px; letter-spacing: 3px; color: var(--cream-muted); margin-top: 8px; animation: splashTextIn 1s ease-out 1.3s forwards; opacity: 0; }
-@keyframes splashBadgeIn { 0% { opacity: 0; transform: scale(0.3); } 50% { opacity: 1; transform: scale(1.05); } 70% { transform: scale(0.97); } 100% { opacity: 1; transform: scale(1); } }
-@keyframes splashTextIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes splashGlow { 0% { opacity: 0; } 40% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+/* ===== THE REVEAL – Cinematic Splash ===== */
+.splash-screen {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 9999; overflow: hidden; padding-top: var(--safe-top);
+  gap: 0;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.splash-screen::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, rgba(212,175,55,0.06) 0%, transparent 70%);
+  animation: splashGlow 3.8s ease-in-out;
+}
+/* Exit: slide up + fade */
+.splash-exit { opacity: 0; transform: translateY(-40px); pointer-events: none; }
+
+/* Gold reveal lines */
+.reveal-line {
+  height: 1px; width: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.5) 20%, #D4AF37 50%, rgba(212,175,55,0.5) 80%, transparent 100%);
+  animation: lineWipe 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  margin: 10px 0;
+}
+.reveal-l1 { animation-delay: 0.2s; }
+.reveal-l2 { animation-delay: 1.2s; }
+.reveal-l3 { animation-delay: 2.0s; }
+
+/* Badge (logo) */
+.reveal-badge {
+  opacity: 0; transform: scale(0.6);
+  animation: revealBadge 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards;
+}
+.splash-img { width: 180px; height: auto; filter: drop-shadow(0 4px 20px rgba(212,175,55,0.15)); }
+
+/* Title: Douche Invitational Only */
+.reveal-title {
+  font-family: var(--serif); font-size: 20px; color: var(--gold);
+  letter-spacing: 1px; opacity: 0;
+  animation: revealText 0.8s ease-out 1.5s forwards;
+}
+.reveal-title em { font-style: italic; opacity: 0.7; }
+
+/* Sub: location + year */
+.reveal-sub {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 4px;
+  color: var(--cream-muted); opacity: 0;
+  animation: revealText 0.8s ease-out 2.2s forwards;
+}
+
+/* Tagline: Le Douche de Golf */
+.reveal-tagline {
+  font-family: var(--serif); font-size: 13px; color: var(--gold);
+  font-style: italic; opacity: 0; margin-top: 6px;
+  animation: revealText 0.8s ease-out 2.6s forwards;
+}
+
+@keyframes lineWipe { from { width: 0; } to { width: min(260px, 60vw); } }
+@keyframes revealBadge {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes revealText { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes splashGlow { 0% { opacity: 0; } 30% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ===== MENU SLIDE-IN ===== */
 @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }

@@ -190,6 +190,7 @@ export default function Home() {
   const [unread, setUnread] = useState(0)
   const [showInstall, setShowInstall] = useState(false)
   const [splash, setSplash] = useState(true)
+  const [splashExit, setSplashExit] = useState(false)
   const [expenses, setExpenses] = useState([])
   const [payments, setPayments] = useState([])
   const [oddsBets, setOddsBets] = useState([])
@@ -241,8 +242,9 @@ export default function Home() {
   }, [])
   // Splash screen timer
   useEffect(() => {
-    const t = setTimeout(() => setSplash(false), 2800)
-    return () => clearTimeout(t)
+    const t1 = setTimeout(() => setSplashExit(true), 3200)
+    const t = setTimeout(() => setSplash(false), 3800)
+    return () => { clearTimeout(t1); clearTimeout(t) }
   }, [])
 
   const fetchAll = useCallback(async () => {
@@ -599,13 +601,17 @@ export default function Home() {
   // ===== LOGIN =====
   // ===== SPLASH SCREEN =====
   if (splash) return (
-    <div className="splash-screen">
-      <div className="splash-badge">
-        <img src="/dio-badge.png" alt="DIO" className="splash-img" />
+    <div className={`splash-screen ${splashExit ? 'splash-exit' : ''}`}>
+      {/* The Reveal – cinematic staggered entrance */}
+      <div className="reveal-line reveal-l1" />
+      <div className="reveal-badge">
+        <img src="/dio-badge.png" alt="Douche Invitational Only" className="splash-img" />
       </div>
-      <div className="splash-year">2026</div>
-      <div className="splash-location">HOOKS HERRGÅRD · SMÅLAND</div>
-      <div style={{ fontFamily: 'var(--serif)', fontSize: 14, color: 'var(--gold)', marginTop: 12, fontStyle: 'italic', opacity: 0, animation: 'splashTextIn 1s ease-out 1.6s forwards' }}>Le Douche de Golf</div>
+      <div className="reveal-line reveal-l2" />
+      <div className="reveal-title">Douche Invitational <em>Only</em></div>
+      <div className="reveal-line reveal-l3" />
+      <div className="reveal-sub">HOOKS HERRGÅRD · 2026</div>
+      <div className="reveal-tagline">Le Douche de Golf</div>
     </div>
   )
 
