@@ -638,8 +638,12 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Phase 3: "Let's go" flash (7.5s) */}
-      <div className="intro-letsgolf">LET&apos;S DOUCHE</div>
+      {/* Phase 3: LET'S DOUCHE on clean screen */}
+      <div className="intro-finale">
+        <div className="finale-text">LET&apos;S</div>
+        <div className="finale-douche">DOUCHE</div>
+        <div className="finale-emoji">⛳</div>
+      </div>
     </div>
   )
 

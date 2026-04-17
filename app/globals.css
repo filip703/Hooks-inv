@@ -415,21 +415,54 @@ body {
   100% { opacity: 1; transform: translateX(0) scale(1); }
 }
 
-/* Phase 3: Let's Douche flash */
-.intro-letsgolf {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--serif); font-size: 28px; font-weight: 700;
-  color: var(--gold); letter-spacing: 6px;
-  opacity: 0;
-  animation: letsgo 1.8s cubic-bezier(0.16, 1, 0.3, 1) 7.5s forwards;
+/* Phase 3: LET'S DOUCHE – full screen takeover */
+.intro-phase {
+  animation: phaseIn 0.4s ease-out 3.5s forwards, phaseOut 0.4s ease-in 7.0s forwards;
 }
-@keyframes letsgo {
-  0% { opacity: 0; transform: scale(2.5); }
-  20% { opacity: 1; transform: scale(0.95); }
-  35% { opacity: 1; transform: scale(1.02); }
-  75% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(0.95); }
+
+.intro-finale {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px;
+  background: var(--bg);
+  opacity: 0; z-index: 10;
+  animation: finaleIn 0.3s ease-out 7.3s forwards;
+}
+
+.finale-text {
+  font-family: var(--mono); font-size: 16px; font-weight: 600;
+  color: var(--cream-muted); letter-spacing: 12px;
+  opacity: 0;
+  animation: finaleWord 0.6s cubic-bezier(0.16, 1, 0.3, 1) 7.5s forwards;
+}
+
+.finale-douche {
+  font-family: var(--serif); font-size: 52px; font-weight: 700;
+  color: var(--gold); letter-spacing: 8px;
+  opacity: 0; text-shadow: 0 0 40px rgba(212,175,55,0.3);
+  animation: finaleSlam 0.8s cubic-bezier(0.16, 1, 0.3, 1) 7.8s forwards;
+}
+
+.finale-emoji {
+  font-size: 36px; opacity: 0; margin-top: 8px;
+  animation: finaleWord 0.5s ease-out 8.3s forwards;
+}
+
+@keyframes finaleIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes finaleWord {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes finaleSlam {
+  0% { opacity: 0; transform: scale(3) translateY(10px); letter-spacing: 30px; }
+  50% { opacity: 1; transform: scale(0.95) translateY(-2px); letter-spacing: 6px; }
+  70% { transform: scale(1.03) translateY(0); letter-spacing: 8px; }
+  100% { opacity: 1; transform: scale(1) translateY(0); letter-spacing: 8px; }
 }
 
 /* ===== MENU SLIDE-IN ===== */
