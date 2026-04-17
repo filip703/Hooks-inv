@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven } from '../lib/courses'
 import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio } from '../lib/sounds'
 import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush, sendPush } from '../lib/push'
-import { IconTrophy, IconFlag, IconLeaderboard, IconScorecard, IconMenu, IconSwords, IconChat, IconWallet, IconDice, IconCamera, IconInfo, IconUser, IconSettings, IconBell, IconSun, IconMoon, IconRefresh, IconLock, IconSwish, IconGreenJacket, IconGolfBall } from '../lib/icons'
+import { AugustaBadge, IconTrophy, IconFlag, IconLeaderboard, IconScorecard, IconMenu, IconSwords, IconChat, IconWallet, IconDice, IconCamera, IconInfo, IconUser, IconSettings, IconBell, IconSun, IconMoon, IconRefresh, IconLock, IconSwish, IconGreenJacket, IconGolfBall } from '../lib/icons'
 import QRCode from 'qrcode'
 
 const RC_DEFAULT = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Skogsbanan', 4: 'Parkbanan' }
@@ -878,17 +878,32 @@ export default function Home() {
         )
       })()}
 
-      <div className="status-bar" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span className="live-dot" /><Av p={user} size={20} /><span style={{ fontSize: 13, fontWeight: 500 }}>{user.nickname}</span>
-        {isAdmin && <Badge text="ADMIN" color="var(--gold)" bg="rgba(201,168,76,0.15)" />}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button onClick={() => setDarkMode(d => !d)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', lineHeight: 1, color: '#FAF8F0', display: 'flex' }}>{darkMode ? <IconSun size={18} /> : <IconMoon size={18} />}</button>
-          <button onClick={() => { setShowNotifs(!showNotifs); setUnread(0) }} style={{ background: 'none', border: 'none', color: unread > 0 ? 'var(--gold-bright)' : 'rgba(250,248,240,0.5)', cursor: 'pointer', position: 'relative', padding: '4px', display: 'flex' }}>
-            <IconBell size={18} />
-            {unread > 0 && <span style={{ position: 'absolute', top: 0, right: 0, background: 'var(--coral)', color: '#fff', fontSize: 8, fontWeight: 600, borderRadius: '50%', width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unread > 9 ? '9+' : unread}</span>}
-          </button>
+      {/* ===== DYNAMIC ISLAND PILL STATUS BAR ===== */}
+      <div className="status-bar" style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+        <div className="island-pill" style={{
+          display: 'flex', alignItems: 'center', gap: 8, flex: 1,
+          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+          borderRadius: 24, padding: '6px 12px', margin: '0 8px',
+          border: '1px solid rgba(212,175,55,0.15)',
+        }}>
+          <span className="live-dot" /><Av p={user} size={20} /><span style={{ fontSize: 12, fontWeight: 500, color: '#FAF8F0' }}>{user.nickname}</span>
+          {isAdmin && <Badge text="ADM" color="var(--gold)" bg="rgba(201,168,76,0.15)" />}
+          {lb.length > 0 && (
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '2px 8px', background: 'rgba(27,67,50,0.6)', borderRadius: 12, border: '1px solid rgba(212,175,55,0.2)' }}>
+              <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--gold)', letterSpacing: 1 }}>LEADER</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#FAF8F0' }}>{lb[0]?.nickname?.substring(0,6)}</span>
+              <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--green)' }}>{pTotal(lb[0]?.id)}p</span>
+            </div>
+          )}
+          <div style={{ marginLeft: lb.length > 0 ? 6 : 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={() => setDarkMode(d => !d)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', lineHeight: 1, color: '#FAF8F0', display: 'flex' }}>{darkMode ? <IconSun size={16} /> : <IconMoon size={16} />}</button>
+            <button onClick={() => { setShowNotifs(!showNotifs); setUnread(0) }} style={{ background: 'none', border: 'none', color: unread > 0 ? 'var(--gold-bright)' : 'rgba(250,248,240,0.4)', cursor: 'pointer', position: 'relative', padding: '4px', display: 'flex' }}>
+              <IconBell size={16} />
+              {unread > 0 && <span style={{ position: 'absolute', top: 0, right: 0, background: 'var(--coral)', color: '#fff', fontSize: 7, fontWeight: 600, borderRadius: '50%', width: 12, height: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unread > 9 ? '9+' : unread}</span>}
+            </button>
+          </div>
         </div>
-        <button onClick={() => { setUser(null); localStorage?.removeItem('inv_user') }} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 10, cursor: 'pointer' }}>Byt</button>
+        <button onClick={() => { setUser(null); localStorage?.removeItem('inv_user') }} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 9, cursor: 'pointer', padding: '4px 4px 4px 0' }}>Byt</button>
       </div>
 
       {/* Notification Center Panel */}
@@ -2570,18 +2585,18 @@ export default function Home() {
             {/* Menu items */}
             <div style={{ padding: 12 }}>
               {[
-                { key: 'teams', icon: <IconSwords size={22} />, label: 'Lag-battle', desc: 'Smaragderna vs Stålklubban' },
-                { key: 'feed', icon: <IconChat size={22} />, label: 'Chat', desc: 'Trash talk i realtid' },
-                { key: 'expenses', icon: <IconWallet size={22} />, label: 'Even Steven', desc: 'Utgifter & settlement' },
-                { key: 'betting', icon: <IconDice size={22} />, label: 'Betting', desc: 'Odds, H2H & LD/NP' },
-                { key: 'gallery', icon: <IconCamera size={22} />, label: 'Foton', desc: 'Helgen i bilder' },
-                { key: 'info', icon: <IconInfo size={22} />, label: 'Turneringsinfo', desc: 'Schema, stats, awards' },
-                { key: 'profile', icon: <IconUser size={22} />, label: 'Min profil', desc: 'Inställningar & kontakt' },
-                ...(isAdmin ? [{ key: 'settings', icon: <IconSettings size={22} />, label: 'Admin', desc: 'HCP, lag, bana, PIN' }] : []),
+                { key: 'teams', icon: <IconSwords size={16} />, label: 'Lag-battle', desc: 'Smaragderna vs Stålklubban' },
+                { key: 'feed', icon: <IconChat size={16} />, label: 'Chat', desc: 'Trash talk i realtid' },
+                { key: 'expenses', icon: <IconWallet size={16} />, label: 'Even Steven', desc: 'Utgifter & settlement' },
+                { key: 'betting', icon: <IconDice size={16} />, label: 'Betting', desc: 'Odds, H2H & LD/NP' },
+                { key: 'gallery', icon: <IconCamera size={16} />, label: 'Foton', desc: 'Helgen i bilder' },
+                { key: 'info', icon: <IconInfo size={16} />, label: 'Turneringsinfo', desc: 'Schema, stats, awards' },
+                { key: 'profile', icon: <IconUser size={16} />, label: 'Min profil', desc: 'Inställningar & kontakt' },
+                ...(isAdmin ? [{ key: 'settings', icon: <IconSettings size={16} />, label: 'Admin', desc: 'HCP, lag, bana, PIN' }] : []),
               ].map(t => (
                 <button key={t.key} onClick={() => { setView(t.key); setShowMenu(false) }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 14px', background: view === t.key ? 'rgba(201,168,76,0.08)' : 'transparent', border: view === t.key ? '1px solid var(--gold-dim)' : '1px solid transparent', borderRadius: 12, cursor: 'pointer', textAlign: 'left', marginBottom: 4 }}>
-                  <span style={{ color: view === t.key ? 'var(--gold)' : 'var(--cream-muted)', display: 'flex' }}>{t.icon}</span>
+                  <AugustaBadge size={32} active={view === t.key}><span style={{ color: view === t.key ? '#1B4332' : '#FAF8F0', display: 'flex' }}>{t.icon}</span></AugustaBadge>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 15, fontWeight: 500, color: view === t.key ? 'var(--gold)' : 'var(--cream)' }}>{t.label}</div>
                     <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginTop: 2 }}>{t.desc}</div>
@@ -2612,17 +2627,31 @@ export default function Home() {
           showToast('✅ Betalning registrerad', 'birdie')
         }} />
 
-      {/* ===== BOTTOM NAV (2 main + hamburger) ===== */}
+      {/* ===== BOTTOM NAV - iOS 26 Liquid Glass + Team Scores ===== */}
       <nav className="bottom-nav">
-        <button className={`bottom-nav-btn ${view === 'leaderboard' ? 'active' : ''}`} onClick={() => setView('leaderboard')}>
-          <span className="nav-icon"><IconLeaderboard size={22} /></span>LEDARE
-        </button>
-        <button className={`bottom-nav-btn ${view === 'scorecard' ? 'active' : ''}`} onClick={() => setView('scorecard')}>
-          <span className="nav-icon"><IconScorecard size={22} /></span>SCORE
-        </button>
-        <button className="bottom-nav-btn" onClick={() => setShowMenu(true)}>
-          <span className="nav-icon"><IconMenu size={22} /></span>MENY
-        </button>
+        <div className="nav-teams-strip">
+          <span className={`nav-team green ${teamTotal('green') > teamTotal('blue') ? 'leading' : ''}`}>SMARAGD {teamTotal('green') || '–'}p</span>
+          <span className="nav-team-vs">vs</span>
+          <span className={`nav-team blue ${teamTotal('blue') > teamTotal('green') ? 'leading' : ''}`}>STÅL {teamTotal('blue') || '–'}p</span>
+        </div>
+        <div className="nav-buttons">
+          <button className={`bottom-nav-btn ${view === 'leaderboard' ? 'active' : ''}`} onClick={() => setView('leaderboard')}>
+            <AugustaBadge size={28} active={view === 'leaderboard'}><IconLeaderboard size={13} color={view === 'leaderboard' ? '#1B4332' : '#FAF8F0'} /></AugustaBadge>
+            <span className="nav-label">LEDARE</span>
+          </button>
+          <button className={`bottom-nav-btn ${view === 'scorecard' ? 'active' : ''}`} onClick={() => setView('scorecard')}>
+            <AugustaBadge size={28} active={view === 'scorecard'}><IconScorecard size={13} color={view === 'scorecard' ? '#1B4332' : '#FAF8F0'} /></AugustaBadge>
+            <span className="nav-label">SCORE</span>
+          </button>
+          <button className={`bottom-nav-btn ${view === 'teams' ? 'active' : ''}`} onClick={() => setView('teams')}>
+            <AugustaBadge size={28} active={view === 'teams'}><IconSwords size={13} color={view === 'teams' ? '#1B4332' : '#FAF8F0'} /></AugustaBadge>
+            <span className="nav-label">LAG</span>
+          </button>
+          <button className="bottom-nav-btn" onClick={() => setShowMenu(true)}>
+            <AugustaBadge size={28}><IconMenu size={13} color="#FAF8F0" /></AugustaBadge>
+            <span className="nav-label">MENY</span>
+          </button>
+        </div>
       </nav>
     </div>
   )
