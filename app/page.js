@@ -242,8 +242,8 @@ export default function Home() {
   }, [])
   // Splash screen timer
   useEffect(() => {
-    const t1 = setTimeout(() => setSplashExit(true), 3200)
-    const t = setTimeout(() => setSplash(false), 3800)
+    const t1 = setTimeout(() => setSplashExit(true), 8200)
+    const t = setTimeout(() => setSplash(false), 8800)
     return () => { clearTimeout(t1); clearTimeout(t) }
   }, [])
 
@@ -600,18 +600,46 @@ export default function Home() {
 
   // ===== LOGIN =====
   // ===== SPLASH SCREEN =====
+  // Player intro sequence
+  const introPlayers = [
+    { name: 'Marcus Ullholm', nick: 'The Blazer', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/marcus.jpg', team: 'blue' },
+    { name: 'Matthis Jackobson', nick: 'G&T', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/matthis.jpg', team: 'green' },
+    { name: 'Fredrik Hellstenius', nick: 'Iceman', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/fredrik.jpg', team: 'blue' },
+    { name: 'Magnus Jarlgren', nick: 'Beach Boy', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/magnus.jpg', team: 'blue' },
+    { name: 'Filip Hector', nick: 'The Captain', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/filip.jpg', team: 'green' },
+    { name: 'Martin Jarlgren', nick: 'The Rookie', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/martin.jpg', team: 'green' },
+  ]
+
   if (splash) return (
     <div className={`splash-screen ${splashExit ? 'splash-exit' : ''}`}>
-      {/* The Reveal – cinematic staggered entrance */}
-      <div className="reveal-line reveal-l1" />
-      <div className="reveal-badge">
-        <img src="/dio-badge.png" alt="Douche Invitational Only" className="splash-img" />
+      {/* Phase 1: The Reveal (0-3.5s) */}
+      <div className="reveal-phase">
+        <div className="reveal-line reveal-l1" />
+        <div className="reveal-badge">
+          <img src="/dio-badge.png" alt="Douche Invitational Only" className="splash-img" />
+        </div>
+        <div className="reveal-line reveal-l2" />
+        <div className="reveal-title">Douche Invitational <em>Only</em></div>
+        <div className="reveal-line reveal-l3" />
+        <div className="reveal-sub">HOOKS HERRGÅRD · 2026</div>
+        <div className="reveal-tagline">Le Douche de Golf</div>
       </div>
-      <div className="reveal-line reveal-l2" />
-      <div className="reveal-title">Douche Invitational <em>Only</em></div>
-      <div className="reveal-line reveal-l3" />
-      <div className="reveal-sub">HOOKS HERRGÅRD · 2026</div>
-      <div className="reveal-tagline">Le Douche de Golf</div>
+
+      {/* Phase 2: Player Intros (3.5-7.5s) */}
+      <div className="intro-phase">
+        {introPlayers.map((p, i) => (
+          <div key={i} className="intro-card" style={{ animationDelay: `${3.6 + i * 0.65}s` }}>
+            <div className="intro-img-ring" style={{ borderColor: p.team === 'green' ? '#22c55e' : '#60a5fa' }}>
+              <img src={p.img} alt={p.nick} className="intro-img" />
+            </div>
+            <div className="intro-nick" style={{ color: p.team === 'green' ? '#22c55e' : '#60a5fa' }}>{p.nick}</div>
+            <div className="intro-name">{p.name.split(' ')[0]}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Phase 3: "Let's go" flash (7.5s) */}
+      <div className="intro-letsgolf">LET&apos;S DOUCHE</div>
     </div>
   )
 

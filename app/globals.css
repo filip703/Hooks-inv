@@ -312,7 +312,7 @@ body {
 .splash-screen::before {
   content: ''; position: absolute; inset: 0;
   background: radial-gradient(ellipse at center, rgba(212,175,55,0.06) 0%, transparent 70%);
-  animation: splashGlow 3.8s ease-in-out;
+  animation: splashGlow 8.5s ease-in-out;
 }
 /* Exit: slide up + fade */
 .splash-exit { opacity: 0; transform: translateY(-40px); pointer-events: none; }
@@ -364,7 +364,72 @@ body {
   100% { opacity: 1; transform: scale(1); }
 }
 @keyframes revealText { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes splashGlow { 0% { opacity: 0; } 30% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes splashGlow { 0% { opacity: 0; } 20% { opacity: 1; } 60% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ===== Phase 1: The Reveal container ===== */
+.reveal-phase {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  animation: phaseOut 0.5s ease-in 3.3s forwards;
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+@keyframes phaseOut { to { opacity: 0; transform: scale(0.95) translateY(-20px); } }
+
+/* ===== Phase 2: Player Intros ===== */
+.intro-phase {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0; opacity: 0;
+  animation: phaseIn 0.4s ease-out 3.5s forwards;
+}
+@keyframes phaseIn { from { opacity: 0; } to { opacity: 1; } }
+
+.intro-card {
+  display: flex; align-items: center; gap: 14px;
+  opacity: 0; transform: translateX(60px);
+  animation: cardSlam 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  padding: 6px 24px;
+  width: min(320px, 85vw);
+}
+
+.intro-img-ring {
+  width: 52px; height: 52px; border-radius: 50%;
+  border: 2.5px solid; padding: 2px; flex-shrink: 0;
+}
+.intro-img {
+  width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+}
+
+.intro-nick {
+  font-family: var(--serif); font-size: 20px; font-weight: 700;
+  letter-spacing: 0.5px; line-height: 1.1;
+}
+.intro-name {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
+  color: var(--cream-muted); text-transform: uppercase; margin-top: 2px;
+}
+
+@keyframes cardSlam {
+  0% { opacity: 0; transform: translateX(60px) scale(0.9); }
+  50% { opacity: 1; transform: translateX(-4px) scale(1.02); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+/* Phase 3: Let's Douche flash */
+.intro-letsgolf {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--serif); font-size: 28px; font-weight: 700;
+  color: var(--gold); letter-spacing: 6px;
+  opacity: 0;
+  animation: letsgo 0.8s cubic-bezier(0.16, 1, 0.3, 1) 7.6s forwards;
+}
+@keyframes letsgo {
+  0% { opacity: 0; transform: scale(2); }
+  40% { opacity: 1; transform: scale(0.95); }
+  60% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
 
 /* ===== MENU SLIDE-IN ===== */
 @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
