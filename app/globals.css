@@ -443,8 +443,8 @@ body {
   animation: finaleSlam 0.8s cubic-bezier(0.16, 1, 0.3, 1) 7.8s forwards;
 }
 
-.finale-emoji {
-  font-size: 36px; opacity: 0; margin-top: 8px;
+.finale-icon {
+  opacity: 0; margin-top: 12px;
   animation: finaleWord 0.5s ease-out 8.3s forwards;
 }
 

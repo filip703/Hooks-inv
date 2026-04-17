@@ -642,7 +642,7 @@ export default function Home() {
       <div className="intro-finale">
         <div className="finale-text">LET&apos;S</div>
         <div className="finale-douche">DOUCHE</div>
-        <div className="finale-emoji">⛳</div>
+        <div className="finale-icon"><AugustaBadge size={44}><IconFlag size={22} color="#FAF8F0" /></AugustaBadge></div>
       </div>
     </div>
   )
