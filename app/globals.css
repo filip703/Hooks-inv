@@ -422,13 +422,14 @@ body {
   font-family: var(--serif); font-size: 28px; font-weight: 700;
   color: var(--gold); letter-spacing: 6px;
   opacity: 0;
-  animation: letsgo 0.8s cubic-bezier(0.16, 1, 0.3, 1) 7.6s forwards;
+  animation: letsgo 1.8s cubic-bezier(0.16, 1, 0.3, 1) 7.5s forwards;
 }
 @keyframes letsgo {
-  0% { opacity: 0; transform: scale(2); }
-  40% { opacity: 1; transform: scale(0.95); }
-  60% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1); }
+  0% { opacity: 0; transform: scale(2.5); }
+  20% { opacity: 1; transform: scale(0.95); }
+  35% { opacity: 1; transform: scale(1.02); }
+  75% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.95); }
 }
 
 /* ===== MENU SLIDE-IN ===== */

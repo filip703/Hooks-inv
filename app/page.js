@@ -242,8 +242,8 @@ export default function Home() {
   }, [])
   // Splash screen timer
   useEffect(() => {
-    const t1 = setTimeout(() => setSplashExit(true), 8200)
-    const t = setTimeout(() => setSplash(false), 8800)
+    const t1 = setTimeout(() => setSplashExit(true), 9200)
+    const t = setTimeout(() => setSplash(false), 9800)
     return () => { clearTimeout(t1); clearTimeout(t) }
   }, [])
 
