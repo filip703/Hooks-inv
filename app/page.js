@@ -175,6 +175,8 @@ export default function Home() {
   const [adminPid, setAdminPid] = useState(null)
   const [guideHole, setGuideHole] = useState(null)
   const [activeHole, setActiveHole] = useState(null)
+  const [caddieMsg, setCaddieMsg] = useState(null)
+  const [caddieLoading, setCaddieLoading] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [showNotifs, setShowNotifs] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
@@ -190,6 +192,11 @@ export default function Home() {
   const [unread, setUnread] = useState(0)
   const [showInstall, setShowInstall] = useState(false)
   const [splash, setSplash] = useState(true)
+  const [historia, setHistoria] = useState([])
+  const [weather, setWeather] = useState(null)
+  const [shotVotes, setShotVotes] = useState({})
+  const [historiaCaption, setHistoriaCaption] = useState('')
+  const [historiaYear, setHistoriaYear] = useState('2025')
   const [splashExit, setSplashExit] = useState(false)
   const [expenses, setExpenses] = useState([])
   const [payments, setPayments] = useState([])
@@ -352,6 +359,49 @@ export default function Home() {
   const rid = rn => rounds.find(r => r.round_number === rn)?.id
   const pSc = (pid, roundId) => scores.filter(s => s.player_id === pid && s.round_id === roundId)
   const pRoundRaw = (pid, rn) => { const r = rid(rn); return r ? pSc(pid, r).reduce((s, x) => s + (x.stableford_points || 0), 0) : 0 }
+
+  // Caddie AI
+  const askCaddie = async (hole, holeData) => {
+    setCaddieLoading(true); setCaddieMsg(null)
+    const myScores = roundId ? pSc(scoreFor?.id, roundId) : []
+    const last5 = myScores.filter(s => s.hole < hole.hole).slice(-5)
+    const avgPts = last5.length > 0 ? (last5.reduce((s,x) => s + (x.stableford_points || 0), 0) / last5.length).toFixed(1) : null
+    const myPos = lb.findIndex(p => p.id === scoreFor?.id) + 1
+    const phcp = getPlayingHcp(Math.min(parseFloat(scoreFor?.hcp || 0), 36), course.slope)
+    const sg = getStrokesGiven(phcp, hole.hcp)
+    const prompt = `Du ar en erfaren caddie pa Hooks Herrgard. Ge kort rad (max 3 meningar) till ${scoreFor?.nickname || 'spelaren'} (HCP ${scoreFor?.hcp}) for hal ${hole.hole}. Par ${hole.par}, ${hole.meters}m, Hcp ${hole.hcp}. ${sg > 0 ? 'Extraslag: ' + sg : ''} Banguide: ${hole.tip} ${avgPts ? 'Form: ' + avgPts + 'p/hal.' : ''} ${myPos > 0 ? 'Pos: ' + myPos + '/' + lb.length : ''} R${selRound}/4. ${hole.hole >= 16 ? 'DUBBLA POANG!' : ''} Kort, taktiskt, humor/trash talk. Svenska.`
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 200, messages: [{ role: 'user', content: prompt }] })
+      })
+      const data = await res.json()
+      setCaddieMsg(data.content?.find(c => c.type === 'text')?.text || 'Caddien ar tyst...')
+    } catch (e) { setCaddieMsg('Caddien tappade signalen!') }
+    setCaddieLoading(false)
+  }
+
+  const fetchHistoria = async () => { const { data } = await supabase.from('inv_historia').select('*').order('created_at', { ascending: false }); if (data) setHistoria(data) }
+  const shotOfDay = scores.some(s => s.strokes > 0)
+
+  const clutchRating = (pid) => {
+    let clutchPts = 0, clutchHoles = 0
+    ;[1,2,3,4].forEach(rn => {
+      const rid = rounds.find(r => r.round_number === rn)?.id
+      if (!rid) return
+      pSc(pid, rid).forEach(s => { if (s.hole >= 16) { clutchPts += (s.stableford_points || 0); clutchHoles++ } })
+    })
+    return clutchHoles > 0 ? (clutchPts / clutchHoles).toFixed(1) : null
+  }
+
+  const momentum = (pid) => {
+    const lastRound = [4,3,2,1].find(rn => pRoundRaw(pid, rn) > 0) || 0
+    if (!lastRound || !roundId) return null
+    const sc = pSc(pid, rounds.find(r => r.round_number === lastRound)?.id)
+    if (!sc || sc.length < 3) return null
+    const last5 = sc.slice(-5)
+    return (last5.reduce((s, x) => s + (x.stableford_points || 0), 0) / last5.length).toFixed(1)
+  }
 
   // Double points for holes 16-18 in team battle
   const pRoundTeamPts = (pid, rn) => {
@@ -586,14 +636,24 @@ export default function Home() {
       }
     }
     fetchChat()
+    const fetchHist = async () => { const { data } = await supabase.from('inv_historia').select('*').order('created_at', { ascending: false }); if (data) setHistoria(data) }
+    fetchHist()
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=57.72&longitude=14.83&current=temperature_2m,wind_speed_10m,weather_code&timezone=Europe/Stockholm')
+      .then(r => r.json()).then(d => {
+        const wc = d.current.weather_code
+        const icons = {0:'\u2600\uFE0F',1:'\uD83C\uDF24\uFE0F',2:'\u26C5',3:'\u2601\uFE0F',45:'\uD83C\uDF2B\uFE0F',48:'\uD83C\uDF2B\uFE0F',51:'\uD83C\uDF26\uFE0F',53:'\uD83C\uDF27\uFE0F',55:'\uD83C\uDF27\uFE0F',61:'\uD83C\uDF27\uFE0F',63:'\uD83C\uDF27\uFE0F',65:'\uD83C\uDF27\uFE0F',71:'\uD83C\uDF28\uFE0F',80:'\uD83C\uDF26\uFE0F',95:'\u26C8\uFE0F'}
+        const descs = {0:'Klart',1:'Mestadels klart',2:'Halvklart',3:'Mulet',45:'Dimma',51:'Duggregn',53:'Regn',61:'L\u00e4tt regn',63:'Regn',65:'Kraftigt regn',71:'Sn\u00f6',80:'Skurar',95:'\u00c5ska'}
+        setWeather({ temp: Math.round(d.current.temperature_2m) + '\u00b0C', wind: Math.round(d.current.wind_speed_10m) + ' km/h', icon: icons[wc] || '\uD83C\uDF24\uFE0F', desc: descs[wc] || 'Ok\u00e4nt' })
+      }).catch(() => {})
   }
   const uploadImg = async file => {
     if (!file || !user || !supabase) return
     const path = `chat/${Date.now()}.${file.name.split('.').pop()}`
+    const isVideo = file.type.startsWith('video/')
     const { error } = await supabase.storage.from('inv-images').upload(path, file, { contentType: file.type })
     if (!error) {
       const url = `https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/${path}`
-      await supabase.from('inv_chat').insert({ player_id: user.id, message: '📸', image_url: url, msg_type: 'image' })
+      await supabase.from('inv_chat').insert({ player_id: user.id, message: isVideo ? '🎬' : '📸', image_url: url, msg_type: isVideo ? 'video' : 'image' })
       fetchChat()
     }
   }
@@ -861,6 +921,28 @@ export default function Home() {
                 </div>
               )}
 
+              {/* CADDIE AI */}
+              <div style={{ marginBottom: 16 }}>
+                {!caddieMsg && !caddieLoading && (
+                  <button onClick={() => askCaddie(h, course)} style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(27,67,50,0.15), rgba(212,175,55,0.08))', border: '1px solid rgba(212,175,55,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--gold)', fontSize: 13, fontWeight: 500, fontFamily: 'var(--sans)' }}>
+                    <AugustaBadge size={24}><IconFlag size={12} color="#FAF8F0" /></AugustaBadge>
+                    Fr\u00e5ga Caddien
+                  </button>
+                )}
+                {caddieLoading && (
+                  <div style={{ textAlign: 'center', padding: '16px', color: 'var(--gold)', fontSize: 13, fontFamily: 'var(--mono)' }}>
+                    <span style={{ animation: 'pulse 1s infinite' }}>Caddien analyserar...</span>
+                  </div>
+                )}
+                {caddieMsg && (
+                  <div style={{ padding: '14px 16px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(27,67,50,0.12), rgba(212,175,55,0.06))', border: '1px solid rgba(212,175,55,0.15)' }}>
+                    <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 6 }}>CADDIE AI</div>
+                    <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.5 }}>{caddieMsg}</div>
+                    <button onClick={() => setCaddieMsg(null)} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 10, cursor: 'pointer', marginTop: 6, padding: 0 }}>St\u00e4ng</button>
+                  </div>
+                )}
+              </div>
+
               {/* BIG SCORE INPUT */}
               <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, marginBottom: 16 }}>
                 <div style={{ textAlign: 'center', marginBottom: 8 }}>
@@ -905,11 +987,35 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Ghost Match */}
+            {(() => {
+              const prevRound = selRound > 1 ? selRound - 1 : null
+              if (!prevRound) return null
+              const prevRid = rounds.find(r => r.round_number === prevRound)?.id
+              if (!prevRid) return null
+              const prevScore = pSc(scoreFor?.id, prevRid).find(s => s.hole === activeHole)
+              if (!prevScore) return null
+              const prevCum = pSc(scoreFor?.id, prevRid).filter(s => s.hole <= activeHole).reduce((s,x) => s + (x.stableford_points || 0), 0)
+              const currCum = roundId ? pSc(scoreFor?.id, roundId).filter(s => s.hole <= activeHole).reduce((s,x) => s + (x.stableford_points || 0), 0) : 0
+              const cumDiff = currCum - prevCum
+              return (
+                <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 12, marginTop: 8 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1, marginBottom: 4 }}>\uD83D\uDC7B GHOST MATCH vs {RL[prevRound]}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 12, color: 'var(--cream-dim)' }}>F\u00f6rra rundan: <span style={{ fontFamily: 'var(--mono)', fontWeight: 500 }}>{prevScore.strokes} slag ({prevScore.stableford_points}p)</span></div>
+                    <div style={{ fontSize: 14, fontFamily: 'var(--mono)', fontWeight: 600, color: cumDiff > 0 ? 'var(--green)' : cumDiff < 0 ? 'var(--coral)' : 'var(--cream-muted)' }}>
+                      {cumDiff > 0 ? '+' : ''}{cumDiff}p tot
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* Bottom nav: prev / next */}
             <div style={{ display: 'flex', gap: 8, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0))', background: 'var(--surface)', borderTop: '1px solid var(--card-border)' }}>
-              <button onClick={() => prevHole && setActiveHole(prevHole)} disabled={!prevHole}
+              <button onClick={() => prevHole && (setActiveHole(prevHole), setCaddieMsg(null))} disabled={!prevHole}
                 style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'var(--surface2)' : 'transparent', border: '1px solid var(--card-border)', color: prevHole ? 'var(--cream)' : 'var(--cream-muted)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← Hål {prevHole || ''}</button>
-              <button onClick={() => nextH ? setActiveHole(nextH) : setActiveHole(null)}
+              <button onClick={() => nextH ? (setActiveHole(nextH), setCaddieMsg(null)) : setActiveHole(null)}
                 style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: 'var(--gold)', border: 'none', color: '#0A0A08', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
             </div>
           </div>
@@ -989,6 +1095,14 @@ export default function Home() {
                     <div className="lb-name">{p.name}</div>
                     <div className="lb-hcp">{p.nickname} · {p.hcp}
                       {bonus !== 0 && <span style={{ marginLeft: 4, fontSize: 10, color: bonus > 0 ? 'var(--green)' : 'var(--coral)' }}>{bonus > 0 ? '+' : ''}{bonus} streak</span>}
+                      {momentum(p.id) && (() => {
+                        const m = parseFloat(momentum(p.id))
+                        const color = m >= 2.5 ? '#22c55e' : m >= 1.5 ? '#D4AF37' : '#E8634A'
+                        return <span style={{ marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ display: 'inline-flex', gap: 1 }}>{[1,2,3,4,5].map(b => <span key={b} style={{ width: 3, height: b <= Math.round(m * 2) ? 8 + b : 4, background: b <= Math.round(m * 2) ? color : 'var(--card-border)', borderRadius: 1, transition: 'height 0.3s' }} />)}</span>
+                          <span style={{ fontSize: 9, color, fontFamily: 'var(--mono)' }}>{momentum(p.id)}</span>
+                        </span>
+                      })()}
                     </div>
                   </div>
                   <div className="lb-total">{tot || '-'}</div>
@@ -1029,6 +1143,48 @@ export default function Home() {
               )
             }
             return null
+          })()}
+
+          {/* Weather */}
+          {weather && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10, padding: '8px 12px', background: 'var(--surface)', borderRadius: 10, alignItems: 'center' }}>
+              <span style={{ fontSize: 24 }}>{weather.icon}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--cream)' }}>{weather.temp} · {weather.desc}</div>
+                <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>Vind: {weather.wind} · Hooks GK</div>
+              </div>
+            </div>
+          )}
+
+          {/* Live Activity Feed */}
+          {(() => {
+            const recentScores = []
+            activePlayers.forEach(p => {
+              const lastRound = [4,3,2,1].find(rn => pRoundRaw(p.id, rn) > 0)
+              if (lastRound) {
+                const rid = rounds.find(r => r.round_number === lastRound)?.id
+                const sc = rid ? pSc(p.id, rid) : []
+                sc.slice(-3).forEach(s => {
+                  if (s.stableford_points >= 3) recentScores.push({ player: p, pts: s.stableford_points, hole: s.hole })
+                  else if (s.stableford_points === 0) recentScores.push({ player: p, pts: 0, hole: s.hole })
+                })
+              }
+            })
+            if (recentScores.length === 0) return null
+            return (
+              <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '8px 0', marginBottom: 10, scrollbarWidth: 'none' }}>
+                {recentScores.sort((a,b) => b.pts - a.pts).slice(0, 4).map((s, i) => (
+                  <div key={i} style={{ flexShrink: 0, padding: '6px 10px', borderRadius: 10, fontSize: 11, fontFamily: 'var(--mono)',
+                    background: s.pts >= 4 ? 'rgba(212,175,55,0.12)' : s.pts >= 3 ? 'rgba(34,197,94,0.1)' : 'rgba(232,99,74,0.1)',
+                    color: s.pts >= 4 ? 'var(--gold)' : s.pts >= 3 ? 'var(--green)' : 'var(--coral)',
+                    border: '0.5px solid ' + (s.pts >= 4 ? 'rgba(212,175,55,0.2)' : s.pts >= 3 ? 'rgba(34,197,94,0.15)' : 'rgba(232,99,74,0.15)'),
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {s.pts >= 4 ? '\uD83E\uDD85' : s.pts >= 3 ? '\uD83D\uDC26' : '\uD83D\uDC80'} {s.player.nickname} H{s.hole}
+                  </div>
+                ))}
+              </div>
+            )
           })()}
 
           {/* Head-to-head comparisons */}
@@ -1294,7 +1450,7 @@ export default function Home() {
                     )}
                   </div>}
                   <div style={{ fontSize: 13, lineHeight: 1.5, color: sys ? 'var(--cream-dim)' : 'var(--cream)' }}>{renderMsg(m.message)}</div>
-                  {m.image_url && <img src={m.image_url} alt="" style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} loading="lazy" />}
+                  {m.image_url && (m.msg_type === 'video' ? <video src={m.image_url} controls playsInline style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} /> : <img src={m.image_url} alt="" style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} loading="lazy" />)}
                   <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', marginTop: 3 }}>{new Date(m.created_at).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</div>
                 </div>
               )
@@ -1318,7 +1474,7 @@ export default function Home() {
           })()}
           <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
             <label style={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer', fontSize: 16 }}>
-              📷<input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if(e.target.files[0]) uploadImg(e.target.files[0]) }} />
+              📷<input ref={fileRef} type="file" accept="image/*,video/*" capture="environment" style={{ display: 'none' }} onChange={e => { if(e.target.files[0]) uploadImg(e.target.files[0]) }} />
             </label>
             <input value={chatMsg} onChange={e => setChatMsg(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') sendMsg() }}
               placeholder="Skriv något... @namn för att tagga" style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '10px 14px', borderRadius: 10, fontSize: 14, fontFamily: 'var(--sans)', outline: 'none' }} />
@@ -1452,6 +1608,41 @@ export default function Home() {
             ) : null
           })}
 
+          {/* Venue Mode */}
+          <div style={{ marginTop: 20, fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>HOOKS HERRG\u00c5RD</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 16 }}>
+            {[
+              { icon: '\uD83D\uDCF6', label: 'WiFi', value: 'HooksGuest / hooks2026' },
+              { icon: '\uD83C\uDF7D\uFE0F', label: 'Frukost', value: '07:00\u201309:30 i matsalen' },
+              { icon: '\uD83E\uDDD6', label: 'Spa', value: '08:00\u201321:00 (handduk i rummet)' },
+              { icon: '\uD83C\uDF7A', label: 'Baren', value: '15:00\u2013sent (tab p\u00e5 rummet)' },
+              { icon: '\uD83D\uDE97', label: 'Taxi Tran\u00e5s', value: '0140-163 00' },
+              { icon: '\uD83D\uDCCD', label: 'Adress', value: 'Hooks Herrg\u00e5rd, 573 94 Hok' },
+              { icon: '\uD83C\uDFCC\uFE0F', label: 'Pro Shop', value: '08:00\u201318:00 (bollar, handskar)' },
+              { icon: '\uD83D\uDE91', label: 'N\u00f6dnummer', value: '112 / Hooks reception: 0393-210 00' },
+            ].map((item, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < 7 ? '1px solid var(--card-border)' : 'none' }}>
+                <span style={{ fontSize: 16, width: 24, textAlign: 'center' }}>{item.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>{item.label}</div>
+                  <div style={{ fontSize: 13, color: 'var(--cream-dim)' }}>{item.value}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Venue images */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6, marginBottom: 20 }}>
+            {venueImages.map((v, i) => (
+              <div key={i} style={{ borderRadius: 10, overflow: 'hidden', position: 'relative', aspectRatio: '4/3' }}>
+                <img src={v.url} alt={v.caption} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.6))', padding: '12px 8px 6px' }}>
+                  <span style={{ fontSize: 10, color: '#fff' }}>{v.caption}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
           {/* Players with roasts */}
           <div style={{ marginTop: 20, fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>SPELARNA</div>
           {players.map(p => (
@@ -1498,9 +1689,73 @@ export default function Home() {
           </div>
         </>)}
         {/* ===== PHOTO GALLERY ===== */}
+        {view === 'historia' && (<>
+          <div className="section-title">Douche Historia</div>
+          <div className="section-sub">Legender, minnen & skamliga \u00f6gonblick</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 16 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 8 }}>L\u00c4GG TILL MINNE</div>
+            <input value={historiaCaption || ''} onChange={e => setHistoriaCaption(e.target.value)} placeholder="Beskriv minnet..." style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 8, fontFamily: 'var(--sans)', outline: 'none', boxSizing: 'border-box' }} />
+            <div style={{ display: 'flex', gap: 6 }}>
+              <select value={historiaYear || '2025'} onChange={e => setHistoriaYear(e.target.value)} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '8px 10px', borderRadius: 8, fontSize: 12 }}>
+                <option value="2025">Pre-DIO 2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="earlier">L\u00e4ngesen</option>
+              </select>
+              <label style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--cream-muted)', textAlign: 'center' }}>
+                \uD83D\uDCF7 Bild/Video
+                <input type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={async e => {
+                  const file = e.target.files[0]; if (!file) return
+                  const path = 'historia/' + Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9.]/g, '')
+                  const { error } = await supabase.storage.from('inv-images').upload(path, file, { contentType: file.type })
+                  if (!error) {
+                    const url = supabase.storage.from('inv-images').getPublicUrl(path).data.publicUrl
+                    await supabase.from('inv_historia').insert({ player_id: user.id, caption: historiaCaption || '', year: historiaYear || '2025', media_url: url, media_type: file.type.startsWith('video/') ? 'video' : 'image' })
+                    setHistoriaCaption(''); fetchHistoria()
+                    showToast('Minne tillagt!', 'birdie')
+                  }
+                }} />
+              </label>
+              {historiaCaption && <button onClick={async () => {
+                await supabase.from('inv_historia').insert({ player_id: user.id, caption: historiaCaption, year: historiaYear || '2025', media_url: null, media_type: 'text' })
+                setHistoriaCaption(''); fetchHistoria()
+                showToast('Minne tillagt!', 'birdie')
+              }} style={{ background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>\u2191</button>}
+            </div>
+          </div>
+          {(() => {
+            const years = [...new Set((historia || []).map(h => h.year))].sort((a,b) => b.localeCompare(a))
+            if (years.length === 0) return <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 40, textAlign: 'center', color: 'var(--cream-muted)' }}>Inga minnen \u00e4nnu. Var den f\u00f6rsta att l\u00e4gga till!</div>
+            return years.map(year => (
+              <div key={year} style={{ marginBottom: 20 }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, paddingLeft: 4 }}>{year === 'earlier' ? 'LEGENDER' : year}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                  {(historia || []).filter(h => h.year === year).map(h => {
+                    const p = activePlayers.find(x => x.id === h.player_id) || {}
+                    return (
+                      <div key={h.id} style={{ background: 'var(--surface)', borderRadius: 10, overflow: 'hidden' }}>
+                        {h.media_url && h.media_type === 'video' ? (
+                          <video src={h.media_url} playsInline muted style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover' }} onClick={e => { e.target.muted = false; e.target.controls = true; e.target.play() }} />
+                        ) : h.media_url ? (
+                          <img src={h.media_url} alt="" style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover' }} loading="lazy" />
+                        ) : null}
+                        <div style={{ padding: '8px 10px' }}>
+                          <div style={{ fontSize: 12, color: 'var(--cream-dim)', lineHeight: 1.4 }}>{h.caption}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                            <Av p={p} size={14} />
+                            <span style={{ fontSize: 9, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>{p.nickname || '?'}</span>
+                            {h.media_url && <a href={h.media_url} download style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--cream-muted)', textDecoration: 'none' }}>\u2b07</a>}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))
+          })()}
+        </>)}
+
         {view === 'gallery' && (<>
           <div className="section-title">📸 Helgen i bilder</div>
-          <div className="section-sub">{chat.filter(m => m.image_url).length} foton</div>
+          <div className="section-sub">{chat.filter(m => m.image_url && m.msg_type !== 'video').length} foton · {chat.filter(m => m.msg_type === 'video').length} videos</div>
           {(() => {
             const photos = chat.filter(m => m.image_url).sort((a,b) => new Date(b.created_at) - new Date(a.created_at))
             if (photos.length === 0) return <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 40, textAlign: 'center', color: 'var(--cream-muted)' }}>Inga bilder ännu. Skicka foton i chatten!</div>
@@ -1510,12 +1765,16 @@ export default function Home() {
                   const p = m.inv_players || activePlayers.find(x => x.id === m.player_id) || {}
                   return (
                     <div key={m.id} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', aspectRatio: '1', background: 'var(--surface)' }}>
-                      <img src={m.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                      {m.msg_type === 'video' ? (
+                        <video src={m.image_url} playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={e => { e.target.muted = false; e.target.controls = true; e.target.play() }} />
+                      ) : (
+                        <img src={m.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                      )}
                       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.7))', padding: '16px 8px 6px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <Av p={p} size={16} />
                           <span style={{ fontSize: 10, color: '#fff' }}>{p.nickname || '?'}</span>
-                          <span style={{ fontSize: 9, color: 'var(--cream-muted)', marginLeft: 'auto' }}>{new Date(m.created_at).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                          <a href={m.image_url} download style={{ marginLeft: 'auto', fontSize: 14, color: '#fff', textDecoration: 'none', opacity: 0.7 }}>⬇</a>
                         </div>
                       </div>
                     </div>
@@ -1546,7 +1805,35 @@ export default function Home() {
               showToast('🔄 Uppdaterad!', 'birdie')
             }} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream-dim)', padding: '8px 12px', fontSize: 12, cursor: 'pointer' }}>🔄 Uppdatera</button>
           </div>
-          <div className="section-sub">Odds, H2H och LD/NP – allt sidospel</div>
+          <div className="section-sub">Odds, H2H, LD/NP & Bounties</div>
+
+          {/* Bounty Board */}
+          <div style={{ background: 'linear-gradient(135deg, rgba(232,99,74,0.08), rgba(212,175,55,0.06))', borderRadius: 12, padding: 14, marginBottom: 16, border: '1px solid rgba(232,99,74,0.15)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--coral)', letterSpacing: 1.5, marginBottom: 8 }}>BOUNTY BOARD</div>
+            <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 10 }}>Utmana en spelare på ett specifikt hål</div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              <select id="bountyTarget" style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '8px', borderRadius: 8, fontSize: 12 }}>
+                {activePlayers.filter(p => p.id !== user?.id).map(p => <option key={p.key} value={p.key}>{p.nickname}</option>)}
+              </select>
+              <select id="bountyHole" style={{ width: 70, background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '8px', borderRadius: 8, fontSize: 12 }}>
+                {Array.from({length: 18}, (_, i) => <option key={i+1} value={i+1}>H{i+1}</option>)}
+              </select>
+              <select id="bountyAmount" style={{ width: 80, background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '8px', borderRadius: 8, fontSize: 12 }}>
+                <option value="50">50kr</option><option value="100">100kr</option><option value="200">200kr</option><option value="500">500kr</option>
+              </select>
+            </div>
+            <button onClick={async () => {
+              const target = document.getElementById('bountyTarget').value
+              const hole = document.getElementById('bountyHole').value
+              const amount = document.getElementById('bountyAmount').value
+              const tp = activePlayers.find(p => p.key === target)
+              await supabase.from('inv_chat').insert({ player_id: user.id, message: 'BOUNTY: Jag utmanar ' + (tp?.nickname || target) + ' på hål ' + hole + ' om ' + amount + 'kr! Bäst Stableford vinner. Acceptera?', msg_type: 'bounty' })
+              showToast('Bounty skickad!', 'birdie')
+              fetchChat()
+            }} style={{ width: '100%', padding: '10px', borderRadius: 8, background: 'var(--coral)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              Skicka utmaning
+            </button>
+          </div>
 
           {/* 🎰 ODDS BETTING */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
@@ -2174,6 +2461,31 @@ export default function Home() {
 
           {/* PIN */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>🍺 DRUNK-O-METER</div>
+            <div style={{ fontSize: 12, color: 'var(--cream-muted)', marginBottom: 8 }}>Hur m\u00e5r du just nu?</div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+              {[
+                { v: 1, l: 'Nykter', e: '\uD83D\uDE10' },
+                { v: 2, l: 'Lagom', e: '\uD83D\uDE0A' },
+                { v: 3, l: 'Glad', e: '\uD83D\uDE04' },
+                { v: 4, l: 'Full', e: '\uD83C\uDF7A' },
+                { v: 5, l: 'Kaos', e: '\uD83E\uDD2A' },
+              ].map(d => (
+                <button key={d.v} onClick={async () => {
+                  await supabase.from('inv_players').update({ drunk_level: d.v }).eq('id', user.id)
+                  setUser(u => ({ ...u, drunk_level: d.v }))
+                  showToast(d.e + ' ' + d.l + '!', 'birdie')
+                }} style={{
+                  flex: 1, padding: '10px 4px', borderRadius: 10, cursor: 'pointer', textAlign: 'center',
+                  background: user.drunk_level === d.v ? 'rgba(212,175,55,0.15)' : 'var(--surface2)',
+                  border: user.drunk_level === d.v ? '1.5px solid var(--gold)' : '1px solid var(--card-border)',
+                }}>
+                  <div style={{ fontSize: 20 }}>{d.e}</div>
+                  <div style={{ fontSize: 8, fontFamily: 'var(--mono)', color: user.drunk_level === d.v ? 'var(--gold)' : 'var(--cream-muted)', marginTop: 2 }}>{d.l}</div>
+                </button>
+              ))}
+            </div>
+
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>🔒 PIN-KOD</div>
             <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 8 }}>Valfri 4-siffrig PIN (tom = ingen PIN)</div>
             <input type="password" inputMode="numeric" maxLength={4} value={profileForm.pin} placeholder="••••"
@@ -2628,6 +2940,7 @@ export default function Home() {
                 { key: 'expenses', icon: <IconWallet size={16} />, label: 'Even Steven', desc: 'Utgifter & settlement' },
                 { key: 'betting', icon: <IconDice size={16} />, label: 'Betting', desc: 'Odds, H2H & LD/NP' },
                 { key: 'gallery', icon: <IconCamera size={16} />, label: 'Foton', desc: 'Helgen i bilder' },
+                { key: 'historia', icon: <IconTrophy size={16} />, label: 'Douche Historia', desc: 'Minnen & legender' },
                 { key: 'info', icon: <IconInfo size={16} />, label: 'Turneringsinfo', desc: 'Schema, stats, awards' },
                 { key: 'profile', icon: <IconUser size={16} />, label: 'Min profil', desc: 'Inställningar & kontakt' },
                 ...(isAdmin ? [{ key: 'settings', icon: <IconSettings size={16} />, label: 'Admin', desc: 'HCP, lag, bana, PIN' }] : []),
