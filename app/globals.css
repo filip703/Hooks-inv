@@ -175,6 +175,99 @@ body {
 .bottom-nav-btn .nav-label { font-family: var(--mono); text-transform: uppercase; }
 .bottom-nav-btn:active { transform: scale(0.95); }
 
+/* ===== LIVING GLASS SYSTEM ===== */
+.glass-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03), rgba(212,175,55,0.02));
+  backdrop-filter: blur(24px) saturate(2) brightness(1.05);
+  -webkit-backdrop-filter: blur(24px) saturate(2) brightness(1.05);
+  border: 0.5px solid rgba(255,255,255,0.15);
+  border-radius: 16px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -0.5px 0 rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.03), 0 8px 32px rgba(0,0,0,0.08);
+  position: relative; overflow: hidden;
+}
+.glass-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 40%, transparent 70%, rgba(212,175,55,0.03) 100%);
+  pointer-events: none; border-radius: inherit;
+}
+.glass-card::after {
+  content: ''; position: absolute; inset: -1px; border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,100,100,0.04), transparent 25%, transparent 75%, rgba(100,100,255,0.04));
+  pointer-events: none; opacity: 0.6;
+}
+[data-theme="dark"] .glass-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015), rgba(212,175,55,0.015));
+  border: 0.5px solid rgba(255,255,255,0.1);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -0.5px 0 rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.2), 0 12px 40px rgba(0,0,0,0.15);
+}
+
+@keyframes specularDrift {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.12; }
+  33% { transform: translate(15px, -10px) scale(1.1); opacity: 0.2; }
+  66% { transform: translate(-10px, 8px) scale(0.95); opacity: 0.15; }
+}
+
+/* Leaderboard glass */
+.lb-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03)) !important;
+  backdrop-filter: blur(24px) saturate(2) brightness(1.05);
+  -webkit-backdrop-filter: blur(24px) saturate(2) brightness(1.05);
+  border: 0.5px solid rgba(255,255,255,0.15) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -0.5px 0 rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.08) !important;
+  position: relative; overflow: hidden;
+}
+.lb-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 40%, transparent 70%, rgba(212,175,55,0.02) 100%);
+  pointer-events: none; border-radius: inherit;
+}
+.lb-card::after {
+  content: ''; position: absolute; inset: -1px; border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,100,100,0.03), transparent 25%, transparent 75%, rgba(100,100,255,0.03));
+  pointer-events: none;
+}
+[data-theme="dark"] .lb-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)) !important;
+  border: 0.5px solid rgba(255,255,255,0.1) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 8px 32px rgba(0,0,0,0.2) !important;
+}
+
+/* Glass login cards */
+.login-face-btn {
+  background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)) !important;
+  backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border: 0.5px solid rgba(255,255,255,0.15) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 4px 16px rgba(0,0,0,0.06) !important;
+}
+.login-face-btn:hover, .login-face-btn:active {
+  border-color: var(--gold) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 4px 20px rgba(212,175,55,0.15) !important;
+}
+
+/* Glass status bar */
+.island-pill {
+  background: linear-gradient(135deg, rgba(0,0,0,0.65), rgba(0,0,0,0.5)) !important;
+  backdrop-filter: blur(30px) saturate(2) !important; -webkit-backdrop-filter: blur(30px) saturate(2) !important;
+  border: 0.5px solid rgba(255,255,255,0.12) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 16px rgba(0,0,0,0.3) !important;
+}
+
+/* Ambient orbs for refraction */
+.page-content::before {
+  content: ''; position: fixed; top: 15%; left: -10%;
+  width: 300px; height: 300px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(212,175,55,0.06) 0%, transparent 70%);
+  filter: blur(60px); pointer-events: none; z-index: 0;
+  animation: specularDrift 12s ease-in-out infinite;
+}
+.page-content::after {
+  content: ''; position: fixed; bottom: 20%; right: -5%;
+  width: 250px; height: 250px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(107,191,127,0.05) 0%, transparent 70%);
+  filter: blur(50px); pointer-events: none; z-index: 0;
+  animation: specularDrift 15s ease-in-out infinite reverse;
+}
+
 /* ===== PAGE CONTENT ===== */
 .page-content {
   padding: 20px; max-width: 600px; margin: 0 auto;

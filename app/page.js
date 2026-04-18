@@ -941,7 +941,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   </div>
                 )}
                 {caddieMsg && (
-                  <div style={{ padding: '14px 16px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(27,67,50,0.12), rgba(212,175,55,0.06))', border: '1px solid rgba(212,175,55,0.15)' }}>
+                  <div className="glass-card" style={{ padding: '14px 16px', borderRadius: 12 }}>
                     <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 6 }}>CADDIE AI</div>
                     <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.5 }}>{caddieMsg}</div>
                     <button onClick={() => setCaddieMsg(null)} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 10, cursor: 'pointer', marginTop: 6, padding: 0 }}>Stäng</button>
@@ -950,7 +950,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               </div>
 
               {/* BIG SCORE INPUT */}
-              <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, marginBottom: 16 }}>
+              <div className="glass-card" style={{ borderRadius: 16, padding: 24, marginBottom: 16 }}>
                 <div style={{ textAlign: 'center', marginBottom: 8 }}>
                   <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', letterSpacing: 1 }}>SLAG</div>
                 </div>
@@ -1005,7 +1005,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               const currCum = roundId ? pSc(scoreFor?.id, roundId).filter(s => s.hole <= activeHole).reduce((s,x) => s + (x.stableford_points || 0), 0) : 0
               const cumDiff = currCum - prevCum
               return (
-                <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 12, marginTop: 8 }}>
+                <div className="glass-card" style={{ borderRadius: 12, padding: 12, marginTop: 8 }}>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1, marginBottom: 4 }}>👻 GHOST MATCH vs {RL[prevRound]}</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ fontSize: 12, color: 'var(--cream-dim)' }}>Förra rundan: <span style={{ fontFamily: 'var(--mono)', fontWeight: 500 }}>{prevScore.strokes} slag ({prevScore.stableford_points}p)</span></div>
@@ -1142,7 +1142,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               const d = Math.floor(diff / 86400000)
               const h = Math.floor((diff % 86400000) / 3600000)
               return (
-                <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14, textAlign: 'center' }}>
+                <div className="glass-card" style={{ borderRadius: 12, padding: 14, marginBottom: 14, textAlign: 'center' }}>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 2 }}>COUNTDOWN TILL FÖRSTA TEE</div>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 28, color: 'var(--cream)', fontWeight: 500, marginTop: 4 }}>{d}d {h}h</div>
                 </div>
