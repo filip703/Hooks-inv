@@ -641,9 +641,9 @@ export default function Home() {
     fetch('https://api.open-meteo.com/v1/forecast?latitude=57.72&longitude=14.83&current=temperature_2m,wind_speed_10m,weather_code&timezone=Europe/Stockholm')
       .then(r => r.json()).then(d => {
         const wc = d.current.weather_code
-        const icons = {0:'\u2600\uFE0F',1:'\uD83C\uDF24\uFE0F',2:'\u26C5',3:'\u2601\uFE0F',45:'\uD83C\uDF2B\uFE0F',48:'\uD83C\uDF2B\uFE0F',51:'\uD83C\uDF26\uFE0F',53:'\uD83C\uDF27\uFE0F',55:'\uD83C\uDF27\uFE0F',61:'\uD83C\uDF27\uFE0F',63:'\uD83C\uDF27\uFE0F',65:'\uD83C\uDF27\uFE0F',71:'\uD83C\uDF28\uFE0F',80:'\uD83C\uDF26\uFE0F',95:'\u26C8\uFE0F'}
-        const descs = {0:'Klart',1:'Mestadels klart',2:'Halvklart',3:'Mulet',45:'Dimma',51:'Duggregn',53:'Regn',61:'L\u00e4tt regn',63:'Regn',65:'Kraftigt regn',71:'Sn\u00f6',80:'Skurar',95:'\u00c5ska'}
-        setWeather({ temp: Math.round(d.current.temperature_2m) + '\u00b0C', wind: Math.round(d.current.wind_speed_10m) + ' km/h', icon: icons[wc] || '\uD83C\uDF24\uFE0F', desc: descs[wc] || 'Ok\u00e4nt' })
+        const icons = {0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌧️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',80:'🌦️',95:'⛈️'}
+        const descs = {0:'Klart',1:'Mestadels klart',2:'Halvklart',3:'Mulet',45:'Dimma',48:'Dimma',51:'Lätt duggregn',53:'Duggregn',55:'Regn',61:'Lätt regn',63:'Regn',65:'Kraftigt regn',71:'Lätt snö',73:'Snö',80:'Skurar',95:'Åska'}
+        setWeather({ temp: Math.round(d.current.temperature_2m) + '°C', wind: Math.round(d.current.wind_speed_10m) + ' km/h', icon: icons[wc] || '🌤️', desc: descs[wc] || 'Okänt' })
       }).catch(() => {})
   }
   const uploadImg = async file => {
@@ -926,7 +926,7 @@ export default function Home() {
                 {!caddieMsg && !caddieLoading && (
                   <button onClick={() => askCaddie(h, course)} style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(27,67,50,0.15), rgba(212,175,55,0.08))', border: '1px solid rgba(212,175,55,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--gold)', fontSize: 13, fontWeight: 500, fontFamily: 'var(--sans)' }}>
                     <AugustaBadge size={24}><IconFlag size={12} color="#FAF8F0" /></AugustaBadge>
-                    Fr\u00e5ga Caddien
+                    Fråga Caddien
                   </button>
                 )}
                 {caddieLoading && (
@@ -938,7 +938,7 @@ export default function Home() {
                   <div style={{ padding: '14px 16px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(27,67,50,0.12), rgba(212,175,55,0.06))', border: '1px solid rgba(212,175,55,0.15)' }}>
                     <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 6 }}>CADDIE AI</div>
                     <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.5 }}>{caddieMsg}</div>
-                    <button onClick={() => setCaddieMsg(null)} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 10, cursor: 'pointer', marginTop: 6, padding: 0 }}>St\u00e4ng</button>
+                    <button onClick={() => setCaddieMsg(null)} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 10, cursor: 'pointer', marginTop: 6, padding: 0 }}>Stäng</button>
                   </div>
                 )}
               </div>
@@ -1000,9 +1000,9 @@ export default function Home() {
               const cumDiff = currCum - prevCum
               return (
                 <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 12, marginTop: 8 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1, marginBottom: 4 }}>\uD83D\uDC7B GHOST MATCH vs {RL[prevRound]}</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1, marginBottom: 4 }}>👻 GHOST MATCH vs {RL[prevRound]}</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ fontSize: 12, color: 'var(--cream-dim)' }}>F\u00f6rra rundan: <span style={{ fontFamily: 'var(--mono)', fontWeight: 500 }}>{prevScore.strokes} slag ({prevScore.stableford_points}p)</span></div>
+                    <div style={{ fontSize: 12, color: 'var(--cream-dim)' }}>Förra rundan: <span style={{ fontFamily: 'var(--mono)', fontWeight: 500 }}>{prevScore.strokes} slag ({prevScore.stableford_points}p)</span></div>
                     <div style={{ fontSize: 14, fontFamily: 'var(--mono)', fontWeight: 600, color: cumDiff > 0 ? 'var(--green)' : cumDiff < 0 ? 'var(--coral)' : 'var(--cream-muted)' }}>
                       {cumDiff > 0 ? '+' : ''}{cumDiff}p tot
                     </div>
@@ -1180,7 +1180,7 @@ export default function Home() {
                     border: '0.5px solid ' + (s.pts >= 4 ? 'rgba(212,175,55,0.2)' : s.pts >= 3 ? 'rgba(34,197,94,0.15)' : 'rgba(232,99,74,0.15)'),
                     whiteSpace: 'nowrap'
                   }}>
-                    {s.pts >= 4 ? '\uD83E\uDD85' : s.pts >= 3 ? '\uD83D\uDC26' : '\uD83D\uDC80'} {s.player.nickname} H{s.hole}
+                    {s.pts >= 4 ? '🦅' : s.pts >= 3 ? '🐦' : '💀'} {s.player.nickname} H{s.hole}
                   </div>
                 ))}
               </div>
@@ -1418,6 +1418,49 @@ export default function Home() {
         </>)}
 
         {/* ===== CHAT ===== */}
+        {view === 'inbox' && (<>
+          <div className="section-title">Inkorg</div>
+          <div className="section-sub">Utmaningar, omnämnanden & reaktioner</div>
+          {(() => {
+            const myId = user?.id
+            const myNick = user?.nickname || ''
+            const myFirst = user?.name?.split(' ')[0]?.toLowerCase() || ''
+            const items = []
+            chat.filter(m => m.msg_type === 'bounty' && m.message?.includes(myNick) && m.player_id !== myId)
+              .forEach(m => items.push({ type: 'bounty', msg: m, label: 'UTMANING', icon: '⚔️', color: 'var(--coral)' }))
+            chat.filter(m => m.player_id !== myId && m.msg_type === 'chat' && myFirst && m.message?.toLowerCase().includes('@' + myFirst))
+              .forEach(m => items.push({ type: 'mention', msg: m, label: 'OMNÄMND', icon: '💬', color: 'var(--gold)' }))
+            chat.filter(m => m.player_id === myId && m.reactions && Object.keys(typeof m.reactions === 'string' ? JSON.parse(m.reactions) : m.reactions).length > 0)
+              .forEach(m => {
+                const rxns = typeof m.reactions === 'string' ? JSON.parse(m.reactions) : m.reactions
+                const total = Object.values(rxns).reduce((s, arr) => s + arr.length, 0)
+                items.push({ type: 'reaction', msg: m, label: total + ' REAKTIONER', icon: '🔥', color: 'var(--green)' })
+              })
+            items.sort((a, b) => new Date(b.msg.created_at) - new Date(a.msg.created_at))
+            if (items.length === 0) return <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 40, textAlign: 'center', color: 'var(--cream-muted)' }}>Inget nytt! Inga utmaningar eller omnämnanden.</div>
+            return items.slice(0, 20).map((item, i) => {
+              const sender = activePlayers.find(p => p.id === item.msg.player_id) || {}
+              return (
+                <div key={i} onClick={() => { if (item.type !== 'reaction') setView('feed') }}
+                  style={{ display: 'flex', gap: 10, padding: '12px 14px', background: 'var(--surface)', borderRadius: 10, marginBottom: 6, cursor: 'pointer', border: '1px solid var(--card-border)' }}>
+                  <div style={{ fontSize: 20, flexShrink: 0 }}>{item.icon}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: item.color, letterSpacing: 0.5, fontWeight: 600 }}>{item.label}</span>
+                      <span style={{ fontSize: 10, color: 'var(--cream-muted)', marginLeft: 'auto' }}>{new Date(item.msg.created_at).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Av p={sender} size={16} />
+                      <span style={{ fontSize: 11, color: 'var(--cream-dim)' }}>{sender.nickname || '?'}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--cream-muted)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.msg.message}</div>
+                  </div>
+                </div>
+              )
+            })
+          })()}
+        </>)}
+
         {view === 'feed' && (<>
           <div className="section-title">Live Feed</div>
           <div className="section-sub">Chat, birdies, nollor och skitsnack</div>
@@ -1672,17 +1715,17 @@ export default function Home() {
           })}
 
           {/* Venue Mode */}
-          <div style={{ marginTop: 20, fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>HOOKS HERRG\u00c5RD</div>
+          <div style={{ marginTop: 20, fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>HOOKS HERRGÅRD</div>
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 16 }}>
             {[
-              { icon: '\uD83D\uDCF6', label: 'WiFi', value: 'HooksGuest / hooks2026' },
-              { icon: '\uD83C\uDF7D\uFE0F', label: 'Frukost', value: '07:00\u201309:30 i matsalen' },
-              { icon: '\uD83E\uDDD6', label: 'Spa', value: '08:00\u201321:00 (handduk i rummet)' },
-              { icon: '\uD83C\uDF7A', label: 'Baren', value: '15:00\u2013sent (tab p\u00e5 rummet)' },
-              { icon: '\uD83D\uDE97', label: 'Taxi Tran\u00e5s', value: '0140-163 00' },
-              { icon: '\uD83D\uDCCD', label: 'Adress', value: 'Hooks Herrg\u00e5rd, 573 94 Hok' },
-              { icon: '\uD83C\uDFCC\uFE0F', label: 'Pro Shop', value: '08:00\u201318:00 (bollar, handskar)' },
-              { icon: '\uD83D\uDE91', label: 'N\u00f6dnummer', value: '112 / Hooks reception: 0393-210 00' },
+              { icon: '📶', label: 'WiFi', value: 'HooksGuest / hooks2026' },
+              { icon: '🍽️', label: 'Frukost', value: '07:00–09:30 i matsalen' },
+              { icon: '🧖', label: 'Spa', value: '08:00–21:00 (handduk i rummet)' },
+              { icon: '🍺', label: 'Baren', value: '15:00–sent (tab på rummet)' },
+              { icon: '🚗', label: 'Taxi Tranås', value: '0140-163 00' },
+              { icon: '📍', label: 'Adress', value: 'Hooks Herrgård, 573 94 Hok' },
+              { icon: '🏌️', label: 'Pro Shop', value: '08:00–18:00 (bollar, handskar)' },
+              { icon: '🚑', label: 'Nödnummer', value: '112 / Hooks reception: 0393-210 00' },
             ].map((item, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < 7 ? '1px solid var(--card-border)' : 'none' }}>
                 <span style={{ fontSize: 16, width: 24, textAlign: 'center' }}>{item.icon}</span>
@@ -1754,16 +1797,16 @@ export default function Home() {
         {/* ===== PHOTO GALLERY ===== */}
         {view === 'historia' && (<>
           <div className="section-title">Douche Historia</div>
-          <div className="section-sub">Legender, minnen & skamliga \u00f6gonblick</div>
+          <div className="section-sub">Legender, minnen & skamliga ögonblick</div>
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 16 }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 8 }}>L\u00c4GG TILL MINNE</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 8 }}>LÄGG TILL MINNE</div>
             <input value={historiaCaption || ''} onChange={e => setHistoriaCaption(e.target.value)} placeholder="Beskriv minnet..." style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 8, fontFamily: 'var(--sans)', outline: 'none', boxSizing: 'border-box' }} />
             <div style={{ display: 'flex', gap: 6 }}>
               <select value={historiaYear || '2025'} onChange={e => setHistoriaYear(e.target.value)} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '8px 10px', borderRadius: 8, fontSize: 12 }}>
-                <option value="2025">Pre-DIO 2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="earlier">L\u00e4ngesen</option>
+                <option value="2025">Pre-DIO 2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="earlier">Längesen</option>
               </select>
               <label style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--cream-muted)', textAlign: 'center' }}>
-                \uD83D\uDCF7 Bild/Video
+                📷 Bild/Video
                 <input type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={async e => {
                   const file = e.target.files[0]; if (!file) return
                   const path = 'historia/' + Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9.]/g, '')
@@ -1780,12 +1823,12 @@ export default function Home() {
                 await supabase.from('inv_historia').insert({ player_id: user.id, caption: historiaCaption, year: historiaYear || '2025', media_url: null, media_type: 'text' })
                 setHistoriaCaption(''); fetchHistoria()
                 showToast('Minne tillagt!', 'birdie')
-              }} style={{ background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>\u2191</button>}
+              }} style={{ background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>↑</button>}
             </div>
           </div>
           {(() => {
             const years = [...new Set((historia || []).map(h => h.year))].sort((a,b) => b.localeCompare(a))
-            if (years.length === 0) return <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 40, textAlign: 'center', color: 'var(--cream-muted)' }}>Inga minnen \u00e4nnu. Var den f\u00f6rsta att l\u00e4gga till!</div>
+            if (years.length === 0) return <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 40, textAlign: 'center', color: 'var(--cream-muted)' }}>Inga minnen ännu. Var den första att lägga till!</div>
             return years.map(year => (
               <div key={year} style={{ marginBottom: 20 }}>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, paddingLeft: 4 }}>{year === 'earlier' ? 'LEGENDER' : year}</div>
@@ -1804,7 +1847,7 @@ export default function Home() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
                             <Av p={p} size={14} />
                             <span style={{ fontSize: 9, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>{p.nickname || '?'}</span>
-                            {h.media_url && <a href={h.media_url} download style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--cream-muted)', textDecoration: 'none' }}>\u2b07</a>}
+                            {h.media_url && <a href={h.media_url} download style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--cream-muted)', textDecoration: 'none' }}>⬇</a>}
                           </div>
                         </div>
                       </div>
@@ -2525,14 +2568,14 @@ export default function Home() {
           {/* PIN */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>🍺 DRUNK-O-METER</div>
-            <div style={{ fontSize: 12, color: 'var(--cream-muted)', marginBottom: 8 }}>Hur m\u00e5r du just nu?</div>
+            <div style={{ fontSize: 12, color: 'var(--cream-muted)', marginBottom: 8 }}>Hur mår du just nu?</div>
             <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
               {[
-                { v: 1, l: 'Nykter', e: '\uD83D\uDE10' },
-                { v: 2, l: 'Lagom', e: '\uD83D\uDE0A' },
-                { v: 3, l: 'Glad', e: '\uD83D\uDE04' },
-                { v: 4, l: 'Full', e: '\uD83C\uDF7A' },
-                { v: 5, l: 'Kaos', e: '\uD83E\uDD2A' },
+                { v: 1, l: 'Nykter', e: '😐' },
+                { v: 2, l: 'Lagom', e: '😊' },
+                { v: 3, l: 'Glad', e: '😄' },
+                { v: 4, l: 'Full', e: '🍺' },
+                { v: 5, l: 'Kaos', e: '🤪' },
               ].map(d => (
                 <button key={d.v} onClick={async () => {
                   await supabase.from('inv_players').update({ drunk_level: d.v }).eq('id', user.id)
@@ -3014,6 +3057,7 @@ export default function Home() {
             <div style={{ padding: 12 }}>
               {[
                 { key: 'teams', icon: <IconSwords size={16} />, label: 'Lag-battle', desc: 'Smaragderna vs Stålklubban' },
+                { key: 'inbox', icon: <IconBell size={16} />, label: 'Inkorg', desc: 'Utmaningar & mentions' },
                 { key: 'feed', icon: <IconChat size={16} />, label: 'Chat', desc: 'Trash talk i realtid' },
                 { key: 'expenses', icon: <IconWallet size={16} />, label: 'Even Steven', desc: 'Utgifter & settlement' },
                 { key: 'betting', icon: <IconDice size={16} />, label: 'Betting', desc: 'Odds, H2H & LD/NP' },
