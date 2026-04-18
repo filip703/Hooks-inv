@@ -342,7 +342,7 @@ export default function Home() {
   const addNotif = (msg, type) => {
     const n = { id: Date.now(), msg, type, time: new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }) }
     setNotifications(prev => [n, ...prev].slice(0, 50))
-    setUnread(prev => prev + 1)
+    setUnread(prev => { const v = prev + 1; navigator?.setAppBadge?.(v).catch(() => {}); return v })
   }
   const showToast = (msg, type) => {
     setToast({ msg, type })
@@ -371,13 +371,13 @@ export default function Home() {
     const sg = getStrokesGiven(phcp, hole.hcp)
     const prompt = `Du ar en erfaren caddie pa Hooks Herrgard. Ge kort rad (max 3 meningar) till ${scoreFor?.nickname || 'spelaren'} (HCP ${scoreFor?.hcp}) for hal ${hole.hole}. Par ${hole.par}, ${hole.meters}m, Hcp ${hole.hcp}. ${sg > 0 ? 'Extraslag: ' + sg : ''} Banguide: ${hole.tip} ${avgPts ? 'Form: ' + avgPts + 'p/hal.' : ''} ${myPos > 0 ? 'Pos: ' + myPos + '/' + lb.length : ''} R${selRound}/4. ${hole.hole >= 16 ? 'DUBBLA POANG!' : ''} Kort, taktiskt, humor/trash talk. Svenska.`
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('/api/caddie', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 200, messages: [{ role: 'user', content: prompt }] })
+        body: JSON.stringify({ prompt })
       })
       const data = await res.json()
-      setCaddieMsg(data.content?.find(c => c.type === 'text')?.text || 'Caddien ar tyst...')
-    } catch (e) { setCaddieMsg('Caddien tappade signalen!') }
+      setCaddieMsg(data.text || 'Caddien är tyst...')
+    } catch (e) { setCaddieMsg('Caddien tappade signalen! Lita på magkänslan.') }
     setCaddieLoading(false)
   }
 
@@ -1041,7 +1041,7 @@ export default function Home() {
           )}
           <div style={{ marginLeft: lb.length > 0 ? 6 : 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
             <button onClick={() => setDarkMode(d => !d)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', lineHeight: 1, color: '#FAF8F0', display: 'flex' }}>{darkMode ? <IconSun size={16} /> : <IconMoon size={16} />}</button>
-            <button onClick={() => { setShowNotifs(!showNotifs); setUnread(0) }} style={{ background: 'none', border: 'none', color: unread > 0 ? 'var(--gold-bright)' : 'rgba(250,248,240,0.4)', cursor: 'pointer', position: 'relative', padding: '4px', display: 'flex' }}>
+            <button onClick={() => { setShowNotifs(!showNotifs); setUnread(0); navigator?.clearAppBadge?.().catch(() => {}) }} style={{ background: 'none', border: 'none', color: unread > 0 ? 'var(--gold-bright)' : 'rgba(250,248,240,0.4)', cursor: 'pointer', position: 'relative', padding: '4px', display: 'flex' }}>
               <IconBell size={16} />
               {unread > 0 && <span style={{ position: 'absolute', top: 0, right: 0, background: 'var(--coral)', color: '#fff', fontSize: 7, fontWeight: 600, borderRadius: '50%', width: 12, height: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unread > 9 ? '9+' : unread}</span>}
             </button>
@@ -1663,7 +1663,10 @@ export default function Home() {
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{p.name.split(' ')[0]}</div>
                   <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>{song.song} – {song.artist}</div>
                 </div>
-                <div style={{ fontSize: 16 }}>🎵</div>
+                <div style={{ background: '#1DB954', borderRadius: 20, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 12, color: '#fff', fontWeight: 600 }}>▶</span>
+                  <span style={{ fontSize: 9, color: '#fff', fontFamily: 'var(--mono)' }}>PLAY</span>
+                </div>
               </a>
             ) : null
           })}
@@ -2544,6 +2547,21 @@ export default function Home() {
                   <div style={{ fontSize: 8, fontFamily: 'var(--mono)', color: user.drunk_level === d.v ? 'var(--gold)' : 'var(--cream-muted)', marginTop: 2 }}>{d.l}</div>
                 </button>
               ))}
+            </div>
+
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>🏆 ACHIEVEMENTS</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6, marginBottom: 20 }}>
+              {achievements.map(a => {
+                const myScores = scores.filter(s => s.player_id === user.id)
+                const unlocked = a.check(myScores, rounds)
+                return (
+                  <div key={a.id} style={{ padding: '10px', borderRadius: 10, background: unlocked ? 'rgba(212,175,55,0.1)' : 'var(--surface2)', border: unlocked ? '1px solid var(--gold-dim)' : '1px solid var(--card-border)', opacity: unlocked ? 1 : 0.4 }}>
+                    <div style={{ fontSize: 20, marginBottom: 4 }}>{a.icon}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: unlocked ? 'var(--gold)' : 'var(--cream-muted)' }}>{a.title}</div>
+                    <div style={{ fontSize: 9, color: 'var(--cream-muted)', marginTop: 2 }}>{a.desc}</div>
+                  </div>
+                )
+              })}
             </div>
 
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>🔒 PIN-KOD</div>
