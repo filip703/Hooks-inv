@@ -369,7 +369,13 @@ export default function Home() {
     const myPos = lb.findIndex(p => p.id === scoreFor?.id) + 1
     const phcp = getPlayingHcp(Math.min(parseFloat(scoreFor?.hcp || 0), 36), course.slope)
     const sg = getStrokesGiven(phcp, hole.hcp)
-    const prompt = `Du ar en erfaren caddie pa Hooks Herrgard. Ge kort rad (max 3 meningar) till ${scoreFor?.nickname || 'spelaren'} (HCP ${scoreFor?.hcp}) for hal ${hole.hole}. Par ${hole.par}, ${hole.meters}m, Hcp ${hole.hcp}. ${sg > 0 ? 'Extraslag: ' + sg : ''} Banguide: ${hole.tip} ${avgPts ? 'Form: ' + avgPts + 'p/hal.' : ''} ${myPos > 0 ? 'Pos: ' + myPos + '/' + lb.length : ''} R${selRound}/4. ${hole.hole >= 16 ? 'DUBBLA POANG!' : ''} Kort, taktiskt, humor/trash talk. Svenska.`
+    const prompt = `Du är caddie på Hooks GK. Ge ${scoreFor?.nickname || 'spelaren'} (HCP ${scoreFor?.hcp}) ett kort taktiskt råd för hål ${hole.hole} (par ${hole.par}, ${hole.meters}m). ${sg > 0 ? 'Har ' + sg + ' extraslag.' : ''} ${avgPts ? 'Senaste formen: ' + avgPts + ' poäng/hål.' : ''} ${myPos > 0 ? 'Ligger ' + myPos + ' av ' + lb.length + '.' : ''} ${hole.hole >= 16 ? 'DUBBLA POÄNG-hål!' : ''}
+
+VIKTIGT: Repetera INTE hålets beskrivning eller banguide. Spelaren ser redan den infon. Ge istället:
+1. En specifik taktisk rekommendation (klubbval, strategi)
+2. En kort peppande/roastande kommentar i DIO-anda
+
+Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     try {
       const res = await fetch('/api/caddie', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
