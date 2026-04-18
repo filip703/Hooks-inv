@@ -1397,7 +1397,7 @@ export default function Home() {
               <div key={team} className={`team-card ${team === 'green' ? 'team-green-bg' : 'team-blue-bg'}`}>
                 <div className="team-header">
                   <div>
-                    <div className="team-title" style={{ color: c }}>{team === 'green' ? 'Smaragderna' : 'Stålklubban'}</div>
+                    <div className="team-title" style={{ color: c }}>{team === 'green' ? 'Jägermeister' : 'Fernet'}</div>
                     {diff !== 0 && tot > 0 && <div style={{ fontSize: 11, color: diff > 0 ? c : 'var(--cream-muted)' }}>{diff > 0 ? `+${diff} ledning` : `${diff}`}</div>}
                   </div>
                   <div className="team-total" style={{ color: c }}>{tot || '-'}</div>
@@ -1756,7 +1756,7 @@ export default function Home() {
               <Av p={p} size={40} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 500 }}>{p.name} <span style={{ fontSize: 11, color: p.team === 'green' ? 'var(--green)' : 'var(--blue)', fontFamily: 'var(--mono)' }}>{p.hcp}</span></div>
-                <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>{p.nickname} · {p.team === 'green' ? 'Smaragderna' : 'Stålklubban'}</div>
+                <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>{p.nickname} · {p.team === 'green' ? 'Jägermeister' : 'Fernet'}</div>
                 <div style={{ fontSize: 11, color: 'var(--cream-dim)', fontStyle: 'italic', marginTop: 2 }}>"{getRandomRoast(p.key)}"</div>
               </div>
             </div>
@@ -2463,7 +2463,7 @@ export default function Home() {
             <Av p={user} size={80} />
             <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--gold)', marginTop: 8 }}>{user.nickname}</div>
             <div style={{ fontSize: 12, color: 'var(--cream-muted)' }}>{user.name}</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)', marginTop: 4 }}>HCP {user.hcp} · {user.team === 'green' ? '🟢 Smaragderna' : '🔵 Stålklubban'}</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)', marginTop: 4 }}>HCP {user.hcp} · {user.team === 'green' ? '🟢 Jägermeister' : '🔵 Fernet'}</div>
           </div>
 
           {/* Kontaktuppgifter */}
@@ -2859,10 +2859,10 @@ export default function Home() {
                   onChange={async (e) => {
                     await supabase.from('inv_players').update({ team: e.target.value }).eq('id', p.id)
                     fetchAll()
-                    showToast(`${p.nickname} → ${e.target.value === 'green' ? 'Smaragderna' : 'Stålklubban'}`, 'birdie')
+                    showToast(`${p.nickname} → ${e.target.value === 'green' ? 'Jägermeister' : 'Fernet'}`, 'birdie')
                   }}>
-                  <option value="green">Smaragderna</option>
-                  <option value="blue">Stålklubban</option>
+                  <option value="green">Jägermeister</option>
+                  <option value="blue">Fernet</option>
                 </select>
               </div>
             ))}
@@ -3056,7 +3056,7 @@ export default function Home() {
             {/* Menu items */}
             <div style={{ padding: 12 }}>
               {[
-                { key: 'teams', icon: <IconSwords size={16} />, label: 'Lag-battle', desc: 'Smaragderna vs Stålklubban' },
+                { key: 'teams', icon: <IconSwords size={16} />, label: 'Lag-battle', desc: 'Jägermeister vs Fernet' },
                 { key: 'inbox', icon: <IconBell size={16} />, label: 'Inkorg', desc: 'Utmaningar & mentions' },
                 { key: 'feed', icon: <IconChat size={16} />, label: 'Chat', desc: 'Trash talk i realtid' },
                 { key: 'expenses', icon: <IconWallet size={16} />, label: 'Even Steven', desc: 'Utgifter & settlement' },
@@ -3103,9 +3103,9 @@ export default function Home() {
       {/* ===== BOTTOM NAV - iOS 26 Liquid Glass + Team Scores ===== */}
       <nav className="bottom-nav">
         <div className="nav-teams-strip">
-          <span className={`nav-team green ${teamTotal('green') > teamTotal('blue') ? 'leading' : ''}`}>SMARAGD {teamTotal('green') || '–'}p</span>
+          <span className={`nav-team green ${teamTotal('green') > teamTotal('blue') ? 'leading' : ''}`}>JÄGER {teamTotal('green') || '–'}p</span>
           <span className="nav-team-vs">vs</span>
-          <span className={`nav-team blue ${teamTotal('blue') > teamTotal('green') ? 'leading' : ''}`}>STÅL {teamTotal('blue') || '–'}p</span>
+          <span className={`nav-team blue ${teamTotal('blue') > teamTotal('green') ? 'leading' : ''}`}>FERNET {teamTotal('blue') || '–'}p</span>
         </div>
         <div className="nav-buttons">
           <button className={`bottom-nav-btn ${view === 'leaderboard' ? 'active' : ''}`} onClick={() => setView('leaderboard')}>
