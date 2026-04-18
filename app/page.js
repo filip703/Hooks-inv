@@ -1449,6 +1449,34 @@ export default function Home() {
                       <button onClick={async () => { await supabase.from('inv_chat').delete().eq('id', m.id); fetchChat() }} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 10, cursor: 'pointer', opacity: 0.5 }}>✕</button>
                     )}
                   </div>}
+                  {/* Reaction emojis */}
+                  {!sys && m.id && !String(m.id).startsWith('tmp') && (
+                    <div style={{ display: 'flex', gap: 2, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {['🔥','😂','👏','💀','🗑️'].map(emoji => {
+                        const rxns = m.reactions ? (typeof m.reactions === 'string' ? JSON.parse(m.reactions) : m.reactions) : {}
+                        const users = rxns[emoji] || []
+                        const myR = users.includes(user?.key)
+                        return (
+                          <button key={emoji} onClick={async () => {
+                            const curr = m.reactions ? (typeof m.reactions === 'string' ? JSON.parse(m.reactions) : m.reactions) : {}
+                            const list = curr[emoji] || []
+                            if (list.includes(user?.key)) { curr[emoji] = list.filter(k => k !== user.key) }
+                            else { curr[emoji] = [...list, user.key] }
+                            if (curr[emoji].length === 0) delete curr[emoji]
+                            await supabase.from('inv_chat').update({ reactions: curr }).eq('id', m.id)
+                            fetchChat()
+                          }} style={{
+                            background: myR ? 'rgba(212,175,55,0.12)' : 'transparent',
+                            border: myR ? '1px solid var(--gold-dim)' : '1px solid transparent',
+                            borderRadius: 6, padding: '1px 4px', cursor: 'pointer', fontSize: 12,
+                            display: 'flex', alignItems: 'center', gap: 2,
+                          }}>
+                            {emoji}{users.length > 0 && <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>{users.length}</span>}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                   <div style={{ fontSize: 13, lineHeight: 1.5, color: sys ? 'var(--cream-dim)' : 'var(--cream)' }}>{renderMsg(m.message)}</div>
                   {m.image_url && (m.msg_type === 'video' ? <video src={m.image_url} controls playsInline style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} /> : <img src={m.image_url} alt="" style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} loading="lazy" />)}
                   <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', marginTop: 3 }}>{new Date(m.created_at).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</div>
@@ -1457,6 +1485,38 @@ export default function Home() {
             })}
             <div ref={chatEnd} />
           </div>
+          {/* Shot of the Day */}
+          {shotOfDay && (
+            <div style={{ background: 'linear-gradient(135deg, rgba(27,67,50,0.12), rgba(212,175,55,0.06))', borderRadius: 12, padding: 14, marginBottom: 12, border: '1px solid rgba(212,175,55,0.15)' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 6 }}>SHOT OF THE DAY</div>
+              <div style={{ fontSize: 13, color: 'var(--cream-dim)', marginBottom: 10 }}>Vem slog helgens bästa slag?</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {activePlayers.map(p => {
+                  const votes = (shotVotes[p.key] || 0)
+                  const voted = shotVotes._myVote === p.key
+                  return (
+                    <button key={p.key} onClick={async () => {
+                      if (shotVotes._myVote) return
+                      setShotVotes(v => ({ ...v, [p.key]: (v[p.key] || 0) + 1, _myVote: p.key }))
+                      await supabase.from('inv_chat').insert({ player_id: user.id, message: 'SOTD:' + p.key, msg_type: 'vote' })
+                      showToast('Röst registrerad!', 'birdie')
+                    }} style={{
+                      display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 8,
+                      cursor: voted || shotVotes._myVote ? 'default' : 'pointer',
+                      background: voted ? 'rgba(212,175,55,0.15)' : 'var(--surface)',
+                      border: voted ? '1px solid var(--gold-dim)' : '1px solid var(--card-border)',
+                      opacity: shotVotes._myVote && !voted ? 0.5 : 1,
+                    }}>
+                      <Av p={p} size={20} />
+                      <span style={{ fontSize: 11, color: voted ? 'var(--gold)' : 'var(--cream-dim)' }}>{p.nickname}</span>
+                      {votes > 0 && <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--gold)', marginLeft: 2 }}>{votes}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* @-mention suggestions */}
           {chatMsg.includes('@') && (() => {
             const match = chatMsg.match(/@(\w*)$/)
