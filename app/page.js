@@ -163,6 +163,78 @@ function Badge({ text, color, bg }) {
 }
 
 export default function Home() {
+  const [appMode, setAppMode] = useState(null)
+  useEffect(() => { if (typeof window !== 'undefined') { const s = localStorage.getItem('app_mode'); if (s === 'dio' || s === 'taby') setAppMode(s) } }, [])
+  useEffect(() => { if (appMode && typeof window !== 'undefined') { localStorage.setItem('app_mode', appMode); document.documentElement.setAttribute('data-mode', appMode) } }, [appMode])
+
+  if (!appMode) return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0B1410 0%, #0C1830 50%, #0B1410 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 20 }}>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: 4, color: 'rgba(250,248,240,0.3)', textTransform: 'uppercase' }}>Välj läge</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%', maxWidth: 340 }}>
+        <button onClick={() => setAppMode('dio')} style={{ padding: '28px 20px', borderRadius: 20, cursor: 'pointer', border: '0.5px solid rgba(212,175,55,0.2)', background: 'linear-gradient(135deg, rgba(27,67,50,0.15), rgba(27,67,50,0.05))', backdropFilter: 'blur(20px)', textAlign: 'left', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 50%)', pointerEvents: 'none', borderRadius: 20 }} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: 24, color: '#D4AF37', marginBottom: 4 }}>DIO 2026</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(250,248,240,0.4)', letterSpacing: 1 }}>HOOKS HERRGÅRD · 1–4 MAJ</div>
+            <div style={{ fontSize: 12, color: 'rgba(250,248,240,0.5)', marginTop: 8 }}>Douche Invitational Only</div>
+          </div>
+        </button>
+        <button onClick={() => setAppMode('taby')} style={{ padding: '28px 20px', borderRadius: 20, cursor: 'pointer', border: '0.5px solid rgba(147,197,253,0.2)', background: 'linear-gradient(135deg, rgba(12,24,48,0.4), rgba(30,58,95,0.2))', backdropFilter: 'blur(20px)', textAlign: 'left', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(147,197,253,0.04) 0%, transparent 50%)', pointerEvents: 'none', borderRadius: 20 }} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: 24, color: '#93C5FD', marginBottom: 4 }}>Täby Order of Merit</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(147,197,253,0.4)', letterSpacing: 1 }}>TÄBY GK · SÄSONG 2026</div>
+            <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.5)', marginTop: 8 }}>April – Oktober</div>
+          </div>
+        </button>
+      </div>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(250,248,240,0.15)', letterSpacing: 2, marginTop: 12 }}>POWERED BY CHAOS</div>
+    </div>
+  )
+  if (appMode === 'taby') return <TaByApp onSwitchMode={() => { setAppMode(null); localStorage.removeItem('app_mode') }} />
+  return <DIOApp onSwitchMode={() => { setAppMode(null); localStorage.removeItem('app_mode') }} />
+}
+
+function TaByApp({ onSwitchMode }) {
+  const [tabySplash, setTabySplash] = useState(true)
+  const [tabySplashExit, setTabySplashExit] = useState(false)
+  const [tabyView, setTabyView] = useState('leaderboard')
+  const [tabyHole, setTabyHole] = useState(1)
+  useEffect(() => { document.documentElement.setAttribute('data-theme', 'dark'); document.documentElement.setAttribute('data-mode', 'taby'); const t1 = setTimeout(() => setTabySplashExit(true), 5500); const t2 = setTimeout(() => setTabySplash(false), 6200); return () => { clearTimeout(t1); clearTimeout(t2) } }, [])
+  const tabyPlayers = [
+    { name: 'Filip Hector', nick: 'Long Gone', hcp: 7.5 },
+    { name: 'Matthis Jackobson', nick: 'Pro Am', hcp: 18 },
+    { name: 'Marcus Ullholm', nick: 'The Spreadsheet', hcp: 11.7 },
+    { name: 'Fredrik Hellstenius', nick: 'Old Fashioned', hcp: 15 },
+    { name: 'Magnus Jarlgren', nick: 'Plan B', hcp: 22 },
+    { name: 'Rami Hamdeh', nick: 'Säpo', hcp: 23.7 },
+  ]
+  const holes = [
+    { h:1,p:5,i:13,m:441,t:'Sikta mot högsta tallen. Brant slänt bakom green.',w:false },
+    { h:2,p:4,i:9,m:372,t:'Vänster fairway ger bättre vinkel.',w:false },
+    { h:3,p:4,i:3,m:357,t:'Damm vänster fairway. Upphöjd green.',w:true },
+    { h:4,p:3,i:17,m:137,t:'Vatten följer vänster green. Uppförsputt föredras.',w:true },
+    { h:5,p:4,i:1,m:396,t:'Svåraste hålet. Hela vägen uppför.',w:false },
+    { h:6,p:5,i:7,m:484,t:'Längsta hålet. Blint inspel – invänta klocka.',w:false },
+    { h:7,p:3,i:15,m:178,t:'20m nedför. Kort/vänster rullar till bunkrarna.',w:false },
+    { h:8,p:4,i:5,m:383,t:'Håll vänster för optimal vinkel mot green.',w:false },
+    { h:9,p:4,i:11,m:320,t:'Sikta talldungen höger. Damm vänster green.',w:true },
+    { h:10,p:4,i:8,m:378,t:'Över kullen mitt i fairway. Damm höger.',w:true },
+    { h:11,p:4,i:12,m:350,t:'Vatten kort och höger om green.',w:true },
+    { h:12,p:5,i:4,m:472,t:'Platå-hål. Damm bakom krönet. Klocksignal!',w:true },
+    { h:13,p:4,i:14,m:310,t:'Blint utslag! Utsiktstornet. Sveriges finaste hål börjar.',w:false },
+    { h:14,p:3,i:2,m:180,t:'Signaturhål! Sjön. Bollen rullar mot vattnet.',w:true },
+    { h:15,p:4,i:18,m:309,t:'Ett av Sveriges vackraste hål. Sjöutsikt.',w:true },
+    { h:16,p:4,i:6,m:363,t:'Dold damm vänster. Kraftigt lutande green.',w:true },
+    { h:17,p:3,i:16,m:157,t:'Sjöhålet! Vatten framför och vänster.',w:true },
+    { h:18,p:5,i:10,m:440,t:'Ny green 2026. OB vänster, vatten höger.',w:true },
+  ]
+  const curHole = holes[tabyHole - 1]
+  if (tabySplash) return (<div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'linear-gradient(180deg, #0C1830 0%, #1E3A5F 40%, #0C1830 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: tabySplashExit ? 0 : 1, transition: 'opacity 0.7s ease' }}><style>{`@keyframes tabyFadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } @keyframes tabyGlow { 0%,100% { text-shadow: 0 0 20px rgba(147,197,253,0.3); } 50% { text-shadow: 0 0 40px rgba(147,197,253,0.6); } } @keyframes tabyLine { from { width: 0; } to { width: 120px; } } @keyframes tabyPlayerSlide { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }`}</style><div style={{ animation: 'tabyFadeUp 0.8s ease 0.3s both', fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: 5, color: 'rgba(147,197,253,0.4)', textTransform: 'uppercase' }}>The Lake Club</div><div style={{ animation: 'tabyFadeUp 0.8s ease 0.6s both, tabyGlow 3s ease-in-out infinite 1.5s', fontFamily: 'var(--serif)', fontSize: 32, color: '#93C5FD', margin: '8px 0 4px', letterSpacing: 2 }}>Täby Order of Merit</div><div style={{ animation: 'tabyLine 0.6s ease 1s both', height: 1, background: 'linear-gradient(90deg, transparent, #D4A017, transparent)', margin: '8px 0' }} /><div style={{ animation: 'tabyFadeUp 0.8s ease 1.2s both', fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(212,175,55,0.5)', letterSpacing: 3 }}>SÄSONG 2026</div><div style={{ animation: 'tabyFadeUp 0.8s ease 1.5s both', fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(240,244,255,0.2)', letterSpacing: 2, marginTop: 6 }}>VALLENTUNASJÖN · EST. 1968</div><div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 6, width: '80%', maxWidth: 280 }}>{tabyPlayers.map((pl, idx) => (<div key={pl.nick} style={{ animation: `tabyPlayerSlide 0.4s ease ${2 + idx * 0.25}s both`, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'rgba(147,197,253,0.04)', borderRadius: 10, border: '0.5px solid rgba(147,197,253,0.08)' }}><div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', border: '1px solid rgba(147,197,253,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#93C5FD', fontWeight: 600 }}>{pl.name.charAt(0)}</div><div style={{ flex: 1 }}><div style={{ fontSize: 12, color: '#F0F4FF', fontWeight: 500 }}>{pl.nick}</div><div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>HCP {pl.hcp}</div></div></div>))}</div><div style={{ animation: 'tabyFadeUp 0.8s ease 4s both', marginTop: 24, fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(147,197,253,0.15)', letterSpacing: 3 }}>APRIL — OKTOBER</div></div>)
+  return (<div style={{ minHeight: '100vh', background: '#0C1830', color: '#F0F4FF', paddingBottom: 80 }}><div style={{ padding: '12px 16px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><div><div style={{ fontFamily: 'var(--serif)', fontSize: 18, color: '#93C5FD' }}>Order of Merit</div><div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,175,55,0.4)', letterSpacing: 2 }}>TÄBY GK · 2026</div></div><button onClick={onSwitchMode} style={{ background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', borderRadius: 8, padding: '6px 10px', color: '#93C5FD', fontSize: 9, fontFamily: 'var(--mono)', cursor: 'pointer', letterSpacing: 1 }}>DIO ↔</button></div><div style={{ display: 'flex', gap: 4, padding: '0 16px 12px', overflowX: 'auto' }}>{[['leaderboard','Merit'],['holes','Banguide'],['stats','Stats'],['chat','Chat']].map(([key, label]) => (<button key={key} onClick={() => setTabyView(key)} style={{ padding: '6px 14px', borderRadius: 8, fontSize: 11, fontFamily: 'var(--mono)', background: tabyView === key ? 'rgba(147,197,253,0.12)' : 'transparent', border: tabyView === key ? '0.5px solid rgba(147,197,253,0.2)' : '0.5px solid transparent', color: tabyView === key ? '#93C5FD' : 'rgba(240,244,255,0.3)', cursor: 'pointer', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{label}</button>))}</div>{tabyView === 'leaderboard' && (<div style={{ padding: '0 16px' }}><div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>{[['—','RUNDOR','#93C5FD'],['—','SNITT','#D4A017'],['—','BIRDIES','#4ADE80']].map(([v,l,c]) => (<div key={l} style={{ flex: 1, background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.08)', borderRadius: 10, padding: '10px 6px', textAlign: 'center' }}><div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: c }}>{v}</div><div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(240,244,255,0.25)', letterSpacing: 1, marginTop: 2 }}>{l}</div></div>))}</div><div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 16, border: '0.5px solid rgba(147,197,253,0.1)', overflow: 'hidden' }}><div style={{ padding: '10px 14px 6px', fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 2 }}>ORDER OF MERIT</div>{tabyPlayers.map((pl, idx) => (<div key={pl.nick} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: idx === 0 ? 'none' : '0.5px solid rgba(147,197,253,0.06)' }}><div style={{ fontFamily: 'var(--serif)', fontSize: idx === 0 ? 20 : 16, color: idx === 0 ? '#D4A017' : 'rgba(240,244,255,0.4)', width: 24 }}>{idx + 1}</div><div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', border: `1.5px solid ${idx === 0 ? '#D4A017' : 'rgba(147,197,253,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD', fontWeight: 500 }}>{pl.name.charAt(0)}{pl.name.split(' ')[1]?.charAt(0)}</div><div style={{ flex: 1 }}><div style={{ fontSize: 13, color: '#F0F4FF', fontWeight: idx === 0 ? 600 : 400 }}>{pl.nick}</div><div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>HCP {pl.hcp} · 0 rundor</div></div><div style={{ fontFamily: 'var(--mono)', fontSize: idx === 0 ? 18 : 15, color: idx === 0 ? '#D4A017' : 'rgba(240,244,255,0.5)', fontWeight: 500 }}>—</div></div>))}</div><div style={{ marginTop: 12, display: 'flex', gap: 6 }}><div style={{ flex: 1, background: 'rgba(212,175,55,0.06)', border: '0.5px solid rgba(212,175,55,0.12)', borderRadius: 10, padding: 10, textAlign: 'center' }}><div style={{ fontSize: 7, color: 'rgba(212,175,55,0.4)', fontFamily: 'var(--mono)', letterSpacing: 1 }}>NÄSTA EVENT</div><div style={{ fontSize: 13, color: '#D4A017', marginTop: 4, fontWeight: 500 }}>The Opener</div><div style={{ fontSize: 9, color: 'rgba(212,175,55,0.3)', fontFamily: 'var(--mono)' }}>Maj 2026</div></div><div style={{ flex: 1, background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.08)', borderRadius: 10, padding: 10, textAlign: 'center' }}><div style={{ fontSize: 7, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)', letterSpacing: 1 }}>SÄSONG</div><div style={{ fontSize: 13, color: '#93C5FD', marginTop: 4, fontWeight: 500 }}>April – Oktober</div><div style={{ fontSize: 9, color: 'rgba(147,197,253,0.3)', fontFamily: 'var(--mono)' }}>Bästa 8 av alla rundor</div></div></div></div>)}{tabyView === 'holes' && (<div style={{ padding: '0 16px' }}><div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 10 }}>{holes.map(h => (<button key={h.h} onClick={() => setTabyHole(h.h)} style={{ width: 32, height: 32, borderRadius: 8, fontSize: 12, fontFamily: 'var(--mono)', fontWeight: 600, cursor: 'pointer', background: tabyHole === h.h ? 'rgba(147,197,253,0.15)' : 'rgba(147,197,253,0.03)', border: tabyHole === h.h ? '1px solid #93C5FD' : '0.5px solid rgba(147,197,253,0.08)', color: tabyHole === h.h ? '#93C5FD' : 'rgba(240,244,255,0.3)' }}>{h.h}</button>))}</div><div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}><div style={{ fontFamily: 'var(--serif)', fontSize: 36, color: '#93C5FD', fontWeight: 700, lineHeight: 1 }}>{curHole.h}</div><div><div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.6)' }}>PAR {curHole.p} · INDEX {curHole.i}</div><div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(212,175,55,0.5)' }}>{curHole.m}m (tee 60)</div></div>{curHole.w && <div style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: 'rgba(96,165,250,0.1)', border: '0.5px solid rgba(96,165,250,0.2)', color: '#60A5FA', fontFamily: 'var(--mono)' }}>💧</div>}</div><div style={{ borderRadius: 16, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.1)', marginBottom: 8 }}><img src={`/taby/holes/hole-${curHole.h}.webp`} alt={`Hål ${curHole.h}`} style={{ width: '100%', height: 'auto', display: 'block' }} /></div><div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, border: '0.5px solid rgba(147,197,253,0.08)', padding: '10px 14px' }}><div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,175,55,0.5)', letterSpacing: 1.5, marginBottom: 4 }}>SPELTIPS</div><div style={{ fontSize: 12, color: 'rgba(240,244,255,0.7)', lineHeight: 1.5 }}>{curHole.t}</div></div><div style={{ display: 'flex', gap: 8, marginTop: 10 }}><button onClick={() => setTabyHole(Math.max(1, tabyHole - 1))} disabled={tabyHole === 1} style={{ flex: 1, padding: '10px', borderRadius: 10, cursor: 'pointer', background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.08)', color: tabyHole === 1 ? 'rgba(240,244,255,0.1)' : '#93C5FD', fontSize: 12, fontFamily: 'var(--mono)' }}>← Hål {Math.max(1, tabyHole - 1)}</button><button onClick={() => setTabyHole(Math.min(18, tabyHole + 1))} disabled={tabyHole === 18} style={{ flex: 1, padding: '10px', borderRadius: 10, cursor: 'pointer', background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.08)', color: tabyHole === 18 ? 'rgba(240,244,255,0.1)' : '#93C5FD', fontSize: 12, fontFamily: 'var(--mono)' }}>Hål {Math.min(18, tabyHole + 1)} →</button></div></div>)}{(tabyView === 'stats' || tabyView === 'chat') && (<div style={{ padding: '40px 16px', textAlign: 'center' }}><div style={{ fontSize: 14, color: 'rgba(240,244,255,0.4)' }}>{tabyView === 'stats' ? 'Statistik' : 'Chat'} byggs snart.</div></div>)}</div>)
+}
+
+function DIOApp({ onSwitchMode }) {
   const [user, setUser] = useState(null)
   const [view, setView] = useState('leaderboard')
   const [players, setPlayers] = useState([])
@@ -668,12 +740,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
   // ===== SPLASH SCREEN =====
   // Player intro sequence
   const introPlayers = [
-    { name: 'Marcus Ullholm', nick: 'The Blazer', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/marcus.jpg', team: 'blue' },
-    { name: 'Matthis Jackobson', nick: 'G&T', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/matthis.jpg', team: 'green' },
-    { name: 'Fredrik Hellstenius', nick: 'Iceman', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/fredrik.jpg', team: 'blue' },
-    { name: 'Magnus Jarlgren', nick: 'Beach Boy', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/magnus.jpg', team: 'blue' },
-    { name: 'Filip Hector', nick: 'The Captain', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/filip.jpg', team: 'green' },
-    { name: 'Martin Jarlgren', nick: 'The Rookie', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/martin.jpg', team: 'green' },
+    { name: 'Marcus Ullholm', nick: 'The Spreadsheet', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/marcus.jpg', team: 'blue' },
+    { name: 'Matthis Jackobson', nick: 'Pro Am', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/matthis.jpg', team: 'green' },
+    { name: 'Fredrik Hellstenius', nick: 'Old Fashioned', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/fredrik.jpg', team: 'blue' },
+    { name: 'Magnus Jarlgren', nick: 'Plan B', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/magnus.jpg', team: 'blue' },
+    { name: 'Filip Hector', nick: 'Long Gone', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/filip.jpg', team: 'green' },
+    { name: 'Martin Jarlgren', nick: 'Plus One', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/martin.jpg', team: 'green' },
   ]
 
   if (splash) return (
@@ -3086,6 +3158,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
             {/* Footer */}
             <div style={{ padding: '16px 20px', borderTop: '1px solid var(--card-border)', marginTop: 10 }}>
+              <button onClick={() => { setShowMenu(false); onSwitchMode() }} style={{ width: '100%', padding: '10px', borderRadius: 10, cursor: 'pointer', marginBottom: 10, background: 'linear-gradient(135deg, rgba(147,197,253,0.08), rgba(147,197,253,0.03))', border: '0.5px solid rgba(147,197,253,0.15)', color: '#93C5FD', fontSize: 11, fontFamily: 'var(--mono)', letterSpacing: 1, textAlign: 'center' }}>↔ BYT TILL TÄBY ORDER OF MERIT</button>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', textAlign: 'center', letterSpacing: 2 }}>DIO · 2026 · HOOKS HERRGÅRD</div>
               <div style={{ fontSize: 9, color: 'var(--cream-muted)', textAlign: 'center', marginTop: 4 }}>⛳ Le Douche de Golf</div>
             </div>

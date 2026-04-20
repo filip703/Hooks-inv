@@ -1,4 +1,5 @@
 import './globals.css'
+import '../styles/midnight-lake.css'
 
 export const metadata = {
   title: 'Douche Invitational Only 2026',
