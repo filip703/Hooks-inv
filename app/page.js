@@ -1321,6 +1321,8 @@ function DIOApp({ onSwitchMode }) {
   const [shotVotes, setShotVotes] = useState({})
   const [historiaCaption, setHistoriaCaption] = useState('')
   const [historiaYear, setHistoriaYear] = useState('2025')
+  const [historiaQueue, setHistoriaQueue] = useState([]) // { id, file, preview, caption, year, status }
+  const [historiaUploading, setHistoriaUploading] = useState(false)
   const [splashExit, setSplashExit] = useState(false)
   const [expenses, setExpenses] = useState([])
   const [payments, setPayments] = useState([])
@@ -1578,7 +1580,16 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
   const hStr = h => { const s = myScores.find(x => x.hole === h); return s ? String(s.strokes) : '' }
   const hPts = h => { const s = myScores.find(x => x.hole === h); return s ? s.stableford_points : null }
   const ninePts = holes => holes.reduce((s, h) => s + (hPts(h.hole) || 0), 0)
-  const lb = [...activePlayers].sort((a, b) => pTotal(b.id) - pTotal(a.id))
+  // Leaderboard: sort by stableford (desc). Tie-breaker: fewer total strokes = better (asc).
+  const pTotalStrokes = pid => scores.filter(s => s.player_id === pid && s.strokes).reduce((sum, s) => sum + s.strokes, 0)
+  const lb = [...activePlayers].sort((a, b) => {
+    const diff = pTotal(b.id) - pTotal(a.id)
+    if (diff !== 0) return diff
+    // Tie-breaker: fewer strokes wins, but only if both have played
+    const aStrokes = pTotalStrokes(a.id), bStrokes = pTotalStrokes(b.id)
+    if (aStrokes > 0 && bStrokes > 0) return aStrokes - bStrokes
+    return 0
+  })
   const sp = specialHoles[selRound] || {}
   const nextHole = course ? course.holes.find(h => !hStr(h.hole))?.hole : null
 
@@ -2162,13 +2173,20 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         }}>
           <span className="live-dot" /><Av p={user} size={20} /><span style={{ fontSize: 12, fontWeight: 500, color: '#FAF8F0' }}>{user.nickname}</span>
           {isAdmin && <Badge text="ADM" color="var(--gold)" bg="rgba(201,168,76,0.15)" />}
-          {lb.length > 0 && (
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '2px 8px', background: 'rgba(27,67,50,0.6)', borderRadius: 12, border: '1px solid rgba(212,175,55,0.2)' }}>
-              <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--gold)', letterSpacing: 1 }}>LEADER</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#FAF8F0' }}>{lb[0]?.nickname?.substring(0,6)}</span>
-              <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--green)' }}>{pTotal(lb[0]?.id)}p</span>
-            </div>
-          )}
+          {(() => {
+            // Only show leader pill if someone actually has points. Use tie-breaker on total strokes (fewer = better).
+            const leader = lb.find(p => pTotal(p.id) > 0)
+            if (!leader) return null
+            const leaderPts = pTotal(leader.id)
+            const isMe = leader.id === user.id
+            return (
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '2px 8px', background: isMe ? 'rgba(201,168,76,0.25)' : 'rgba(27,67,50,0.6)', borderRadius: 12, border: isMe ? '1px solid var(--gold-bright)' : '1px solid rgba(212,175,55,0.2)' }}>
+                <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--gold)', letterSpacing: 1 }}>{isMe ? '👑 DU' : 'LEADER'}</span>
+                {!isMe && <span style={{ fontSize: 11, fontWeight: 600, color: '#FAF8F0' }}>{leader.nickname?.substring(0,6)}</span>}
+                <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--green)' }}>{leaderPts}p</span>
+              </div>
+            )
+          })()}
           <div style={{ marginLeft: lb.length > 0 ? 6 : 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
             <button onClick={() => setDarkMode(d => !d)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', lineHeight: 1, color: '#FAF8F0', display: 'flex' }}>{darkMode ? <IconSun size={16} /> : <IconMoon size={16} />}</button>
             <button onClick={() => { setShowNotifs(!showNotifs); setUnread(0); navigator?.clearAppBadge?.().catch(() => {}) }} style={{ background: 'none', border: 'none', color: unread > 0 ? 'var(--gold-bright)' : 'rgba(250,248,240,0.4)', cursor: 'pointer', position: 'relative', padding: '4px', display: 'flex' }}>
@@ -2935,35 +2953,140 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         {view === 'historia' && (<>
           <div className="section-title">Douche Historia</div>
           <div className="section-sub">Legender, minnen & skamliga ögonblick</div>
+
+          {/* BULK UPLOAD UI */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 16 }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 8 }}>LÄGG TILL MINNE</div>
-            <input value={historiaCaption || ''} onChange={e => setHistoriaCaption(e.target.value)} placeholder="Beskriv minnet..." style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 8, fontFamily: 'var(--sans)', outline: 'none', boxSizing: 'border-box' }} />
-            <div style={{ display: 'flex', gap: 6 }}>
-              <select value={historiaYear || '2025'} onChange={e => setHistoriaYear(e.target.value)} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '8px 10px', borderRadius: 8, fontSize: 12 }}>
-                <option value="2025">Pre-DIO 2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="earlier">Längesen</option>
-              </select>
-              <label style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--cream-muted)', textAlign: 'center' }}>
-                📷 Bild/Video
-                <input type="file" accept="image/*,video/*" multiple style={{ display: 'none' }} onChange={async e => {
-                  const files = Array.from(e.target.files); if (!files.length) return
-                  for (const file of files) {
-                  const path = 'historia/' + Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9.]/g, '')
-                  const { error } = await supabase.storage.from('inv-images').upload(path, file, { contentType: file.type })
-                  if (!error) {
-                    const url = supabase.storage.from('inv-images').getPublicUrl(path).data.publicUrl
-                    await supabase.from('inv_historia').insert({ player_id: user.id, caption: historiaCaption || '', year: historiaYear || '2025', media_url: url, media_type: file.type.startsWith('video/') ? 'video' : 'image' })
-                    }
-                  setHistoriaCaption(''); fetchHistoria()
-                  showToast(`${files.length} minne(n) tillagda!`, 'birdie')
-                  }
-                }} />
-              </label>
-              {historiaCaption && <button onClick={async () => {
-                await supabase.from('inv_historia').insert({ player_id: user.id, caption: historiaCaption, year: historiaYear || '2025', media_url: null, media_type: 'text' })
-                setHistoriaCaption(''); fetchHistoria()
-                showToast('Minne tillagt!', 'birdie')
-              }} style={{ background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>↑</button>}
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 8 }}>
+              LÄGG TILL MINNEN {historiaQueue.length > 0 && <span style={{ color: 'var(--cream-muted)' }}>· {historiaQueue.length} i kö</span>}
             </div>
+
+            {/* Quick single text entry */}
+            {historiaQueue.length === 0 && (<>
+              <input value={historiaCaption || ''} onChange={e => setHistoriaCaption(e.target.value)} placeholder="Skriv ett minne eller händelse..." style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 8, fontFamily: 'var(--sans)', outline: 'none', boxSizing: 'border-box' }} />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <select value={historiaYear || '2025'} onChange={e => setHistoriaYear(e.target.value)} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '8px 10px', borderRadius: 8, fontSize: 12 }}>
+                  <option value="2025">Pre-DIO 2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="earlier">Längesen</option>
+                </select>
+                <label style={{ flex: 1, background: 'var(--surface2)', border: '1px dashed var(--gold-dim)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--gold)', textAlign: 'center' }}>
+                  📷 Välj bilder/videos (flera)
+                  <input type="file" accept="image/*,video/*" multiple style={{ display: 'none' }} onChange={e => {
+                    const files = Array.from(e.target.files)
+                    if (!files.length) return
+                    const items = files.map((f, i) => ({
+                      id: Date.now() + '-' + i,
+                      file: f,
+                      preview: URL.createObjectURL(f),
+                      caption: historiaCaption || '',
+                      year: historiaYear || '2025',
+                      status: 'pending'
+                    }))
+                    setHistoriaQueue(items)
+                    e.target.value = '' // Allow re-selecting same files
+                  }} />
+                </label>
+                {historiaCaption && <button onClick={async () => {
+                  await supabase.from('inv_historia').insert({ player_id: user.id, caption: historiaCaption, year: historiaYear || '2025', media_url: null, media_type: 'text' })
+                  setHistoriaCaption(''); fetchHistoria()
+                  showToast('Minne tillagt!', 'birdie')
+                }} style={{ background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>💾 Spara text</button>}
+              </div>
+            </>)}
+
+            {/* QUEUE EDITOR - when files are selected */}
+            {historiaQueue.length > 0 && (<>
+              {/* Bulk actions bar */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>GEMENSAMT:</span>
+                <select value={historiaYear} onChange={e => {
+                  setHistoriaYear(e.target.value)
+                  setHistoriaQueue(q => q.map(item => ({ ...item, year: e.target.value })))
+                }} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '6px 10px', borderRadius: 8, fontSize: 11 }}>
+                  <option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="earlier">Längesen</option>
+                </select>
+                <input placeholder="Caption för alla (valfritt)" value={historiaCaption} onChange={e => {
+                  setHistoriaCaption(e.target.value)
+                  setHistoriaQueue(q => q.map(item => item.caption ? item : { ...item, caption: e.target.value }))
+                }} style={{ flex: 1, minWidth: 150, background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '6px 10px', borderRadius: 8, fontSize: 11 }} />
+                <button onClick={() => { setHistoriaQueue(q => q.map(item => ({ ...item, caption: historiaCaption }))); showToast('Caption satt på alla', 'birdie') }} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream-muted)', padding: '6px 10px', borderRadius: 8, fontSize: 10, cursor: 'pointer' }}>↓ Alla</button>
+              </div>
+
+              {/* File queue with per-item edit */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8, marginBottom: 12 }}>
+                {historiaQueue.map((item, idx) => (
+                  <div key={item.id} style={{ background: 'var(--surface2)', borderRadius: 10, overflow: 'hidden', border: item.status === 'done' ? '1px solid var(--green)' : item.status === 'error' ? '1px solid var(--coral)' : '1px solid var(--card-border)', position: 'relative' }}>
+                    {item.file.type.startsWith('video/') ? (
+                      <video src={item.preview} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} muted />
+                    ) : (
+                      <img src={item.preview} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
+                    )}
+                    {item.status === 'uploading' && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gold)', fontSize: 11 }}>⏳ Laddar...</div>}
+                    {item.status === 'done' && <div style={{ position: 'absolute', top: 4, right: 4, background: 'var(--green)', color: '#fff', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>✓</div>}
+                    {item.status === 'error' && <div style={{ position: 'absolute', top: 4, right: 4, background: 'var(--coral)', color: '#fff', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>✕</div>}
+                    <div style={{ padding: 6 }}>
+                      <input value={item.caption} onChange={e => setHistoriaQueue(q => q.map(x => x.id === item.id ? { ...x, caption: e.target.value } : x))} placeholder="Caption..." style={{ width: '100%', background: 'var(--surface)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '4px 6px', borderRadius: 4, fontSize: 10, marginBottom: 4, boxSizing: 'border-box' }} />
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <select value={item.year} onChange={e => setHistoriaQueue(q => q.map(x => x.id === item.id ? { ...x, year: e.target.value } : x))} style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--card-border)', color: 'var(--cream-muted)', padding: '3px', borderRadius: 4, fontSize: 9 }}>
+                          <option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="earlier">Längesen</option>
+                        </select>
+                        <button onClick={() => { URL.revokeObjectURL(item.preview); setHistoriaQueue(q => q.filter(x => x.id !== item.id)) }} style={{ background: 'transparent', border: '1px solid var(--card-border)', color: 'var(--coral)', fontSize: 10, padding: '2px 6px', borderRadius: 4, cursor: 'pointer' }}>✕</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => {
+                  historiaQueue.forEach(item => URL.revokeObjectURL(item.preview))
+                  setHistoriaQueue([]); setHistoriaCaption('')
+                }} disabled={historiaUploading} style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream-muted)', padding: '10px', borderRadius: 8, fontSize: 12, cursor: historiaUploading ? 'default' : 'pointer', opacity: historiaUploading ? 0.5 : 1 }}>Avbryt</button>
+                <button onClick={async () => {
+                  if (historiaUploading) return
+                  setHistoriaUploading(true)
+                  let success = 0, fail = 0
+                  // Upload in parallel for speed (3 at a time)
+                  const uploadOne = async (item) => {
+                    setHistoriaQueue(q => q.map(x => x.id === item.id ? { ...x, status: 'uploading' } : x))
+                    try {
+                      const ext = item.file.name.split('.').pop()?.toLowerCase() || 'jpg'
+                      const path = 'historia/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext
+                      const { error: upErr } = await supabase.storage.from('inv-images').upload(path, item.file, { contentType: item.file.type, upsert: false })
+                      if (upErr) throw upErr
+                      const url = supabase.storage.from('inv-images').getPublicUrl(path).data.publicUrl
+                      const { error: dbErr } = await supabase.from('inv_historia').insert({
+                        player_id: user.id, caption: item.caption || '', year: item.year || '2025',
+                        media_url: url, media_type: item.file.type.startsWith('video/') ? 'video' : 'image'
+                      })
+                      if (dbErr) throw dbErr
+                      setHistoriaQueue(q => q.map(x => x.id === item.id ? { ...x, status: 'done' } : x))
+                      success++
+                    } catch (e) {
+                      console.error('Upload failed:', e)
+                      setHistoriaQueue(q => q.map(x => x.id === item.id ? { ...x, status: 'error' } : x))
+                      fail++
+                    }
+                  }
+                  // Chunked parallel upload (3 concurrent)
+                  const chunks = []
+                  for (let i = 0; i < historiaQueue.length; i += 3) chunks.push(historiaQueue.slice(i, i + 3))
+                  for (const chunk of chunks) await Promise.all(chunk.map(uploadOne))
+                  await fetchHistoria()
+                  showToast(`✅ ${success} tillagda${fail > 0 ? ` · ${fail} misslyckades` : ''}`, fail > 0 ? 'zero' : 'birdie')
+                  // Clean up successful items, keep failed for retry
+                  setTimeout(() => {
+                    setHistoriaQueue(q => {
+                      q.filter(x => x.status === 'done').forEach(x => URL.revokeObjectURL(x.preview))
+                      return q.filter(x => x.status !== 'done')
+                    })
+                    setHistoriaUploading(false)
+                    if (fail === 0) setHistoriaCaption('')
+                  }, 1500)
+                }} disabled={historiaUploading || historiaQueue.length === 0} style={{ flex: 2, background: historiaUploading ? 'var(--surface2)' : 'var(--gold)', color: historiaUploading ? 'var(--cream-muted)' : '#0A0A08', border: 'none', borderRadius: 8, padding: '10px', fontSize: 13, fontWeight: 600, cursor: historiaUploading ? 'default' : 'pointer' }}>
+                  {historiaUploading ? '⏳ Laddar upp...' : `📤 Ladda upp ${historiaQueue.length} minnen`}
+                </button>
+              </div>
+            </>)}
           </div>
           {(() => {
             const years = [...new Set((historia || []).map(h => h.year))].sort((a,b) => b.localeCompare(a))

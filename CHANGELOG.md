@@ -6,6 +6,24 @@ Komplett utvecklingshistorik för DIO-appen (hooks-inv.vercel.app).
 
 Turnering: **1–3 maj 2026 · Hooks Herrgård · 6 spelare · 4 rundor**
 
+## 22 april 2026 (session 12) – Leader-fix + bulk-upload Historia
+
+### 🐛 Leader-bugg fixad
+- Leader-pillen i Dynamic Island visade alltid första spelaren efter HCP när alla hade 0 poäng
+- Nu visas leader ENDAST när någon faktiskt har poäng (> 0)
+- Tie-breaker tillagd: vid lika stableford-total, färre slag vinner
+- "👑 DU" visas när du själv leder (mer tydligt än bara nicknamn)
+
+### 📸 Bulk-upload för Historia
+- Välj flera bilder/videos samtidigt → queue-vy med thumbnails
+- Per-fil caption-redigering (eller använd gemensam för alla)
+- År-väljare per fil (eller gemensam default)
+- Parallell uppladdning (3 samtidigt) för fart
+- Live status per fil: ⏳ laddar / ✓ klar / ✕ fel
+- Failed uploads stannar kvar för retry
+- Random suffix i filnamn förhindrar krock vid samma timestamp
+- Supportar 2021-2025 + "Längesen"
+
 ## 22 april 2026 (session 11) – Täby scoring DIO-parity + Spectator mode
 
 ### 🎯 Score-hantering som DIO

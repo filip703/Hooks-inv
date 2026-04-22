@@ -2,6 +2,26 @@
 
 Kronologisk logg av utvecklingssessioner. Senaste överst.
 
+## Session 12 – 22 april 2026 (natt)
+**Claude Opus 4.7 via Desktop Commander MCP**
+
+### Gjort
+- **Fix: Dynamic Island Leader-bugg** – visade alltid lb[0] (första efter HCP) även när ingen spelat
+  - Nu visas leader endast om pTotal > 0
+  - Tie-breaker på total slag (färre = bättre)
+  - "👑 DU" visas istället för nickname när du själv leder
+- **Bulk-upload för Douche Historia** – ersatte den gamla en-fil-i-taget-UI:n
+  - Välj flera filer → queue-grid med thumbnails
+  - Per-fil caption + år
+  - "Sätt på alla"-knapp för snabb massredigering
+  - Parallell upload (3 samtidigt) med status-indikator per fil
+  - Failed retries stannar kvar i queue
+- Build verifierad ✓, pushad till main
+
+### Workflow
+- Chatten + DC direkt på Filips Mac, npx next build för verification, commit + push via SSH
+- 0 Code-detourer nödvändiga
+
 ## Session 11 – 22 april 2026 (sen kväll)
 **Claude Opus 4.7 (chatt via Desktop Commander MCP direkt på Filips Mac)**
 
