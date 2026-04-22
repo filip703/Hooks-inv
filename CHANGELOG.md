@@ -6,6 +6,17 @@ Komplett utvecklingshistorik för DIO-appen (hooks-inv.vercel.app).
 
 Turnering: **1–3 maj 2026 · Hooks Herrgård · 6 spelare · 4 rundor**
 
+## 22 april 2026 (session 14) – Täby one-pager scoring flow
+
+### 📄 One-pager scoring
+- När du startar en runda hamnar du direkt i fullscreen på hål 1 – ingen lista att klicka dig igenom
+- Hole-strip högst upp: 18 små knappar färgade efter score (guld=eagle, grön=birdie/par, blå=bogey, röd=blowup)
+- Strip är scrollbar horisontellt, aktivt hål markerat med guldram
+- Klick på vilket hål som helst → hoppar direkt dit
+- Löpande totaler alltid synliga direkt under strippen (hål spelade / slag / stableford)
+- "🏆 Avsluta runda"-knapp dyker upp när 18/18 är klara – ingen behov att backa till lista
+- Auto-resume: kommer du tillbaka till scoring-tabben mitt i en runda fortsätter du på nästa ospelade hål
+
 ## 22 april 2026 (session 13) – Täby fullscreen visuell DIO-parity
 
 ### 🎨 DIO är chef – Täby speglar nu DIO:s scoring-flöde exakt

@@ -2,6 +2,18 @@
 
 Kronologisk logg av utvecklingssessioner. Senaste överst.
 
+## Session 14 – 22 april 2026 (natt)
+**Claude Opus 4.7 via Desktop Commander MCP**
+
+### Gjort
+- **One-pager scoring** på Täby – starta runda → direkt i fullscreen på hål 1
+- **Hole-strip** högst upp i fullscreen – 18 färgkodade knappar, horisontellt scroll, klickbara
+- **Löpande totaler** alltid synliga under stripen (hål/slag/stableford)
+- **Avsluta runda-knapp** i fullscreen när 18/18 klara (inget behov av listvyn)
+- **Auto-resume** via useEffect: kommer man tillbaka till scoring-fliken hoppar man direkt till nästa ospelade hål
+- `resumeRound()` helper tillagd
+- Build ✓ (126 kB, 213 kB first load)
+
 ## Session 13 – 22 april 2026 (natt)
 **Claude Opus 4.7 via Desktop Commander MCP**
 

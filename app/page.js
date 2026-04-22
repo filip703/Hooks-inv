@@ -354,8 +354,27 @@ function TaByApp({ onSwitchMode }) {
       setScoreInput({})
       setTabyRounds(prev => [data, ...prev])
       setTabyView('scoring')
+      setTabyActiveHole(1) // Auto-open fullscreen on hole 1 (one-pager flow)
     }
   }
+
+  // Resume active round → jump straight into fullscreen on next unplayed hole
+  const resumeRound = (round) => {
+    setNewRound(round)
+    setTabyView('scoring')
+    const played = tabyScores.filter(s => s.round_id === round.id && s.player_id === tabyUser?.id).map(s => s.hole)
+    const nextUnplayed = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].find(h => !played.includes(h)) || 1
+    setTabyActiveHole(nextUnplayed)
+  }
+
+  // Auto-jump to fullscreen when entering scoring view with active round (one-pager flow)
+  useEffect(() => {
+    if (tabyView === 'scoring' && newRound && tabyActiveHole == null) {
+      const played = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === tabyUser?.id).map(s => s.hole)
+      const nextUnplayed = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].find(h => !played.includes(h)) || 1
+      setTabyActiveHole(nextUnplayed)
+    }
+  }, [tabyView, newRound?.id])
 
   // Save score for a hole
   const showTabyToast = (msg, type) => {
@@ -958,6 +977,29 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'rgba(240,244,255,0.5)' }}>{newRound?.date || 'Runda'} · Täby GK</div>
             </div>
 
+            {/* HOLE STRIP - jump to any hole, color-coded by score */}
+            <div style={{ display: 'flex', gap: 2, padding: '8px 12px', background: 'rgba(147,197,253,0.02)', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+              {holes.map(hs => {
+                const hsc = roundScores.find(s => s.hole === hs.h)
+                const isActive = hs.h === h.h
+                const bg = hsc ? (hsc.stableford >= 4 ? '#D4A017' : hsc.stableford >= 3 ? '#4ADE80' : hsc.stableford >= 1 ? 'rgba(147,197,253,0.2)' : '#E8634A') : 'rgba(147,197,253,0.06)'
+                const color = hsc ? (hsc.stableford === 0 ? '#fff' : hsc.stableford >= 3 ? '#0C1830' : '#F0F4FF') : (isActive ? '#D4A017' : 'rgba(147,197,253,0.5)')
+                return (
+                  <button key={hs.h} onClick={() => { setTabyActiveHole(hs.h); setTabyCaddieMsg(null) }}
+                    style={{ minWidth: 28, height: 28, borderRadius: 6, background: bg, color, border: isActive ? '1.5px solid #D4A017' : '0.5px solid rgba(147,197,253,0.1)', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {hs.h}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Running totals - always visible under strip */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 16px', fontSize: 11, fontFamily: 'var(--mono)', color: 'rgba(240,244,255,0.5)', borderBottom: '0.5px solid rgba(147,197,253,0.08)' }}>
+              <span>{holesPlayed}/18 hål</span>
+              <span>{totalStrokes} slag {vsParStr !== 0 ? `(${vsParStr > 0 ? '+' : ''}${vsParStr})` : ''}</span>
+              <span style={{ color: '#D4A017', fontWeight: 600 }}>{totalStab}p</span>
+            </div>
+
             <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
               {/* Hole number & info */}
               <div style={{ textAlign: 'center', marginBottom: 16 }}>
@@ -1080,10 +1122,17 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
             {/* Bottom nav - identical to DIO style */}
             <div style={{ display: 'flex', gap: 8, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0))', background: 'rgba(147,197,253,0.04)', borderTop: '0.5px solid rgba(147,197,253,0.1)' }}>
-              <button onClick={() => prevHole && (setTabyActiveHole(prevHole), setTabyCaddieMsg(null))} disabled={!prevHole}
-                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'rgba(147,197,253,0.08)' : 'transparent', border: '1px solid rgba(147,197,253,0.12)', color: prevHole ? '#F0F4FF' : 'rgba(147,197,253,0.2)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← Hål {prevHole || ''}</button>
-              <button onClick={() => nextH ? (setTabyActiveHole(nextH), setTabyCaddieMsg(null)) : setTabyActiveHole(null)}
-                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: '#D4A017', border: 'none', color: '#0C1830', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
+              {holesPlayed === 18 ? (
+                <button onClick={() => { setTabyActiveHole(null); setNewRound(null); setScoreInput({}); setTabyView('leaderboard') }}
+                  style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: 'linear-gradient(135deg, #D4A017, #F5D76E)', border: 'none', color: '#0C1830', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                  🏆 Avsluta runda ({totalStab}p)
+                </button>
+              ) : (<>
+                <button onClick={() => prevHole && (setTabyActiveHole(prevHole), setTabyCaddieMsg(null))} disabled={!prevHole}
+                  style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'rgba(147,197,253,0.08)' : 'transparent', border: '1px solid rgba(147,197,253,0.12)', color: prevHole ? '#F0F4FF' : 'rgba(147,197,253,0.2)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← Hål {prevHole || ''}</button>
+                <button onClick={() => nextH ? (setTabyActiveHole(nextH), setTabyCaddieMsg(null)) : setTabyActiveHole(null)}
+                  style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: '#D4A017', border: 'none', color: '#0C1830', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
+              </>)}
             </div>
           </div>
         )
