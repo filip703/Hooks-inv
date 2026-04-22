@@ -6,6 +6,29 @@ Komplett utvecklingshistorik för DIO-appen (hooks-inv.vercel.app).
 
 Turnering: **1–3 maj 2026 · Hooks Herrgård · 6 spelare · 4 rundor**
 
+## 22 april 2026 (session 11) – Täby scoring DIO-parity + Spectator mode
+
+### 🎯 Score-hantering som DIO
+- **Ljudeffekter** vid birdies/eagles/blowups (soundBirdie, soundEagle, soundZero)
+- **Toast notifications** dyker upp vid varje score – eagle = guldgradient, birdie = grön, blowup = röd
+- **Auto-post till chat** vid birdies och eagles (så DIO-spelare också ser Täby-drama)
+- **UT/IN 9-hålstotaler** i scoring-vyn med slag + stableford per 9
+- **Hot Hand / Cold Turkey streak-indikator** live i rundan (3+ birdies i rad eller 3+ nollor)
+- **MOTSTÅNDARNA-panel** i scoring-vyn – alla andra spelare i rundan med deras totala slag + poäng + progress
+- **Min hål-historik** i fullscreen: "Förra: X slag (Yp) · Bäst: Zp · N gånger spelat"
+
+### 👀 Spectator Mode
+- **Följ annan spelares runda** – klicka på vem som helst i Order of Merit-leaderboard
+- Full read-only vy med stor stats-card (stableford, slag vs par, hål spelade)
+- Hål-för-hål breakdown (UT/IN) med färgkodning på stableford
+- Visar "🔴 LIVE" om rundan pågår, annars datum för senaste rundan
+- Realtime-uppdatering via Supabase (ändringar i annans runda syns direkt)
+
+### 📖 Banguide-modal från scoring
+- Klickbar banguide-bild i fullscreen-vyn öppnar full-screen banguide-modal
+- Större bild + speltips + vatten-varning
+- Snabbkoll utan att lämna scoringflödet
+
 ## 22 april 2026 (session 10) – Mega-feature-release
 
 ### Täby Fullscreen Scoring

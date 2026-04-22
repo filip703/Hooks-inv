@@ -238,6 +238,10 @@ function TaByApp({ onSwitchMode }) {
   const [newBetQuestion, setNewBetQuestion] = useState('')
   const [newBetPlayers, setNewBetPlayers] = useState([])
   const [h2hMatrixOpen, setH2hMatrixOpen] = useState(false)
+  const [tabyToast, setTabyToast] = useState(null)
+  const [tabySpectatePid, setTabySpectatePid] = useState(null)
+  const [tabyBanguideOpen, setTabyBanguideOpen] = useState(false)
+  const tabyToastT = useRef(null)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'dark')
@@ -354,6 +358,37 @@ function TaByApp({ onSwitchMode }) {
   }
 
   // Save score for a hole
+  const showTabyToast = (msg, type) => {
+    setTabyToast({ msg, type })
+    if (tabyToastT.current) clearTimeout(tabyToastT.current)
+    tabyToastT.current = setTimeout(() => setTabyToast(null), 4500)
+    if (type === 'eagle') soundEagle()
+    else if (type === 'birdie') soundBirdie()
+    else if (type === 'zero') soundZero()
+    else soundScore()
+  }
+
+  // Find player's previous result on a specific hole
+  const getTabyHoleHistory = (playerId, hole) => {
+    const playerPrevScores = tabyScores.filter(s => s.player_id === playerId && s.hole === hole && (!newRound || s.round_id !== newRound.id))
+    if (playerPrevScores.length === 0) return null
+    const sorted = playerPrevScores.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    return { last: sorted[0], count: sorted.length, bestStab: Math.max(...sorted.map(s => s.stableford || 0)) }
+  }
+
+  // Check for hot hand / cold turkey in current round
+  const getTabyStreak = () => {
+    if (!newRound || !tabyUser) return { hot: 0, cold: 0 }
+    const sc = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === tabyUser.id && s.strokes).sort((a,b) => a.hole - b.hole)
+    let hotRun = 0, coldRun = 0, currentHot = 0, currentCold = 0
+    sc.forEach(s => {
+      if ((s.stableford || 0) >= 3) { currentHot++; currentCold = 0; if (currentHot === 3) hotRun++; if (currentHot > 3) hotRun++ }
+      else if (s.stableford === 0) { currentCold++; currentHot = 0; if (currentCold === 3) coldRun++; if (currentCold > 3) coldRun++ }
+      else { currentHot = 0; currentCold = 0 }
+    })
+    return { hot: hotRun, cold: coldRun, currentHot, currentCold }
+  }
+
   const saveHoleScore = async (hole, strokes) => {
     if (!newRound || !tabyUser || !strokes) return
     const par = PARS[hole - 1]
@@ -376,6 +411,19 @@ function TaByApp({ onSwitchMode }) {
       })
     }
     setScoreInput(prev => ({ ...prev, [hole]: strokes }))
+
+    // Sounds + toasts + chat shoutouts
+    if (stab >= 4) {
+      showTabyToast(`🦅 EAGLE! ${tabyUser.nickname} på hål ${hole}! ${strokes} slag, ${stab}p!`, 'eagle')
+      supabase.from('inv_chat').insert({ player_id: tabyUser.id, message: `🦅 EAGLE på Täby hål ${hole}! ${strokes} slag (${stab}p)`, msg_type: 'shoutout' })
+    } else if (stab === 3) {
+      showTabyToast(`🐦 Birdie! ${tabyUser.nickname} på hål ${hole}!`, 'birdie')
+      supabase.from('inv_chat').insert({ player_id: tabyUser.id, message: `🐦 Birdie på Täby hål ${hole}! ${strokes} slag`, msg_type: 'shoutout' })
+    } else if (stab === 0) {
+      showTabyToast(`💀 Blowup på hål ${hole}... ${strokes} slag`, 'zero')
+    } else {
+      soundScore()
+    }
   }
 
   // Caddie AI for Täby
@@ -529,6 +577,116 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
   // MAIN APP
   return (
     <div style={{ minHeight: '100vh', background: '#0C1830', color: '#F0F4FF', paddingBottom: 80 }}>
+      {/* TOAST NOTIFICATIONS */}
+      {tabyToast && (
+        <div style={{
+          position: 'fixed', top: 'calc(20px + env(safe-area-inset-top, 0px))', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 2000, padding: '12px 20px', borderRadius: 12, maxWidth: '90vw',
+          background: tabyToast.type === 'eagle' ? 'linear-gradient(135deg, #D4A017, #F5D76E)' : tabyToast.type === 'birdie' ? 'rgba(74,222,128,0.95)' : tabyToast.type === 'zero' ? 'rgba(232,99,74,0.95)' : 'rgba(147,197,253,0.95)',
+          color: tabyToast.type === 'eagle' ? '#0C1830' : '#fff', fontWeight: 600, fontSize: 14,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+          border: tabyToast.type === 'eagle' ? '2px solid #F5D76E' : 'none'
+        }}>
+          {tabyToast.msg}
+        </div>
+      )}
+
+      {/* BANGUIDE MODAL */}
+      {tabyBanguideOpen && tabyActiveHole && (() => {
+        const h = holes[tabyActiveHole - 1]
+        if (!h) return null
+        return (
+          <div onClick={() => setTabyBanguideOpen(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 500, display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: 16, paddingTop: 'calc(16px + env(safe-area-inset-top, 0px))' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div>
+                <div style={{ fontFamily: 'var(--serif)', fontSize: 28, color: '#93C5FD' }}>Hål {h.h}</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.5)' }}>PAR {h.p} · INDEX {h.i} · {h.m}m</div>
+              </div>
+              <button onClick={() => setTabyBanguideOpen(false)} style={{ background: 'rgba(147,197,253,0.08)', border: '0.5px solid rgba(147,197,253,0.2)', color: '#93C5FD', fontSize: 18, cursor: 'pointer', width: 36, height: 36, borderRadius: 10 }}>✕</button>
+            </div>
+            <img src={`/taby/holes/hole-${h.h}.webp`} alt={`Hål ${h.h}`}
+              onClick={e => e.stopPropagation()}
+              style={{ width: '100%', height: 'auto', borderRadius: 12, marginBottom: 12 }} />
+            <div onClick={e => e.stopPropagation()} style={{ padding: 14, background: 'rgba(147,197,253,0.06)', borderRadius: 12, border: '0.5px solid rgba(147,197,253,0.12)' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1.5, marginBottom: 6 }}>SPELTIPS</div>
+              <div style={{ fontSize: 14, color: 'rgba(240,244,255,0.8)', lineHeight: 1.6 }}>{h.t}</div>
+              {h.w && <div style={{ marginTop: 8, padding: '6px 10px', background: 'rgba(96,165,250,0.12)', borderRadius: 8, color: '#60A5FA', fontSize: 12 }}>💧 Vatten i spel på detta hål</div>}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* SPECTATOR MODE */}
+      {tabySpectatePid && (() => {
+        const spectator = tabyPlayers.find(p => p.id === tabySpectatePid)
+        if (!spectator) return null
+        const theirRounds = tabyRounds.filter(r => r.player_ids?.includes(tabySpectatePid)).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        const latestRound = theirRounds[0]
+        const theirScores = latestRound ? tabyScores.filter(s => s.round_id === latestRound.id && s.player_id === tabySpectatePid) : []
+        const theirTotalStab = theirScores.reduce((sum, s) => sum + (s.stableford || 0), 0)
+        const theirTotalStrokes = theirScores.reduce((sum, s) => sum + (s.strokes || 0), 0)
+        const theirPlayed = theirScores.length
+        const theirPar = theirScores.reduce((sum, s) => sum + PARS[s.hole - 1], 0)
+        const vsPar = theirTotalStrokes - theirPar
+        const isLive = theirPlayed > 0 && theirPlayed < 18
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: '#0C1830', zIndex: 450, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', background: 'rgba(147,197,253,0.04)', borderBottom: '0.5px solid rgba(147,197,253,0.1)' }}>
+              <button onClick={() => setTabySpectatePid(null)} style={{ background: 'none', border: 'none', color: '#93C5FD', fontSize: 16, cursor: 'pointer' }}>← Tillbaka</button>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, color: '#F0F4FF', fontWeight: 500 }}>👀 Följer {spectator.nickname}</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(147,197,253,0.4)' }}>HCP {spectator.taby_hcp || spectator.hcp} {isLive ? '· 🔴 LIVE' : latestRound ? `· ${latestRound.date}` : ''}</div>
+              </div>
+              {spectator.image_url ? <img src={spectator.image_url} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid #93C5FD' }} /> : <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(147,197,253,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#93C5FD', fontSize: 13 }}>{spectator.name?.charAt(0)}</div>}
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+              {!latestRound ? (
+                <div style={{ textAlign: 'center', padding: 40, color: 'rgba(147,197,253,0.4)' }}>Inga rundor ännu för {spectator.nickname}</div>
+              ) : (<>
+                <div style={{ padding: 16, background: 'rgba(147,197,253,0.06)', borderRadius: 14, border: '0.5px solid rgba(147,197,253,0.12)', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1.5 }}>{isLive ? '🔴 PÅGÅENDE RUNDA' : 'SENASTE RUNDAN'}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)' }}>{latestRound.date} · {latestRound.type}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1, textAlign: 'center', padding: 10, background: 'rgba(147,197,253,0.04)', borderRadius: 10 }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 22, color: '#D4A017', fontWeight: 600 }}>{theirTotalStab}p</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 1 }}>STABLEFORD</div>
+                    </div>
+                    <div style={{ flex: 1, textAlign: 'center', padding: 10, background: 'rgba(147,197,253,0.04)', borderRadius: 10 }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 22, color: '#F0F4FF', fontWeight: 600 }}>{theirTotalStrokes || '—'}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 1 }}>SLAG {theirPlayed > 0 ? `(${vsPar > 0 ? '+' : ''}${vsPar})` : ''}</div>
+                    </div>
+                    <div style={{ flex: 1, textAlign: 'center', padding: 10, background: 'rgba(147,197,253,0.04)', borderRadius: 10 }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 22, color: '#93C5FD', fontWeight: 600 }}>{theirPlayed}/18</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 1 }}>HÅL</div>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.4)', letterSpacing: 1.5, marginBottom: 8 }}>HÅL FÖR HÅL</div>
+                {[0, 9].map(offset => (
+                  <div key={offset} style={{ marginBottom: 10 }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.3)', letterSpacing: 1, marginBottom: 4 }}>{offset === 0 ? 'UT (1-9)' : 'IN (10-18)'}</div>
+                    {holes.slice(offset, offset + 9).map(h => {
+                      const sc = theirScores.find(s => s.hole === h.h)
+                      return (
+                        <div key={h.h} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', marginBottom: 2, background: sc ? (sc.stableford >= 3 ? 'rgba(74,222,128,0.06)' : sc.stableford === 0 ? 'rgba(232,99,74,0.06)' : 'rgba(147,197,253,0.03)') : 'rgba(147,197,253,0.02)', borderRadius: 8 }}>
+                          <div style={{ width: 28, fontFamily: 'var(--mono)', fontSize: 13, color: '#93C5FD', fontWeight: 600 }}>{h.h}</div>
+                          <div style={{ flex: 1, fontSize: 10, color: 'rgba(240,244,255,0.4)', fontFamily: 'var(--mono)' }}>P{h.p}{h.w ? ' 💧' : ''}</div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: sc?.strokes ? '#F0F4FF' : 'rgba(147,197,253,0.2)', minWidth: 30, textAlign: 'right' }}>{sc?.strokes || '—'}</div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 600, color: sc?.stableford >= 3 ? '#4ADE80' : sc?.stableford === 0 ? '#E8634A' : sc ? 'rgba(147,197,253,0.5)' : 'rgba(147,197,253,0.2)', minWidth: 32, textAlign: 'right' }}>{sc ? `${sc.stableford}p` : ''}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
+              </>)}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Header */}
       <div style={{ padding: '12px 16px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
@@ -594,13 +752,16 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             {playerStats.map((pl, idx) => {
               const sparkVals = getSparklineValues(pl.id)
               return (
-                <div key={pl.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: idx === 0 ? 'none' : '0.5px solid rgba(147,197,253,0.06)' }}>
+                <div key={pl.id} onClick={() => pl.id !== tabyUser?.id && setTabySpectatePid(pl.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: idx === 0 ? 'none' : '0.5px solid rgba(147,197,253,0.06)', cursor: pl.id !== tabyUser?.id ? 'pointer' : 'default', transition: 'background 0.2s' }}
+                  onMouseEnter={e => { if (pl.id !== tabyUser?.id) e.currentTarget.style.background = 'rgba(147,197,253,0.04)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
                   <div style={{ fontFamily: 'var(--serif)', fontSize: idx === 0 ? 20 : 16, color: idx === 0 ? '#D4A017' : 'rgba(240,244,255,0.4)', width: 24 }}>{idx + 1}</div>
                   {pl.image_url ? <img src={pl.image_url} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: `1.5px solid ${idx === 0 ? '#D4A017' : 'rgba(147,197,253,0.15)'}` }} /> : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', border: `1.5px solid ${idx === 0 ? '#D4A017' : 'rgba(147,197,253,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD', fontWeight: 500 }}>{pl.name?.charAt(0)}{pl.name?.split(' ')[1]?.charAt(0)}</div>}
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 13, color: '#F0F4FF', fontWeight: idx === 0 ? 600 : 400 }}>{pl.nickname}</span>
                       {sparkVals.length >= 2 && <Sparkline values={sparkVals} width={50} height={14} color={idx === 0 ? '#D4A017' : '#93C5FD'} />}
+                      {pl.id !== tabyUser?.id && <span style={{ fontSize: 9, color: 'rgba(147,197,253,0.3)', fontFamily: 'var(--mono)', marginLeft: 'auto' }}>👀</span>}
                     </div>
                     <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>HCP {pl.taby_hcp || pl.hcp} · {pl.stats.fullRounds} rundor{pl.stats.avgStrokes ? ` · ${pl.stats.avgStrokes} snitt slag` : ''}</div>
                   </div>
@@ -689,12 +850,72 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   </div>
                 )
               })}
+              {/* UT / IN sub-totals */}
+              {(() => {
+                const utStrokes = roundScores.filter(s => s.hole <= 9).reduce((sum, s) => sum + (s.strokes || 0), 0)
+                const utStab = roundScores.filter(s => s.hole <= 9).reduce((sum, s) => sum + (s.stableford || 0), 0)
+                const utPlayed = roundScores.filter(s => s.hole <= 9).length
+                const inStrokes = roundScores.filter(s => s.hole > 9).reduce((sum, s) => sum + (s.strokes || 0), 0)
+                const inStab = roundScores.filter(s => s.hole > 9).reduce((sum, s) => sum + (s.stableford || 0), 0)
+                const inPlayed = roundScores.filter(s => s.hole > 9).length
+                return (
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                    <div style={{ flex: 1, padding: '8px 10px', background: 'rgba(147,197,253,0.04)', borderRadius: 8, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 1.5 }}>UT (1-9)</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: '#F0F4FF' }}>{utPlayed > 0 ? `${utStrokes} slag` : '—'} <span style={{ color: '#D4A017', fontWeight: 600 }}>{utPlayed > 0 ? `${utStab}p` : ''}</span></div>
+                    </div>
+                    <div style={{ flex: 1, padding: '8px 10px', background: 'rgba(147,197,253,0.04)', borderRadius: 8, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 1.5 }}>IN (10-18)</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: '#F0F4FF' }}>{inPlayed > 0 ? `${inStrokes} slag` : '—'} <span style={{ color: '#D4A017', fontWeight: 600 }}>{inPlayed > 0 ? `${inStab}p` : ''}</span></div>
+                    </div>
+                  </div>
+                )
+              })()}
               {/* Totals bar */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, padding: '10px 14px', background: 'rgba(212,175,55,0.06)', borderRadius: 10, border: '0.5px solid rgba(212,175,55,0.12)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, padding: '10px 14px', background: 'rgba(212,175,55,0.06)', borderRadius: 10, border: '0.5px solid rgba(212,175,55,0.12)' }}>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.5)' }}>{holesPlayed}/18 hål</div>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.5)' }}>{totalStrokes} slag ({vsParStr > 0 ? '+' : ''}{vsParStr})</div>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: '#D4A017', fontWeight: 600 }}>{totalStab}p stableford</div>
               </div>
+
+              {/* Streak indicator */}
+              {(() => {
+                const streak = getTabyStreak()
+                if (streak.hot > 0 || streak.cold > 0 || streak.currentHot >= 2 || streak.currentCold >= 2) {
+                  return (
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                      {streak.currentHot >= 2 && <div style={{ flex: 1, padding: '8px 10px', background: 'rgba(74,222,128,0.08)', borderRadius: 8, border: '0.5px solid rgba(74,222,128,0.2)', fontSize: 11, color: '#4ADE80' }}>🔥 HOT HAND: {streak.currentHot} i rad</div>}
+                      {streak.currentCold >= 2 && <div style={{ flex: 1, padding: '8px 10px', background: 'rgba(232,99,74,0.08)', borderRadius: 8, border: '0.5px solid rgba(232,99,74,0.2)', fontSize: 11, color: '#E8634A' }}>❄️ COLD TURKEY: {streak.currentCold} nollor</div>}
+                    </div>
+                  )
+                }
+                return null
+              })()}
+
+              {/* MOTSTÅNDARNA - other players in this round */}
+              {newRound.player_ids && newRound.player_ids.length > 1 && (
+                <div style={{ marginTop: 12, padding: 12, background: 'rgba(147,197,253,0.04)', borderRadius: 12, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.4)', letterSpacing: 1.5, marginBottom: 8 }}>MOTSTÅNDARNA I RUNDAN</div>
+                  {newRound.player_ids.filter(pid => pid !== tabyUser?.id).map(pid => {
+                    const p = tabyPlayers.find(x => x.id === pid)
+                    if (!p) return null
+                    const theirScores = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === pid)
+                    const theirStab = theirScores.reduce((sum, s) => sum + (s.stableford || 0), 0)
+                    const theirStrokes = theirScores.reduce((sum, s) => sum + (s.strokes || 0), 0)
+                    const theirPlayed = theirScores.length
+                    return (
+                      <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '0.5px solid rgba(147,197,253,0.06)' }}>
+                        {p.image_url ? <img src={p.image_url} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
+                        <div style={{ flex: 1, fontSize: 13, color: '#F0F4FF' }}>{p.nickname}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(240,244,255,0.4)' }}>{theirPlayed}/18</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.5)' }}>{theirStrokes || '—'} slag</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600, color: '#D4A017', minWidth: 32, textAlign: 'right' }}>{theirStab || '—'}p</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
               {holesPlayed === 18 && (
                 <button onClick={() => { setNewRound(null); setScoreInput({}); setTabyView('leaderboard') }} style={{
                   width: '100%', marginTop: 8, padding: 14, borderRadius: 12, cursor: 'pointer',
@@ -755,10 +976,26 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.5)', fontStyle: 'italic', marginTop: 8 }}>{h.t}</div>
               </div>
 
-              {/* Banguide image */}
-              <div style={{ borderRadius: 16, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.1)', marginBottom: 16 }}>
+              {/* Banguide image - clickable to open full modal */}
+              <div onClick={() => setTabyBanguideOpen(true)} style={{ borderRadius: 16, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.1)', marginBottom: 12, cursor: 'pointer', position: 'relative' }}>
                 <img src={`/taby/holes/hole-${h.h}.webp`} alt={`Hål ${h.h}`} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 200, objectFit: 'cover' }} />
+                <div style={{ position: 'absolute', top: 8, right: 8, padding: '4px 10px', background: 'rgba(12,24,48,0.8)', borderRadius: 6, color: '#93C5FD', fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: 1 }}>📖 ÖPPNA BANGUIDE</div>
               </div>
+
+              {/* Min historik på detta hål */}
+              {(() => {
+                const history = getTabyHoleHistory(tabyUser?.id, h.h)
+                if (!history) return null
+                return (
+                  <div style={{ marginBottom: 12, padding: 10, background: 'rgba(147,197,253,0.04)', borderRadius: 10, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.4)', letterSpacing: 1.5, marginBottom: 4 }}>📜 MIN HISTORIK PÅ HÅLET</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.6)' }}>Förra: <span style={{ fontFamily: 'var(--mono)', fontWeight: 500, color: '#F0F4FF' }}>{history.last.strokes} slag ({history.last.stableford}p)</span></div>
+                      <div style={{ fontSize: 10, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>Bäst: {history.bestStab}p · {history.count}x spelat</div>
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* CADDIE AI */}
               <div style={{ marginBottom: 16 }}>

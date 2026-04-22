@@ -2,6 +2,29 @@
 
 Kronologisk logg av utvecklingssessioner. Senaste överst.
 
+## Session 11 – 22 april 2026 (sen kväll)
+**Claude Opus 4.7 (chatt via Desktop Commander MCP direkt på Filips Mac)**
+
+### Gjort
+- **Score-hantering som DIO**: ljudeffekter + toasts + chat-shoutouts vid birdies/eagles/blowups
+- **UT/IN 9-hålstotaler** under scoring
+- **Hot Hand / Cold Turkey streak-indikator** i aktiv runda
+- **MOTSTÅNDARNA-panel** i scoring med live-poäng från alla i rundan
+- **Min hål-historik** ("Förra: X slag · Bäst: Yp · N gånger")
+- **Spectator Mode**: klick på spelare i leaderboard → se deras runda hål-för-hål, med LIVE-indikator för pågående rundor
+- **Banguide-modal**: klick på banguide-bild i fullscreen öppnar full-screen modal med speltips
+- Ingen Code behövdes – hela sessionen kördes direkt via DC på Filips Mac
+
+### Verifierat
+- `npx next build` → ✓ Compiled successfully
+- 124 kB bundle, 211 kB first load
+- Vercel deployment triggad automatiskt efter push
+
+### Arbetssätt etablerat
+- **Desktop Commander MCP** är nu den primära exekveringsmekanismen i desktop-appen
+- Chatten + DC = ett steg, ingen Code-detour behövs för mellanstora refactors
+- SSH-nyckel `~/.ssh/id_ed25519_github` används för push
+
 ## Session 10 – 22 april 2026 (kväll)
 **Claude Opus 4.7 (chatt) + Claude Code (lokalt)**
 
