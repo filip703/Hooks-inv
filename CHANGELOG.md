@@ -6,6 +6,20 @@ Komplett utvecklingshistorik för DIO-appen (hooks-inv.vercel.app).
 
 Turnering: **1–3 maj 2026 · Hooks Herrgård · 6 spelare · 4 rundor**
 
+## 22 april 2026
+
+### Rami-fix + repo-städning
+- Tog bort Rami från DIO-läget via ny dio_active=false flagga i Supabase
+- DIO-query filtrerar nu på dio_active=true (app/page.js rad 703)
+- Rami kvar i Täby-läget som vanligt (via taby_active=true)
+- Raderade hela hooks-clean/ duplikatmappen (~40 filer, 10MB)
+- Raderade alla .DS_Store-filer, lade till i .gitignore
+
+### Dokumentation + workflow
+- CLAUDE.md uppdaterad med full projektarkitektur
+- Ny SESSION-LOG.md för att spåra sessions-arbete
+- Etablerat workflow: chatten (planering) → Claude Code (exekvering) → GitHub Desktop (backup)
+
 ---
 
 ## 16 april 2026
