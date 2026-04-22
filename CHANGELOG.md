@@ -6,6 +6,41 @@ Komplett utvecklingshistorik för DIO-appen (hooks-inv.vercel.app).
 
 Turnering: **1–3 maj 2026 · Hooks Herrgård · 6 spelare · 4 rundor**
 
+## 22 april 2026 (session 10) – Mega-feature-release
+
+### Täby Fullscreen Scoring
+- Täby-scoring nu med DIO's fullscreen-UX: stort hålnummer, +/- score-input, Caddie AI
+- Ghost Match vs förra rundan
+- "Andra på detta hål" live
+- Vatten-badges på relevanta hål
+
+### Strokes-visibility
+- Totalt antal slag visas nu i både DIO och Täby leaderboards
+- DIO compact round table visar slag-kolumn
+- Per-rund snitt slag per spelare i Täby
+
+### Täby Betting
+- Odds-bets med auto-odds från HCP
+- H2H-matcher med stake
+- Insats-system med 50kr quick-bet
+- Avgjorda bets sektion
+
+### H2H-Matris
+- Alla-mot-alla win/loss matris i Täby stats
+- Per hål-jämförelse av stableford över gemensamma rundor
+
+### Event-System
+- 4 events visas i leaderboard: The Opener, Midsommar Match, Sommar-KM, The Final
+- Status-badges: Upcoming / Aktiv / Avslutad
+
+### Caddie AI för Täby
+- Samma /api/caddie route, nu med Täby-hålkontext
+- Vattenhål, index, meters, speltips inkluderat i prompt
+
+### Formkurva
+- SVG Sparkline per spelare i båda leaderboards
+- Senaste 4-8 rundors poäng visualiserat
+
 ## 22 april 2026
 
 ### Rami-fix + repo-städning

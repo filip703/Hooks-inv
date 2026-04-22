@@ -195,6 +195,24 @@ export default function Home() {
   return <DIOApp onSwitchMode={() => { setAppMode(null); localStorage.removeItem('app_mode') }} />
 }
 
+// Sparkline component for form curves
+const Sparkline = ({ values, width = 60, height = 16, color = '#D4A017' }) => {
+  if (!values || values.length < 2) return null
+  const max = Math.max(...values)
+  const min = Math.min(...values)
+  const range = max - min || 1
+  const points = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * width
+    const y = height - ((v - min) / range) * (height - 2) - 1
+    return `${x},${y}`
+  }).join(' ')
+  return (
+    <svg width={width} height={height} style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+      <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 function TaByApp({ onSwitchMode }) {
   const [tabySplash, setTabySplash] = useState(true)
   const [tabySplashExit, setTabySplashExit] = useState(false)
@@ -204,8 +222,22 @@ function TaByApp({ onSwitchMode }) {
   const [tabyUser, setTabyUser] = useState(null)
   const [tabyRounds, setTabyRounds] = useState([])
   const [tabyScores, setTabyScores] = useState([])
-  const [newRound, setNewRound] = useState(null) // { date, playerIds, scores: {playerId: {hole: strokes}} }
-  const [scoreInput, setScoreInput] = useState({}) // {hole: strokes}
+  const [newRound, setNewRound] = useState(null)
+  const [scoreInput, setScoreInput] = useState({})
+  const [tabyActiveHole, setTabyActiveHole] = useState(null)
+  const [tabyCaddieMsg, setTabyCaddieMsg] = useState(null)
+  const [tabyCaddieLoading, setTabyCaddieLoading] = useState(false)
+  const [tabyEvents, setTabyEvents] = useState([])
+  const [tabyBets, setTabyBets] = useState([])
+  const [tabyBetOptions, setTabyBetOptions] = useState([])
+  const [tabyBetWagers, setTabyBetWagers] = useState([])
+  const [tabyH2H, setTabyH2H] = useState([])
+  const [h2hPlayer1, setH2hPlayer1] = useState('')
+  const [h2hPlayer2, setH2hPlayer2] = useState('')
+  const [h2hStake, setH2hStake] = useState(100)
+  const [newBetQuestion, setNewBetQuestion] = useState('')
+  const [newBetPlayers, setNewBetPlayers] = useState([])
+  const [h2hMatrixOpen, setH2hMatrixOpen] = useState(false)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'dark')
@@ -224,6 +256,18 @@ function TaByApp({ onSwitchMode }) {
       if (rounds) setTabyRounds(rounds)
       const { data: scores } = await supabase.from('taby_scores').select('*')
       if (scores) setTabyScores(scores)
+      // Load events
+      const { data: events } = await supabase.from('taby_events').select('*').order('date')
+      if (events) setTabyEvents(events)
+      // Load betting data
+      const { data: bets } = await supabase.from('taby_bets').select('*').order('created_at', { ascending: false })
+      if (bets) setTabyBets(bets)
+      const { data: opts } = await supabase.from('taby_bet_options').select('*')
+      if (opts) setTabyBetOptions(opts)
+      const { data: wagers } = await supabase.from('taby_bet_wagers').select('*')
+      if (wagers) setTabyBetWagers(wagers)
+      const { data: h2h } = await supabase.from('taby_h2h').select('*').order('created_at', { ascending: false })
+      if (h2h) setTabyH2H(h2h)
     }
     loadData()
     return () => { clearTimeout(t1); clearTimeout(t2) }
@@ -334,6 +378,108 @@ function TaByApp({ onSwitchMode }) {
     setScoreInput(prev => ({ ...prev, [hole]: strokes }))
   }
 
+  // Caddie AI for Täby
+  const askTabyCaddie = async (hole, holeData) => {
+    setTabyCaddieLoading(true); setTabyCaddieMsg(null)
+    const playerHcp = tabyUser?.taby_hcp || tabyUser?.hcp
+    const phcpVal = getPlayingHcp(playerHcp)
+    const extra = getExtra(holeData.i, playerHcp)
+    const rScores = newRound ? tabyScores.filter(s => s.round_id === newRound.id && s.player_id === tabyUser.id) : []
+    const last5 = rScores.filter(s => s.hole < hole).slice(-5)
+    const avgPts = last5.length > 0 ? (last5.reduce((s,x) => s + (x.stableford || 0), 0) / last5.length).toFixed(1) : null
+    const prompt = `Du är caddie på Täby GK (Vallentunasjön). ${tabyUser?.nickname} (HCP ${playerHcp}) står på hål ${hole} – par ${holeData.p}, ${holeData.m}m, index ${holeData.i}. ${extra > 0 ? 'Har ' + extra + ' extraslag.' : ''} ${holeData.w ? 'Vatten i spel.' : ''} Speltips: "${holeData.t}". ${avgPts ? 'Snitt senaste 5 hål: ' + avgPts + 'p.' : ''}
+
+VIKTIGT: Repetera INTE hålbeskrivningen. Ge istället:
+1. Klubbval + strategi
+2. Vad ska undvikas
+Max 2-3 meningar. Svenska. Använd spelarens nickname.`
+    try {
+      const res = await fetch('/api/caddie', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) })
+      const data = await res.json()
+      setTabyCaddieMsg(data.text || 'Caddien är tyst...')
+    } catch (e) { setTabyCaddieMsg('Caddien tappade signalen! Lita på magkänslan.') }
+    setTabyCaddieLoading(false)
+  }
+
+  // H2H matrix: calculate head-to-head wins between all player pairs
+  const calcH2HMatrix = () => {
+    const matrix = {}
+    tabyPlayers.forEach(p1 => {
+      matrix[p1.id] = {}
+      tabyPlayers.forEach(p2 => {
+        if (p1.id === p2.id) { matrix[p1.id][p2.id] = null; return }
+        let w = 0, l = 0, d = 0
+        const commonRounds = tabyRounds.filter(r => r.player_ids?.includes(p1.id) && r.player_ids?.includes(p2.id))
+        commonRounds.forEach(r => {
+          const s1 = tabyScores.filter(s => s.round_id === r.id && s.player_id === p1.id)
+          const s2 = tabyScores.filter(s => s.round_id === r.id && s.player_id === p2.id)
+          let hw = 0, hl = 0
+          for (let h = 1; h <= 18; h++) {
+            const sc1 = s1.find(s => s.hole === h)
+            const sc2 = s2.find(s => s.hole === h)
+            if (!sc1 || !sc2) continue
+            if (sc1.stableford > sc2.stableford) hw++
+            else if (sc1.stableford < sc2.stableford) hl++
+          }
+          if (hw > hl) w++; else if (hl > hw) l++; else d++
+        })
+        matrix[p1.id][p2.id] = { w, l, d, total: w + l + d }
+      })
+    })
+    return matrix
+  }
+
+  // Auto-odds from HCP
+  const calcAutoOdds = (player) => {
+    if (!player) return 2.0
+    const hcp = parseFloat(player.taby_hcp || player.hcp) || 18
+    let odds = 1 + hcp / 10
+    return Math.max(1.2, Math.min(8.0, Math.round(odds * 10) / 10))
+  }
+
+  // Create H2H match
+  const createH2H = async () => {
+    if (!h2hPlayer1 || !h2hPlayer2 || h2hPlayer1 === h2hPlayer2) return
+    const roundId = newRound?.id || null
+    const { data } = await supabase.from('taby_h2h').insert({ round_id: roundId, player1_id: h2hPlayer1, player2_id: h2hPlayer2, stake: h2hStake }).select().single()
+    if (data) setTabyH2H(prev => [data, ...prev])
+    setH2hPlayer1(''); setH2hPlayer2('')
+  }
+
+  // Create odds bet
+  const createBet = async () => {
+    if (!newBetQuestion || newBetPlayers.length < 2) return
+    const { data: bet } = await supabase.from('taby_bets').insert({ bet_type: 'odds', question: newBetQuestion, stake: 50, banker_id: tabyUser?.id, status: 'open', created_by: tabyUser?.id }).select().single()
+    if (bet) {
+      const opts = newBetPlayers.map(pid => {
+        const p = tabyPlayers.find(x => x.id === pid)
+        return { bet_id: bet.id, label: p?.nickname || 'Unknown', odds: calcAutoOdds(p), player_id: pid }
+      })
+      const { data: optData } = await supabase.from('taby_bet_options').insert(opts).select()
+      if (optData) setTabyBetOptions(prev => [...prev, ...optData])
+      setTabyBets(prev => [bet, ...prev])
+    }
+    setNewBetQuestion(''); setNewBetPlayers([])
+  }
+
+  // Get sparkline values for a player (last 8 complete rounds)
+  const getSparklineValues = (playerId) => {
+    const playerScores = tabyScores.filter(s => s.player_id === playerId)
+    const roundIds = [...new Set(playerScores.map(s => s.round_id))]
+    const roundTotals = roundIds.map(rid => {
+      const rs = playerScores.filter(s => s.round_id === rid)
+      if (rs.length < 18) return null
+      return { roundId: rid, total: rs.reduce((s, sc) => s + (sc.stableford || 0), 0) }
+    }).filter(Boolean)
+    // Sort by round date
+    const sorted = roundTotals.sort((a, b) => {
+      const rA = tabyRounds.find(r => r.id === a.roundId)
+      const rB = tabyRounds.find(r => r.id === b.roundId)
+      return (rA?.date || '').localeCompare(rB?.date || '')
+    })
+    return sorted.slice(-8).map(r => r.total)
+  }
+
   // Login screen
   if (!tabyUser && !tabySplash) return (
     <div style={{ minHeight: '100vh', background: '#0C1830', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -397,7 +543,7 @@ function TaByApp({ onSwitchMode }) {
 
       {/* Tab nav */}
       <div style={{ display: 'flex', gap: 4, padding: '0 16px 12px', overflowX: 'auto' }}>
-        {[['leaderboard','Merit'],['scoring','Spela'],['holes','Banguide'],['stats','Stats']].map(([key, label]) => (
+        {[['leaderboard','Merit'],['scoring','Spela'],['holes','Banguide'],['betting','Betting'],['stats','Stats']].map(([key, label]) => (
           <button key={key} onClick={() => setTabyView(key)} style={{
             padding: '6px 14px', borderRadius: 8, fontSize: 11, fontFamily: 'var(--mono)',
             background: tabyView === key ? 'rgba(147,197,253,0.12)' : 'transparent',
@@ -411,6 +557,30 @@ function TaByApp({ onSwitchMode }) {
       {/* LEADERBOARD */}
       {tabyView === 'leaderboard' && (
         <div style={{ padding: '0 16px' }}>
+          {/* Events section */}
+          {tabyEvents.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,175,55,0.5)', letterSpacing: 2, marginBottom: 8 }}>KOMMANDE EVENTS</div>
+              <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
+                {tabyEvents.map(ev => {
+                  const evDate = new Date(ev.date)
+                  const now = new Date()
+                  const status = ev.status === 'completed' ? 'Avslutad' : evDate < now ? 'Aktiv' : 'Upcoming'
+                  const emoji = ev.event_name?.includes('Opener') ? '🌱' : ev.event_name?.includes('Midsommar') ? '☀️' : ev.event_name?.includes('Sommar') ? '🏖️' : '🏁'
+                  return (
+                    <div key={ev.id} style={{ flexShrink: 0, minWidth: 140, background: 'rgba(212,175,55,0.04)', border: '0.5px solid rgba(212,175,55,0.12)', borderRadius: 12, padding: '10px 12px' }}>
+                      <div style={{ fontSize: 16, marginBottom: 4 }}>{emoji}</div>
+                      <div style={{ fontSize: 11, color: '#D4A017', fontWeight: 600, marginBottom: 2 }}>{ev.event_name}</div>
+                      <div style={{ fontSize: 9, color: 'rgba(240,244,255,0.4)', fontFamily: 'var(--mono)' }}>{ev.date} · {ev.format || 'stableford'}</div>
+                      <div style={{ fontSize: 8, color: status === 'Upcoming' ? '#93C5FD' : status === 'Aktiv' ? '#4ADE80' : 'rgba(240,244,255,0.3)', fontFamily: 'var(--mono)', marginTop: 4, letterSpacing: 1 }}>{status.toUpperCase()}</div>
+                      {ev.winner_id && (() => { const w = tabyPlayers.find(p => p.id === ev.winner_id); return w ? <div style={{ fontSize: 9, color: '#D4A017', marginTop: 2 }}>🏆 {w.nickname}</div> : null })()}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
             {[[getPlayerStats(tabyUser?.id).fullRounds || '—','RUNDOR','#93C5FD'],[getPlayerStats(tabyUser?.id).pi || '—','SNITT PI','#D4A017'],[getPlayerStats(tabyUser?.id).avgStrokes || '—','SNITT SLAG','#4ADE80']].map(([v,l,cl]) => (
               <div key={l} style={{ flex: 1, background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.08)', borderRadius: 10, padding: '10px 6px', textAlign: 'center' }}>
@@ -421,22 +591,27 @@ function TaByApp({ onSwitchMode }) {
           </div>
           <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 16, border: '0.5px solid rgba(147,197,253,0.1)', overflow: 'hidden' }}>
             <div style={{ padding: '10px 14px 6px', fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 2 }}>ORDER OF MERIT</div>
-            {playerStats.map((pl, idx) => (
-              <div key={pl.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: idx === 0 ? 'none' : '0.5px solid rgba(147,197,253,0.06)' }}>
-                <div style={{ fontFamily: 'var(--serif)', fontSize: idx === 0 ? 20 : 16, color: idx === 0 ? '#D4A017' : 'rgba(240,244,255,0.4)', width: 24 }}>{idx + 1}</div>
-                {pl.image_url ? <img src={pl.image_url} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: `1.5px solid ${idx === 0 ? '#D4A017' : 'rgba(147,197,253,0.15)'}` }} /> : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', border: `1.5px solid ${idx === 0 ? '#D4A017' : 'rgba(147,197,253,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD', fontWeight: 500 }}>{pl.name?.charAt(0)}{pl.name?.split(' ')[1]?.charAt(0)}</div>}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: '#F0F4FF', fontWeight: idx === 0 ? 600 : 400 }}>{pl.nickname}</div>
-                  <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>HCP {pl.taby_hcp || pl.hcp} · {pl.stats.fullRounds} rundor{pl.stats.avgStrokes ? ` · ${pl.stats.avgStrokes} snitt` : ''}</div>
+            {playerStats.map((pl, idx) => {
+              const sparkVals = getSparklineValues(pl.id)
+              return (
+                <div key={pl.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: idx === 0 ? 'none' : '0.5px solid rgba(147,197,253,0.06)' }}>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: idx === 0 ? 20 : 16, color: idx === 0 ? '#D4A017' : 'rgba(240,244,255,0.4)', width: 24 }}>{idx + 1}</div>
+                  {pl.image_url ? <img src={pl.image_url} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: `1.5px solid ${idx === 0 ? '#D4A017' : 'rgba(147,197,253,0.15)'}` }} /> : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', border: `1.5px solid ${idx === 0 ? '#D4A017' : 'rgba(147,197,253,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD', fontWeight: 500 }}>{pl.name?.charAt(0)}{pl.name?.split(' ')[1]?.charAt(0)}</div>}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 13, color: '#F0F4FF', fontWeight: idx === 0 ? 600 : 400 }}>{pl.nickname}</span>
+                      {sparkVals.length >= 2 && <Sparkline values={sparkVals} width={50} height={14} color={idx === 0 ? '#D4A017' : '#93C5FD'} />}
+                    </div>
+                    <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>HCP {pl.taby_hcp || pl.hcp} · {pl.stats.fullRounds} rundor{pl.stats.avgStrokes ? ` · ${pl.stats.avgStrokes} snitt slag` : ''}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: idx === 0 ? 18 : 15, color: idx === 0 ? '#D4A017' : 'rgba(240,244,255,0.5)', fontWeight: 500 }}>{pl.stats.pi || '—'}</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.3)' }}>PI</div>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: idx === 0 ? 18 : 15, color: idx === 0 ? '#D4A017' : 'rgba(240,244,255,0.5)', fontWeight: 500 }}>{pl.stats.pi || '—'}</div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.3)' }}>PI</div>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
-          {/* Start round button */}
           <button onClick={() => setTabyView('scoring')} style={{ width: '100%', marginTop: 12, padding: 14, borderRadius: 12, cursor: 'pointer', background: 'linear-gradient(135deg, rgba(147,197,253,0.12), rgba(147,197,253,0.04))', border: '0.5px solid rgba(147,197,253,0.2)', color: '#93C5FD', fontSize: 14, fontWeight: 600, fontFamily: 'var(--serif)', letterSpacing: 1 }}>Spela runda →</button>
         </div>
       )}
@@ -448,23 +623,18 @@ function TaByApp({ onSwitchMode }) {
             <div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,175,55,0.5)', letterSpacing: 1.5, marginBottom: 12 }}>SKAPA BOLL</div>
               <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.5)', marginBottom: 12 }}>Välj vilka som spelar:</div>
-              {tabyPlayers.map(p => {
-                const sel = (newRound?.player_ids || [tabyUser?.id]).includes(p.id)
-                return (
-                  <button key={p.id} onClick={() => {
-                    // Toggle player selection (tabyUser always included)
-                  }} style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', marginBottom: 4,
-                    background: p.id === tabyUser?.id ? 'rgba(212,175,55,0.08)' : 'rgba(147,197,253,0.03)',
-                    border: p.id === tabyUser?.id ? '0.5px solid rgba(212,175,55,0.2)' : '0.5px solid rgba(147,197,253,0.06)',
-                    borderRadius: 10, cursor: 'pointer', textAlign: 'left'
-                  }}>
-                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: p.id === tabyUser?.id ? 'rgba(212,175,55,0.2)' : 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: p.id === tabyUser?.id ? '#D4A017' : '#93C5FD' }}>{p.name?.charAt(0)}</div>
-                    <div style={{ flex: 1, fontSize: 13, color: '#F0F4FF' }}>{p.nickname}</div>
-                    <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>HCP {p.taby_hcp || p.hcp}</div>
-                  </button>
-                )
-              })}
+              {tabyPlayers.map(p => (
+                <button key={p.id} onClick={() => {}} style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', marginBottom: 4,
+                  background: p.id === tabyUser?.id ? 'rgba(212,175,55,0.08)' : 'rgba(147,197,253,0.03)',
+                  border: p.id === tabyUser?.id ? '0.5px solid rgba(212,175,55,0.2)' : '0.5px solid rgba(147,197,253,0.06)',
+                  borderRadius: 10, cursor: 'pointer', textAlign: 'left'
+                }}>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: p.id === tabyUser?.id ? 'rgba(212,175,55,0.2)' : 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: p.id === tabyUser?.id ? '#D4A017' : '#93C5FD' }}>{p.name?.charAt(0)}</div>
+                  <div style={{ flex: 1, fontSize: 13, color: '#F0F4FF' }}>{p.nickname}</div>
+                  <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>HCP {p.taby_hcp || p.hcp}</div>
+                </button>
+              ))}
               <button onClick={() => startRound(tabyPlayers.filter(p => p.id === tabyUser?.id))} style={{
                 width: '100%', marginTop: 12, padding: 14, borderRadius: 12, cursor: 'pointer',
                 background: 'linear-gradient(135deg, rgba(212,175,55,0.15), rgba(212,175,55,0.05))',
@@ -487,7 +657,7 @@ function TaByApp({ onSwitchMode }) {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontFamily: 'var(--mono)', fontSize: 20, color: '#D4A017', fontWeight: 600 }}>{totalStab}p</div>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.4)' }}>{totalStrokes} slag {vsParStr > 0 ? `+${vsParStr}` : vsParStr} vs par</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.5)', fontWeight: 500 }}>{totalStrokes} slag {vsParStr > 0 ? `+${vsParStr}` : vsParStr} vs par</div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -495,41 +665,36 @@ function TaByApp({ onSwitchMode }) {
                   <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>Netto: {totalStrokes > 0 ? totalStrokes - Math.round(phcp * holesPlayed / 18) : '—'}</div>
                 </div>
               </div>
-              {/* Score grid - 9 holes per row */}
-              {[0, 9].map(offset => (
-                <div key={offset} style={{ marginBottom: 8 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.3)', letterSpacing: 1, marginBottom: 4 }}>{offset === 0 ? 'UT' : 'IN'}</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 3 }}>
-                    {holes.slice(offset, offset + 9).map(h => {
-                      const sc = roundScores.find(s => s.hole === h.h)
-                      const extra = getExtra(h.i, tabyUser?.taby_hcp || tabyUser?.hcp)
-                      return (
-                        <div key={h.h} style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 8, color: 'rgba(147,197,253,0.3)', fontFamily: 'var(--mono)' }}>{h.h}</div>
-                          <div style={{ fontSize: 7, color: 'rgba(212,175,55,0.3)', fontFamily: 'var(--mono)' }}>P{h.p}{extra > 0 ? `+${extra}` : ''}</div>
-                          <input
-                            type="number" inputMode="numeric" min="1" max="12"
-                            value={sc?.strokes || scoreInput[h.h] || ''}
-                            onChange={e => { const v = parseInt(e.target.value); if (v >= 1 && v <= 12) saveHoleScore(h.h, v) }}
-                            style={{
-                              width: '100%', background: sc ? (sc.stableford >= 3 ? 'rgba(74,222,128,0.12)' : sc.stableford === 0 ? 'rgba(232,99,74,0.12)' : 'rgba(147,197,253,0.06)') : 'rgba(147,197,253,0.03)',
-                              border: sc ? (sc.stableford >= 3 ? '1px solid rgba(74,222,128,0.3)' : sc.stableford === 0 ? '1px solid rgba(232,99,74,0.3)' : '0.5px solid rgba(147,197,253,0.15)') : '0.5px solid rgba(147,197,253,0.08)',
-                              borderRadius: 6, padding: '6px 0', textAlign: 'center', color: '#F0F4FF', fontFamily: 'var(--mono)', fontSize: 14, outline: 'none', boxSizing: 'border-box'
-                            }}
-                          />
-                          {sc && <div style={{ fontSize: 7, color: sc.stableford >= 3 ? '#4ADE80' : sc.stableford === 0 ? '#E8634A' : 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)', marginTop: 1 }}>{sc.stableford}p</div>}
-                        </div>
-                      )
-                    })}
+              {/* Hole list - each row clickable for fullscreen */}
+              {holes.map(h => {
+                const sc = roundScores.find(s => s.hole === h.h)
+                const extra = getExtra(h.i, tabyUser?.taby_hcp || tabyUser?.hcp)
+                return (
+                  <div key={h.h} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', marginBottom: 3, background: sc ? (sc.stableford >= 3 ? 'rgba(74,222,128,0.06)' : sc.stableford === 0 ? 'rgba(232,99,74,0.06)' : 'rgba(147,197,253,0.03)') : 'rgba(147,197,253,0.02)', border: `0.5px solid ${sc ? (sc.stableford >= 3 ? 'rgba(74,222,128,0.15)' : sc.stableford === 0 ? 'rgba(232,99,74,0.15)' : 'rgba(147,197,253,0.08)') : 'rgba(147,197,253,0.06)'}`, borderRadius: 10 }}>
+                    <button onClick={() => { setTabyActiveHole(h.h); setTabyCaddieMsg(null) }} style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(147,197,253,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                      <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: h.p === 3 ? '#E8634A' : h.p === 5 ? '#4ADE80' : '#93C5FD', fontWeight: 600, lineHeight: 1 }}>{h.h}</div>
+                    </button>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: 'rgba(240,244,255,0.5)', fontFamily: 'var(--mono)' }}>P{h.p} · {h.m}m · idx {h.i}{extra > 0 ? ` · +${extra}` : ''}</div>
+                      {h.w && <span style={{ fontSize: 8, color: '#60A5FA' }}>💧</span>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button onClick={(e) => { e.stopPropagation(); const cur = sc?.strokes || h.p; if (cur > 1) saveHoleScore(h.h, cur - 1) }} style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#93C5FD', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                      <div onClick={() => { if (!sc) saveHoleScore(h.h, h.p) }} style={{ width: 40, height: 36, borderRadius: 8, background: sc ? 'rgba(147,197,253,0.06)' : 'rgba(212,175,55,0.08)', border: sc ? '0.5px solid rgba(147,197,253,0.12)' : '1px solid rgba(212,175,55,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: sc ? 'default' : 'pointer' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 600, color: sc ? '#F0F4FF' : '#D4A017' }}>{sc?.strokes || h.p}</div>
+                      </div>
+                      <button onClick={(e) => { e.stopPropagation(); const cur = sc?.strokes || h.p; if (cur < 12) saveHoleScore(h.h, cur + 1) }} style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#93C5FD', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                    </div>
+                    <div style={{ minWidth: 28, textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600, color: sc ? (sc.stableford >= 3 ? '#4ADE80' : sc.stableford === 0 ? '#E8634A' : 'rgba(147,197,253,0.5)') : 'rgba(147,197,253,0.2)' }}>{sc ? `${sc.stableford}p` : ''}</div>
                   </div>
-                  {/* Row total */}
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 4, fontFamily: 'var(--mono)', fontSize: 9 }}>
-                    <span style={{ color: 'rgba(147,197,253,0.4)' }}>Slag: {roundScores.filter(s => s.hole > offset && s.hole <= offset + 9).reduce((sum, s) => sum + s.strokes, 0) || '—'}</span>
-                    <span style={{ color: 'rgba(212,175,55,0.5)' }}>Stab: {roundScores.filter(s => s.hole > offset && s.hole <= offset + 9).reduce((sum, s) => sum + s.stableford, 0) || '—'}</span>
-                  </div>
-                </div>
-              ))}
-              {/* Finish round */}
+                )
+              })}
+              {/* Totals bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, padding: '10px 14px', background: 'rgba(212,175,55,0.06)', borderRadius: 10, border: '0.5px solid rgba(212,175,55,0.12)' }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.5)' }}>{holesPlayed}/18 hål</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.5)' }}>{totalStrokes} slag ({vsParStr > 0 ? '+' : ''}{vsParStr})</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: '#D4A017', fontWeight: 600 }}>{totalStab}p stableford</div>
+              </div>
               {holesPlayed === 18 && (
                 <button onClick={() => { setNewRound(null); setScoreInput({}); setTabyView('leaderboard') }} style={{
                   width: '100%', marginTop: 8, padding: 14, borderRadius: 12, cursor: 'pointer',
@@ -541,6 +706,145 @@ function TaByApp({ onSwitchMode }) {
           )}
         </div>
       )}
+
+      {/* FULLSCREEN HOLE SCORING */}
+      {tabyActiveHole && newRound && (() => {
+        const h = holes[tabyActiveHole - 1]
+        if (!h) return null
+        const sc = roundScores.find(s => s.hole === h.h)
+        const currentVal = sc?.strokes || h.p
+        const extra = getExtra(h.i, tabyUser?.taby_hcp || tabyUser?.hcp)
+        const stab = sc?.stableford ?? null
+        const prevHole = h.h > 1 ? h.h - 1 : null
+        const nextH = h.h < 18 ? h.h + 1 : null
+        // Ghost match: find user's most recent completed round before this one
+        const prevRound = tabyRounds.find(r => r.id !== newRound.id && r.player_ids?.includes(tabyUser?.id) && tabyScores.filter(s => s.round_id === r.id && s.player_id === tabyUser?.id).length >= 18)
+        const ghostScore = prevRound ? tabyScores.find(s => s.round_id === prevRound.id && s.player_id === tabyUser?.id && s.hole === h.h) : null
+        const ghostCum = prevRound ? tabyScores.filter(s => s.round_id === prevRound.id && s.player_id === tabyUser?.id && s.hole <= h.h).reduce((sum, s) => sum + (s.stableford || 0), 0) : 0
+        const currCum = roundScores.filter(s => s.hole <= h.h).reduce((sum, s) => sum + (s.stableford || 0), 0)
+        const cumDiff = prevRound ? currCum - ghostCum : 0
+        // Others on this hole
+        const othersOnHole = newRound.player_ids?.filter(pid => pid !== tabyUser?.id).map(pid => {
+          const p = tabyPlayers.find(x => x.id === pid)
+          const s = tabyScores.find(x => x.round_id === newRound.id && x.player_id === pid && x.hole === h.h)
+          return { player: p, score: s }
+        }).filter(x => x.player) || []
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: '#0C1830', zIndex: 400, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Top bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', background: 'rgba(147,197,253,0.04)', borderBottom: '0.5px solid rgba(147,197,253,0.1)' }}>
+              <button onClick={() => setTabyActiveHole(null)} style={{ background: 'none', border: 'none', color: '#93C5FD', fontSize: 16, cursor: 'pointer' }}>← Alla hål</button>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'rgba(147,197,253,0.5)' }}>Täby GK · {tabyUser?.nickname}</div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+              {/* Hole number & info */}
+              <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                <div style={{ fontSize: 56, fontFamily: 'var(--serif)', fontWeight: 500, color: h.p === 3 ? '#E8634A' : h.p === 5 ? '#4ADE80' : '#93C5FD' }}>{h.h}</div>
+                <div style={{ fontSize: 14, color: 'rgba(240,244,255,0.5)', marginTop: -4 }}>Par {h.p} · {h.m}m · Index {h.i}</div>
+                {/* Extra strokes indicator */}
+                {extra > 0 && (
+                  <div style={{ marginTop: 6, display: 'flex', justifyContent: 'center', gap: 4 }}>
+                    {Array.from({length: extra}).map((_, i) => <span key={i} style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: '#4ADE80' }} />)}
+                    <span style={{ fontSize: 12, color: '#4ADE80', marginLeft: 4, fontWeight: 500 }}>+{extra} slag</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 8 }}>
+                  {h.w && <div style={{ padding: '3px 10px', borderRadius: 8, background: 'rgba(96,165,250,0.1)', border: '0.5px solid rgba(96,165,250,0.2)', color: '#60A5FA', fontSize: 10, fontFamily: 'var(--mono)' }}>💧 VATTEN</div>}
+                </div>
+                <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.5)', fontStyle: 'italic', marginTop: 8 }}>{h.t}</div>
+              </div>
+
+              {/* Banguide image */}
+              <div style={{ borderRadius: 16, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.1)', marginBottom: 16 }}>
+                <img src={`/taby/holes/hole-${h.h}.webp`} alt={`Hål ${h.h}`} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 200, objectFit: 'cover' }} />
+              </div>
+
+              {/* CADDIE AI */}
+              <div style={{ marginBottom: 16 }}>
+                {!tabyCaddieMsg && !tabyCaddieLoading && (
+                  <button onClick={() => askTabyCaddie(h.h, h)} style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(147,197,253,0.08), rgba(212,175,55,0.06))', border: '1px solid rgba(147,197,253,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#93C5FD', fontSize: 13, fontWeight: 500 }}>
+                    🤖 Fråga Caddien
+                  </button>
+                )}
+                {tabyCaddieLoading && (
+                  <div style={{ textAlign: 'center', padding: '16px', color: '#93C5FD', fontSize: 13, fontFamily: 'var(--mono)' }}>
+                    <span style={{ animation: 'pulse 1s infinite' }}>Caddien analyserar...</span>
+                  </div>
+                )}
+                {tabyCaddieMsg && (
+                  <div style={{ background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', borderRadius: 12, padding: '14px 16px' }}>
+                    <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: '#93C5FD', letterSpacing: 1.5, marginBottom: 6 }}>CADDIE AI</div>
+                    <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.7)', lineHeight: 1.5 }}>{tabyCaddieMsg}</div>
+                    <button onClick={() => setTabyCaddieMsg(null)} style={{ background: 'none', border: 'none', color: 'rgba(147,197,253,0.4)', fontSize: 10, cursor: 'pointer', marginTop: 6, padding: 0 }}>Stäng</button>
+                  </div>
+                )}
+              </div>
+
+              {/* BIG SCORE INPUT */}
+              <div style={{ background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.1)', borderRadius: 16, padding: 24, marginBottom: 16 }}>
+                <div style={{ textAlign: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'rgba(147,197,253,0.5)', letterSpacing: 1 }}>SLAG</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                  <button onClick={() => { if (currentVal > 1) saveHoleScore(h.h, currentVal - 1) }}
+                    style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#93C5FD', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                  <div onClick={() => { if (!sc) saveHoleScore(h.h, h.p) }}
+                    style={{ width: 80, height: 80, borderRadius: 20, background: sc ? 'rgba(147,197,253,0.06)' : 'rgba(212,175,55,0.08)', border: sc ? '2px solid rgba(147,197,253,0.15)' : '2px solid #D4A017', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: sc ? 'default' : 'pointer' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 36, fontWeight: 500, color: sc ? '#F0F4FF' : '#D4A017' }}>{sc?.strokes || h.p}</div>
+                    {!sc && <div style={{ fontSize: 9, color: '#D4A017', marginTop: -4 }}>TRYCK</div>}
+                  </div>
+                  <button onClick={() => { if (currentVal < 15) saveHoleScore(h.h, currentVal + 1) }}
+                    style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#93C5FD', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                </div>
+                {stab !== null && (
+                  <div style={{ textAlign: 'center', marginTop: 16 }}>
+                    <span style={{ fontSize: 32, fontFamily: 'var(--mono)', fontWeight: 500, color: stab === 0 ? '#E8634A' : stab >= 4 ? '#D4A017' : stab >= 3 ? '#4ADE80' : 'rgba(240,244,255,0.6)' }}>
+                      {stab}p
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Others on this hole */}
+              {othersOnHole.length > 0 && (
+                <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 12, marginBottom: 12 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.4)', letterSpacing: 1, marginBottom: 6 }}>ALLA PÅ HÅL {h.h}</div>
+                  {othersOnHole.map(({ player: p, score: s }) => (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '0.5px solid rgba(147,197,253,0.06)' }}>
+                      {p.image_url ? <img src={p.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
+                      <div style={{ flex: 1, fontSize: 13, color: 'rgba(240,244,255,0.5)' }}>{p.nickname}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14 }}>{s?.strokes || '–'}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, minWidth: 28, textAlign: 'right', color: (s?.stableford || 0) >= 3 ? '#4ADE80' : s?.stableford === 0 ? '#E8634A' : 'rgba(147,197,253,0.4)' }}>{s?.stableford != null ? s.stableford + 'p' : ''}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Ghost Match */}
+              {ghostScore && (
+                <div style={{ background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.08)', borderRadius: 12, padding: 12 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.4)', letterSpacing: 1, marginBottom: 4 }}>👻 GHOST MATCH vs förra rundan</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.5)' }}>Förra: <span style={{ fontFamily: 'var(--mono)', fontWeight: 500 }}>{ghostScore.strokes} slag ({ghostScore.stableford}p)</span></div>
+                    <div style={{ fontSize: 14, fontFamily: 'var(--mono)', fontWeight: 600, color: cumDiff > 0 ? '#4ADE80' : cumDiff < 0 ? '#E8634A' : 'rgba(147,197,253,0.4)' }}>
+                      {cumDiff > 0 ? '+' : ''}{cumDiff}p tot
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom nav */}
+            <div style={{ display: 'flex', gap: 8, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0))', background: 'rgba(147,197,253,0.04)', borderTop: '0.5px solid rgba(147,197,253,0.1)' }}>
+              <button onClick={() => prevHole && (setTabyActiveHole(prevHole), setTabyCaddieMsg(null))} disabled={!prevHole}
+                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'rgba(147,197,253,0.06)' : 'transparent', border: '0.5px solid rgba(147,197,253,0.1)', color: prevHole ? '#93C5FD' : 'rgba(147,197,253,0.2)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← Hål {prevHole || ''}</button>
+              <button onClick={() => nextH ? (setTabyActiveHole(nextH), setTabyCaddieMsg(null)) : setTabyActiveHole(null)}
+                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: '#93C5FD', border: 'none', color: '#0C1830', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* HOLE VIEW / BANGUIDE */}
       {tabyView === 'holes' && (
@@ -572,6 +876,109 @@ function TaByApp({ onSwitchMode }) {
         </div>
       )}
 
+      {/* BETTING VIEW */}
+      {tabyView === 'betting' && (
+        <div style={{ padding: '0 16px' }}>
+          {/* H2H Matches */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 2, marginBottom: 8 }}>HEAD-TO-HEAD MATCHER</div>
+            {tabyH2H.map(match => {
+              const p1 = tabyPlayers.find(p => p.id === match.player1_id)
+              const p2 = tabyPlayers.find(p => p.id === match.player2_id)
+              const winner = match.winner_id ? tabyPlayers.find(p => p.id === match.winner_id) : null
+              return (
+                <div key={match.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', marginBottom: 4, background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.08)', borderRadius: 10 }}>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {p1?.image_url ? <img src={p1.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#93C5FD' }}>{p1?.name?.charAt(0)}</div>}
+                    <span style={{ fontSize: 12, color: match.winner_id === p1?.id ? '#4ADE80' : '#F0F4FF' }}>{p1?.nickname}</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>vs</div>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                    <span style={{ fontSize: 12, color: match.winner_id === p2?.id ? '#4ADE80' : '#F0F4FF' }}>{p2?.nickname}</span>
+                    {p2?.image_url ? <img src={p2.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#93C5FD' }}>{p2?.name?.charAt(0)}</div>}
+                  </div>
+                  <div style={{ minWidth: 50, textAlign: 'right' }}>
+                    {winner ? <span style={{ fontSize: 10, color: '#D4A017', fontFamily: 'var(--mono)' }}>🏆 {winner.nickname}</span> : <span style={{ fontSize: 9, color: 'rgba(147,197,253,0.3)', fontFamily: 'var(--mono)' }}>Pågår</span>}
+                  </div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(212,175,55,0.5)' }}>{match.stake}kr</div>
+                </div>
+              )
+            })}
+            {/* Create H2H */}
+            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+              <select value={h2hPlayer1} onChange={e => setH2hPlayer1(e.target.value)} style={{ flex: 1, padding: '8px', borderRadius: 8, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#F0F4FF', fontSize: 11 }}>
+                <option value="">Spelare 1</option>
+                {tabyPlayers.map(p => <option key={p.id} value={p.id}>{p.nickname}</option>)}
+              </select>
+              <select value={h2hPlayer2} onChange={e => setH2hPlayer2(e.target.value)} style={{ flex: 1, padding: '8px', borderRadius: 8, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#F0F4FF', fontSize: 11 }}>
+                <option value="">Spelare 2</option>
+                {tabyPlayers.map(p => <option key={p.id} value={p.id}>{p.nickname}</option>)}
+              </select>
+              <button onClick={createH2H} style={{ padding: '8px 14px', borderRadius: 8, background: '#93C5FD', border: 'none', color: '#0C1830', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+</button>
+            </div>
+          </div>
+
+          {/* Odds Bets */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 2, marginBottom: 8 }}>ODDS-BETS</div>
+            {tabyBets.filter(b => b.status === 'open').map(bet => {
+              const opts = tabyBetOptions.filter(o => o.bet_id === bet.id)
+              const wagers = tabyBetWagers.filter(w => w.bet_id === bet.id)
+              const totalPool = wagers.reduce((s, w) => s + (w.amount || 0), 0)
+              return (
+                <div key={bet.id} style={{ background: 'rgba(212,175,55,0.04)', border: '0.5px solid rgba(212,175,55,0.12)', borderRadius: 12, padding: '12px 14px', marginBottom: 6 }}>
+                  <div style={{ fontSize: 13, color: '#D4A017', fontWeight: 600, marginBottom: 6 }}>{bet.question}</div>
+                  <div style={{ fontSize: 9, color: 'rgba(240,244,255,0.4)', fontFamily: 'var(--mono)', marginBottom: 8 }}>Pool: {totalPool}kr · {wagers.length} insatser</div>
+                  {opts.map(opt => {
+                    const myWager = wagers.find(w => w.option_id === opt.id && w.player_id === tabyUser?.id)
+                    return (
+                      <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '0.5px solid rgba(212,175,55,0.08)' }}>
+                        <div style={{ flex: 1, fontSize: 12, color: '#F0F4FF' }}>{opt.label}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: '#D4A017', fontWeight: 600 }}>{opt.odds}x</div>
+                        {myWager && <div style={{ fontSize: 9, color: '#4ADE80', fontFamily: 'var(--mono)' }}>💰 {myWager.amount}kr</div>}
+                        {!myWager && !bet.locked && (
+                          <button onClick={async () => {
+                            const { data } = await supabase.from('taby_bet_wagers').insert({ bet_id: bet.id, option_id: opt.id, player_id: tabyUser?.id, amount: 50 }).select().single()
+                            if (data) setTabyBetWagers(prev => [...prev, data])
+                          }} style={{ padding: '4px 8px', borderRadius: 6, background: 'rgba(212,175,55,0.1)', border: '0.5px solid rgba(212,175,55,0.2)', color: '#D4A017', fontSize: 9, cursor: 'pointer', fontFamily: 'var(--mono)' }}>50kr</button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })}
+            {/* Create bet */}
+            <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: '12px 14px', border: '0.5px solid rgba(147,197,253,0.08)' }}>
+              <input value={newBetQuestion} onChange={e => setNewBetQuestion(e.target.value)} placeholder="Ny fråga..." style={{ width: '100%', padding: '8px 10px', borderRadius: 8, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#F0F4FF', fontSize: 12, marginBottom: 8, boxSizing: 'border-box' }} />
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
+                {tabyPlayers.map(p => (
+                  <button key={p.id} onClick={() => setNewBetPlayers(prev => prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id])} style={{
+                    padding: '4px 8px', borderRadius: 6, fontSize: 10, cursor: 'pointer', fontFamily: 'var(--mono)',
+                    background: newBetPlayers.includes(p.id) ? 'rgba(212,175,55,0.15)' : 'rgba(147,197,253,0.04)',
+                    border: newBetPlayers.includes(p.id) ? '1px solid #D4A017' : '0.5px solid rgba(147,197,253,0.08)',
+                    color: newBetPlayers.includes(p.id) ? '#D4A017' : 'rgba(240,244,255,0.4)'
+                  }}>{p.nickname} {calcAutoOdds(p)}x</button>
+                ))}
+              </div>
+              <button onClick={createBet} disabled={!newBetQuestion || newBetPlayers.length < 2} style={{ width: '100%', padding: '10px', borderRadius: 8, background: newBetQuestion && newBetPlayers.length >= 2 ? '#93C5FD' : 'rgba(147,197,253,0.1)', border: 'none', color: newBetQuestion && newBetPlayers.length >= 2 ? '#0C1830' : 'rgba(147,197,253,0.3)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Skapa bet</button>
+            </div>
+          </div>
+
+          {/* Settled bets */}
+          {tabyBets.filter(b => b.status === 'settled').length > 0 && (
+            <details style={{ marginTop: 12 }}>
+              <summary style={{ cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.4)', letterSpacing: 1 }}>AVGJORDA BETS ({tabyBets.filter(b => b.status === 'settled').length})</summary>
+              {tabyBets.filter(b => b.status === 'settled').map(bet => (
+                <div key={bet.id} style={{ padding: '8px 0', borderBottom: '0.5px solid rgba(147,197,253,0.06)', fontSize: 11, color: 'rgba(240,244,255,0.4)' }}>
+                  {bet.question} → {tabyBetOptions.find(o => o.id === bet.winner_option_id)?.label || '?'}
+                </div>
+              ))}
+            </details>
+          )}
+        </div>
+      )}
+
       {/* STATS VIEW */}
       {tabyView === 'stats' && (
         <div style={{ padding: '0 16px' }}>
@@ -600,6 +1007,42 @@ function TaByApp({ onSwitchMode }) {
               )
             })
           )}
+
+          {/* H2H Matrix */}
+          <div style={{ marginTop: 16 }}>
+            <button onClick={() => setH2hMatrixOpen(!h2hMatrixOpen)} style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.08)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 2 }}>HEAD-TO-HEAD MATRIS</span>
+              <span style={{ color: 'rgba(147,197,253,0.4)', fontSize: 12 }}>{h2hMatrixOpen ? '▲' : '▼'}</span>
+            </button>
+            {h2hMatrixOpen && (() => {
+              const matrix = calcH2HMatrix()
+              return (
+                <div style={{ overflowX: 'auto', marginTop: 8, scrollbarWidth: 'none' }}>
+                  <table style={{ borderCollapse: 'collapse', fontSize: 9, fontFamily: 'var(--mono)', minWidth: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '4px 6px', color: 'rgba(147,197,253,0.4)', textAlign: 'left' }}></th>
+                        {tabyPlayers.map(p => <th key={p.id} style={{ padding: '4px 4px', color: 'rgba(147,197,253,0.4)', textAlign: 'center', fontSize: 8 }}>{p.nickname?.slice(0, 4)}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tabyPlayers.map(p1 => (
+                        <tr key={p1.id}>
+                          <td style={{ padding: '4px 6px', color: '#93C5FD', fontSize: 8, whiteSpace: 'nowrap' }}>{p1.nickname?.slice(0, 6)}</td>
+                          {tabyPlayers.map(p2 => {
+                            const cell = matrix[p1.id]?.[p2.id]
+                            if (!cell) return <td key={p2.id} style={{ padding: '4px', textAlign: 'center', color: 'rgba(147,197,253,0.15)' }}>—</td>
+                            const clr = cell.w > cell.l ? '#4ADE80' : cell.l > cell.w ? '#E8634A' : 'rgba(240,244,255,0.4)'
+                            return <td key={p2.id} style={{ padding: '4px', textAlign: 'center', color: cell.total > 0 ? clr : 'rgba(147,197,253,0.15)', fontSize: 8 }}>{cell.total > 0 ? `${cell.w}-${cell.l}` : '—'}</td>
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })()}
+          </div>
         </div>
       )}
     </div>
@@ -1542,8 +1985,11 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   {movement !== 0 && <div style={{ fontSize: 10, color: movement > 0 ? 'var(--green)' : 'var(--coral)', minWidth: 14 }}>{movement > 0 ? '▲' : '▼'}</div>}
                   <Av p={p} size={38} />
                   <div className="lb-info">
-                    <div className="lb-name">{p.name}</div>
+                    <div className="lb-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{p.name}
+                      {(() => { const vals = [1,2,3,4].map(rn => pRoundRaw(p.id, rn)).filter(v => v > 0); return vals.length >= 2 ? <Sparkline values={vals} width={44} height={12} color="var(--gold)" /> : null })()}
+                    </div>
                     <div className="lb-hcp">{p.nickname} · {p.hcp}
+                      {(() => { const totalStr = scores.filter(s => s.player_id === p.id && s.strokes > 0).reduce((sum, s) => sum + s.strokes, 0); return totalStr > 0 ? <span style={{ marginLeft: 4, fontSize: 9, color: 'var(--cream-muted)' }}>· {totalStr} slag</span> : null })()}
                       {bonus !== 0 && <span style={{ marginLeft: 4, fontSize: 10, color: bonus > 0 ? 'var(--green)' : 'var(--coral)' }}>{bonus > 0 ? '+' : ''}{bonus} streak</span>}
                       {momentum(p.id) && (() => {
                         const m = parseFloat(momentum(p.id))
@@ -1566,16 +2012,20 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 400 }}></th>
               {[1,2,3,4].map(r => <th key={r} style={{ padding: '6px 2px', fontWeight: 400, fontSize: 9 }}>{RL[r]}</th>)}
               <th style={{ padding: '6px 4px', fontWeight: 500 }}>Tot</th>
+              <th style={{ padding: '6px 4px', color: 'var(--cream-muted)', fontSize: 8 }}>Slag</th>
               <th style={{ padding: '6px 4px', color: 'var(--coral)' }}>💀</th>
             </tr></thead>
-            <tbody>{lb.map(p => (
+            <tbody>{lb.map(p => {
+              const totalStr = scores.filter(s => s.player_id === p.id && s.strokes > 0).reduce((sum, s) => sum + s.strokes, 0)
+              return (
               <tr key={p.id} style={{ borderBottom: '1px solid var(--card-border)' }}>
                 <td style={{ padding: '5px 4px', color: 'var(--cream-dim)' }}>{p.name.split(' ')[0]}</td>
                 {[1,2,3,4].map(r => <td key={r} style={{ textAlign: 'center', padding: '5px 2px', color: 'var(--cream-muted)' }}>{pRoundRaw(p.id, r) || '-'}</td>)}
                 <td style={{ textAlign: 'center', padding: '5px 4px', fontWeight: 500, color: 'var(--gold-bright)' }}>{pTotal(p.id) || '-'}</td>
+                <td style={{ textAlign: 'center', padding: '5px 4px', color: 'var(--cream-muted)', fontSize: 10 }}>{totalStr || '-'}</td>
                 <td style={{ textAlign: 'center', padding: '5px 4px', color: zeros(p.id) > 5 ? 'var(--coral)' : 'var(--cream-muted)' }}>{zeros(p.id) || '-'}</td>
               </tr>
-            ))}</tbody>
+            )})}</tbody>
           </table>
           {/* Countdown to first tee */}
           {(() => {

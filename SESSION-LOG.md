@@ -2,6 +2,28 @@
 
 Kronologisk logg av utvecklingssessioner. Senaste överst.
 
+## Session 10 – 22 april 2026 (kväll)
+**Claude Opus 4.7 (chatt) + Claude Code (lokalt)**
+
+### Gjort
+- **Täby fullscreen scoring**: komplett feature parity med DIO (hål-klick → fullscreen med +/- score, Caddie AI, Ghost Match)
+- **Slag-visibility**: totalt antal slag nu synligt i alla leaderboards, totaler, stats
+- **Täby betting system**: H2H-matcher, odds-bets med auto-odds, settlement
+- **H2H-matris**: alla mot alla win/loss i Täby stats
+- **Event-system**: 4 events visas i leaderboard
+- **Caddie AI för Täby**: Täby-specifik prompt via /api/caddie
+- **Formkurva**: SVG sparkline per spelare i båda leaderboards
+
+### Verifierat
+- Build successful (npm run build)
+- Vercel deployment READY efter push
+
+### Kvar
+- Rami profilbild (kräver Supabase storage access)
+- Shared chat DIO+Täby
+- Push-notiser för Täby
+- GPS på banguide-bilder
+
 ## Session 9 – 22 april 2026 (kväll)
 **Claude Opus 4.7 (chatt) + Claude Code (lokalt)**
 
