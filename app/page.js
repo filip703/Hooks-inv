@@ -700,7 +700,7 @@ function DIOApp({ onSwitchMode }) {
 
   const fetchAll = useCallback(async () => {
     if (!supabase) return
-    const [p, r, s, ex] = await Promise.all([supabase.from('inv_players').select('*').order('hcp'), supabase.from('inv_rounds').select('*').order('round_number'), supabase.from('inv_scores').select('*'), supabase.from('inv_expenses').select('*').order('created_at', { ascending: false })])
+    const [p, r, s, ex] = await Promise.all([supabase.from('inv_players').select('*').eq('dio_active', true).order('hcp'), supabase.from('inv_rounds').select('*').order('round_number'), supabase.from('inv_scores').select('*'), supabase.from('inv_expenses').select('*').order('created_at', { ascending: false })])
     if (p.data) setPlayers(p.data); if (r.data) setRounds(r.data); if (s.data) setScores(s.data); if (ex.data) setExpenses(ex.data)
   }, [])
   const fetchChat = useCallback(async () => {
