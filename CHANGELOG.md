@@ -6,6 +6,20 @@ Komplett utvecklingshistorik för DIO-appen (hooks-inv.vercel.app).
 
 Turnering: **1–3 maj 2026 · Hooks Herrgård · 6 spelare · 4 rundor**
 
+## 22 april 2026 (session 13) – Täby fullscreen visuell DIO-parity
+
+### 🎨 DIO är chef – Täby speglar nu DIO:s scoring-flöde exakt
+- **LakeBadge** tillagd i `lib/icons.js` – Täby-motsvarighet till AugustaBadge (midnatt-blå + guld ring)
+- **Caddie-knappen** använder nu `<LakeBadge><IconFlag/></LakeBadge>` – identisk struktur med DIO:s `<AugustaBadge><IconFlag/></AugustaBadge>`
+- **Score-card** fått DIO:s glass-card-behandling: linear-gradient + backdrop-filter blur
+- **Banguide-bilden** positionerad som DIO:s flyover-slot (under hålinfo, ovanför Caddie) med gradient-overlay och "BANGUIDE · HÅL X" label
+- **Hålinfo-raden** ändrad från "Index Z" → "Hcp Z" (matchar DIO:s terminologi)
+- **Header** visar nu `{date} · Täby GK` (speglar DIO:s `R1 Fre · Skogsbanan`)
+- **Nya badges i hålinfo:** 🔥 SVÅRASTE (hcp ≤ 3), 🎯 ENKLASTE (hcp ≥ 16), 💧 VATTEN I SPEL
+- **Bottom-nav:** "Klar"-knappen nu guld (#D4A017) istället för blå för att matcha DIO
+- **Caddie-response-card:** samma gradient som knappen, gold accent-färg på label
+- Min Historik flyttad till under score-input (mer DIO-likt flow)
+
 ## 22 april 2026 (session 12) – Leader-fix + bulk-upload Historia
 
 ### 🐛 Leader-bugg fixad

@@ -2,6 +2,25 @@
 
 Kronologisk logg av utvecklingssessioner. Senaste överst.
 
+## Session 13 – 22 april 2026 (natt)
+**Claude Opus 4.7 via Desktop Commander MCP**
+
+### Gjort
+- **DIO = chef, Täby speglar** – full visuell parity på fullscreen scoring
+- Ny `LakeBadge` i `lib/icons.js` (midnatt-blå + guld ring, mirrors AugustaBadge)
+- Caddie-knappen på Täby nu med `<LakeBadge><IconFlag/></LakeBadge>` – identisk struktur med DIO
+- Score-card har DIO:s glass-card-behandling (gradient + backdrop-filter)
+- Banguide-bilden i DIO:s flyover-position, med gradient-overlay + BANGUIDE-label
+- Header: `{date} · Täby GK` (mirrors DIO:s `R1 Fre · Skogsbanan`)
+- Extra hål-info-badges: 🔥 SVÅRASTE / 🎯 ENKLASTE / 💧 VATTEN I SPEL
+- Terminologi-uppdatering: "Index" → "Hcp" (matchar DIO)
+- Klar-knappen guld, inte blå, för konsistens
+- Min Historik flyttad till under score-input
+
+### Verifierat
+- `npx next build` → ✓ Compiled successfully (126 kB, 213 kB first load)
+- Push via SSH
+
 ## Session 12 – 22 april 2026 (natt)
 **Claude Opus 4.7 via Desktop Commander MCP**
 

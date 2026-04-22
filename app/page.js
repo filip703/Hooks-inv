@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven } from '../lib/courses'
 import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio } from '../lib/sounds'
 import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush, sendPush } from '../lib/push'
-import { AugustaBadge, IconTrophy, IconFlag, IconLeaderboard, IconScorecard, IconMenu, IconSwords, IconChat, IconWallet, IconDice, IconCamera, IconInfo, IconUser, IconSettings, IconBell, IconSun, IconMoon, IconRefresh, IconLock, IconSwish, IconGreenJacket, IconGolfBall } from '../lib/icons'
+import { AugustaBadge, LakeBadge, IconTrophy, IconFlag, IconLeaderboard, IconScorecard, IconMenu, IconSwords, IconChat, IconWallet, IconDice, IconCamera, IconInfo, IconUser, IconSettings, IconBell, IconSun, IconMoon, IconRefresh, IconLock, IconSwish, IconGreenJacket, IconGolfBall } from '../lib/icons'
 import QRCode from 'qrcode'
 
 const RC_DEFAULT = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Skogsbanan', 4: 'Parkbanan' }
@@ -954,15 +954,15 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           <div style={{ position: 'fixed', inset: 0, background: '#0C1830', zIndex: 400, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* Top bar */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', background: 'rgba(147,197,253,0.04)', borderBottom: '0.5px solid rgba(147,197,253,0.1)' }}>
-              <button onClick={() => setTabyActiveHole(null)} style={{ background: 'none', border: 'none', color: '#93C5FD', fontSize: 16, cursor: 'pointer' }}>← Alla hål</button>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'rgba(147,197,253,0.5)' }}>Täby GK · {tabyUser?.nickname}</div>
+              <button onClick={() => setTabyActiveHole(null)} style={{ background: 'none', border: 'none', color: '#F0F4FF', fontSize: 16, cursor: 'pointer' }}>← Alla hål</button>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'rgba(240,244,255,0.5)' }}>{newRound?.date || 'Runda'} · Täby GK</div>
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
               {/* Hole number & info */}
               <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                <div style={{ fontSize: 56, fontFamily: 'var(--serif)', fontWeight: 500, color: h.p === 3 ? '#E8634A' : h.p === 5 ? '#4ADE80' : '#93C5FD' }}>{h.h}</div>
-                <div style={{ fontSize: 14, color: 'rgba(240,244,255,0.5)', marginTop: -4 }}>Par {h.p} · {h.m}m · Index {h.i}</div>
+                <div style={{ fontSize: 56, fontFamily: 'var(--serif)', fontWeight: 500, color: h.p === 3 ? '#E8634A' : h.p === 5 ? '#4ADE80' : '#F0F4FF' }}>{h.h}</div>
+                <div style={{ fontSize: 14, color: 'rgba(240,244,255,0.6)', marginTop: -4 }}>Par {h.p} · {h.m}m · Hcp {h.i}</div>
                 {/* Extra strokes indicator */}
                 {extra > 0 && (
                   <div style={{ marginTop: 6, display: 'flex', justifyContent: 'center', gap: 4 }}>
@@ -971,15 +971,67 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 8 }}>
-                  {h.w && <div style={{ padding: '3px 10px', borderRadius: 8, background: 'rgba(96,165,250,0.1)', border: '0.5px solid rgba(96,165,250,0.2)', color: '#60A5FA', fontSize: 10, fontFamily: 'var(--mono)' }}>💧 VATTEN</div>}
+                  {h.w && <div style={{ padding: '3px 10px', borderRadius: 8, background: 'rgba(96,165,250,0.15)', border: '0.5px solid rgba(96,165,250,0.3)', color: '#60A5FA', fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: 1 }}>💧 VATTEN I SPEL</div>}
+                  {h.i <= 3 && <div style={{ padding: '3px 10px', borderRadius: 8, background: 'rgba(232,99,74,0.1)', border: '0.5px solid rgba(232,99,74,0.2)', color: '#E8634A', fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: 1 }}>🔥 SVÅRASTE</div>}
+                  {h.i >= 16 && <div style={{ padding: '3px 10px', borderRadius: 8, background: 'rgba(74,222,128,0.1)', border: '0.5px solid rgba(74,222,128,0.2)', color: '#4ADE80', fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: 1 }}>🎯 ENKLASTE</div>}
                 </div>
-                <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.5)', fontStyle: 'italic', marginTop: 8 }}>{h.t}</div>
+                <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.65)', fontStyle: 'italic', marginTop: 8, lineHeight: 1.5 }}>{h.t}</div>
               </div>
 
-              {/* Banguide image - clickable to open full modal */}
-              <div onClick={() => setTabyBanguideOpen(true)} style={{ borderRadius: 16, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.1)', marginBottom: 12, cursor: 'pointer', position: 'relative' }}>
-                <img src={`/taby/holes/hole-${h.h}.webp`} alt={`Hål ${h.h}`} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 200, objectFit: 'cover' }} />
-                <div style={{ position: 'absolute', top: 8, right: 8, padding: '4px 10px', background: 'rgba(12,24,48,0.8)', borderRadius: 6, color: '#93C5FD', fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: 1 }}>📖 ÖPPNA BANGUIDE</div>
+              {/* Banguide image - like DIO's flyover slot, clickable to open full modal */}
+              <div onClick={() => setTabyBanguideOpen(true)} style={{ borderRadius: 12, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.15)', marginBottom: 16, cursor: 'pointer', position: 'relative' }}>
+                <img src={`/taby/holes/hole-${h.h}.webp`} alt={`Hål ${h.h}`} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 180, objectFit: 'cover' }} />
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 12px', background: 'linear-gradient(180deg, transparent, rgba(12,24,48,0.9))', color: '#93C5FD', fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: 1.5, display: 'flex', justifyContent: 'space-between' }}>
+                  <span>BANGUIDE · HÅL {h.h}</span>
+                  <span>📖 TRYCK FÖR STOR VY</span>
+                </div>
+              </div>
+
+              {/* CADDIE AI - identical style to DIO */}
+              <div style={{ marginBottom: 16 }}>
+                {!tabyCaddieMsg && !tabyCaddieLoading && (
+                  <button onClick={() => askTabyCaddie(h.h, h)} style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(30,58,95,0.45), rgba(212,160,23,0.1))', border: '1px solid rgba(212,160,23,0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#D4A017', fontSize: 13, fontWeight: 500, fontFamily: 'var(--sans)' }}>
+                    <LakeBadge size={24}><IconFlag size={12} color="#F0F4FF" /></LakeBadge>
+                    Fråga Caddien
+                  </button>
+                )}
+                {tabyCaddieLoading && (
+                  <div style={{ textAlign: 'center', padding: '16px', color: '#D4A017', fontSize: 13, fontFamily: 'var(--mono)' }}>
+                    <span style={{ animation: 'pulse 1s infinite' }}>Caddien analyserar...</span>
+                  </div>
+                )}
+                {tabyCaddieMsg && (
+                  <div style={{ padding: '14px 16px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(30,58,95,0.4), rgba(147,197,253,0.08))', border: '1px solid rgba(147,197,253,0.15)' }}>
+                    <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: '#D4A017', letterSpacing: 1.5, marginBottom: 6 }}>CADDIE AI</div>
+                    <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.8)', lineHeight: 1.5 }}>{tabyCaddieMsg}</div>
+                    <button onClick={() => setTabyCaddieMsg(null)} style={{ background: 'none', border: 'none', color: 'rgba(240,244,255,0.4)', fontSize: 10, cursor: 'pointer', marginTop: 6, padding: 0 }}>Stäng</button>
+                  </div>
+                )}
+              </div>
+
+              {/* BIG SCORE INPUT - DIO-style glass card */}
+              <div style={{ background: 'linear-gradient(135deg, rgba(147,197,253,0.06), rgba(30,58,95,0.2))', border: '0.5px solid rgba(147,197,253,0.15)', borderRadius: 16, padding: 24, marginBottom: 16, backdropFilter: 'blur(10px)' }}>
+                <div style={{ textAlign: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'rgba(240,244,255,0.5)', letterSpacing: 1 }}>SLAG</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                  <button onClick={() => { if (currentVal > 1) saveHoleScore(h.h, currentVal - 1) }}
+                    style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', color: '#F0F4FF', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                  <div onClick={() => { if (!sc) saveHoleScore(h.h, h.p) }}
+                    style={{ width: 80, height: 80, borderRadius: 20, background: sc ? 'rgba(147,197,253,0.08)' : 'rgba(212,160,23,0.12)', border: sc ? '2px solid rgba(147,197,253,0.2)' : '2px solid #D4A017', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: sc ? 'default' : 'pointer' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 36, fontWeight: 500, color: sc ? '#F0F4FF' : '#D4A017' }}>{sc?.strokes || h.p}</div>
+                    {!sc && <div style={{ fontSize: 9, color: '#D4A017', marginTop: -4 }}>TRYCK</div>}
+                  </div>
+                  <button onClick={() => { if (currentVal < 15) saveHoleScore(h.h, currentVal + 1) }}
+                    style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', color: '#F0F4FF', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                </div>
+                {stab !== null && (
+                  <div style={{ textAlign: 'center', marginTop: 16 }}>
+                    <span style={{ fontSize: 32, fontFamily: 'var(--mono)', fontWeight: 500, color: stab === 0 ? '#E8634A' : stab >= 4 ? '#D4A017' : stab >= 3 ? '#4ADE80' : 'rgba(240,244,255,0.7)' }}>
+                      {stab}p
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Min historik på detta hål */}
@@ -987,72 +1039,26 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 const history = getTabyHoleHistory(tabyUser?.id, h.h)
                 if (!history) return null
                 return (
-                  <div style={{ marginBottom: 12, padding: 10, background: 'rgba(147,197,253,0.04)', borderRadius: 10, border: '0.5px solid rgba(147,197,253,0.08)' }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.4)', letterSpacing: 1.5, marginBottom: 4 }}>📜 MIN HISTORIK PÅ HÅLET</div>
+                  <div style={{ marginBottom: 12, padding: 12, background: 'rgba(147,197,253,0.04)', borderRadius: 12, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)', letterSpacing: 1, marginBottom: 4 }}>📜 MIN HISTORIK PÅ HÅLET</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.6)' }}>Förra: <span style={{ fontFamily: 'var(--mono)', fontWeight: 500, color: '#F0F4FF' }}>{history.last.strokes} slag ({history.last.stableford}p)</span></div>
-                      <div style={{ fontSize: 10, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>Bäst: {history.bestStab}p · {history.count}x spelat</div>
+                      <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.65)' }}>Förra: <span style={{ fontFamily: 'var(--mono)', fontWeight: 500, color: '#F0F4FF' }}>{history.last.strokes} slag ({history.last.stableford}p)</span></div>
+                      <div style={{ fontSize: 10, color: 'rgba(240,244,255,0.4)', fontFamily: 'var(--mono)' }}>Bäst: {history.bestStab}p · {history.count}x spelat</div>
                     </div>
                   </div>
                 )
               })()}
 
-              {/* CADDIE AI */}
-              <div style={{ marginBottom: 16 }}>
-                {!tabyCaddieMsg && !tabyCaddieLoading && (
-                  <button onClick={() => askTabyCaddie(h.h, h)} style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(147,197,253,0.08), rgba(212,175,55,0.06))', border: '1px solid rgba(147,197,253,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#93C5FD', fontSize: 13, fontWeight: 500 }}>
-                    🤖 Fråga Caddien
-                  </button>
-                )}
-                {tabyCaddieLoading && (
-                  <div style={{ textAlign: 'center', padding: '16px', color: '#93C5FD', fontSize: 13, fontFamily: 'var(--mono)' }}>
-                    <span style={{ animation: 'pulse 1s infinite' }}>Caddien analyserar...</span>
-                  </div>
-                )}
-                {tabyCaddieMsg && (
-                  <div style={{ background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', borderRadius: 12, padding: '14px 16px' }}>
-                    <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: '#93C5FD', letterSpacing: 1.5, marginBottom: 6 }}>CADDIE AI</div>
-                    <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.7)', lineHeight: 1.5 }}>{tabyCaddieMsg}</div>
-                    <button onClick={() => setTabyCaddieMsg(null)} style={{ background: 'none', border: 'none', color: 'rgba(147,197,253,0.4)', fontSize: 10, cursor: 'pointer', marginTop: 6, padding: 0 }}>Stäng</button>
-                  </div>
-                )}
-              </div>
-
-              {/* BIG SCORE INPUT */}
-              <div style={{ background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.1)', borderRadius: 16, padding: 24, marginBottom: 16 }}>
-                <div style={{ textAlign: 'center', marginBottom: 8 }}>
-                  <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'rgba(147,197,253,0.5)', letterSpacing: 1 }}>SLAG</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-                  <button onClick={() => { if (currentVal > 1) saveHoleScore(h.h, currentVal - 1) }}
-                    style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#93C5FD', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                  <div onClick={() => { if (!sc) saveHoleScore(h.h, h.p) }}
-                    style={{ width: 80, height: 80, borderRadius: 20, background: sc ? 'rgba(147,197,253,0.06)' : 'rgba(212,175,55,0.08)', border: sc ? '2px solid rgba(147,197,253,0.15)' : '2px solid #D4A017', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: sc ? 'default' : 'pointer' }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 36, fontWeight: 500, color: sc ? '#F0F4FF' : '#D4A017' }}>{sc?.strokes || h.p}</div>
-                    {!sc && <div style={{ fontSize: 9, color: '#D4A017', marginTop: -4 }}>TRYCK</div>}
-                  </div>
-                  <button onClick={() => { if (currentVal < 15) saveHoleScore(h.h, currentVal + 1) }}
-                    style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#93C5FD', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                </div>
-                {stab !== null && (
-                  <div style={{ textAlign: 'center', marginTop: 16 }}>
-                    <span style={{ fontSize: 32, fontFamily: 'var(--mono)', fontWeight: 500, color: stab === 0 ? '#E8634A' : stab >= 4 ? '#D4A017' : stab >= 3 ? '#4ADE80' : 'rgba(240,244,255,0.6)' }}>
-                      {stab}p
-                    </span>
-                  </div>
-                )}
-              </div>
-
               {/* Others on this hole */}
               {othersOnHole.length > 0 && (
                 <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 12, marginBottom: 12 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.4)', letterSpacing: 1, marginBottom: 6 }}>ALLA PÅ HÅL {h.h}</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)', letterSpacing: 1, marginBottom: 6 }}>ALLA PÅ HÅL {h.h}</div>
                   {othersOnHole.map(({ player: p, score: s }) => (
                     <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '0.5px solid rgba(147,197,253,0.06)' }}>
                       {p.image_url ? <img src={p.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
-                      <div style={{ flex: 1, fontSize: 13, color: 'rgba(240,244,255,0.5)' }}>{p.nickname}</div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14 }}>{s?.strokes || '–'}</div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, minWidth: 28, textAlign: 'right', color: (s?.stableford || 0) >= 3 ? '#4ADE80' : s?.stableford === 0 ? '#E8634A' : 'rgba(147,197,253,0.4)' }}>{s?.stableford != null ? s.stableford + 'p' : ''}</div>
+                      <div style={{ flex: 1, fontSize: 13, color: 'rgba(240,244,255,0.65)' }}>{p.nickname}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'rgba(240,244,255,0.85)' }}>{s?.strokes || '–'}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, minWidth: 28, textAlign: 'right', color: (s?.stableford || 0) >= 3 ? '#4ADE80' : s?.stableford === 0 ? '#E8634A' : 'rgba(240,244,255,0.5)' }}>{s?.stableford != null ? s.stableford + 'p' : ''}</div>
                     </div>
                   ))}
                 </div>
@@ -1060,11 +1066,11 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
               {/* Ghost Match */}
               {ghostScore && (
-                <div style={{ background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.08)', borderRadius: 12, padding: 12 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.4)', letterSpacing: 1, marginBottom: 4 }}>👻 GHOST MATCH vs förra rundan</div>
+                <div style={{ background: 'linear-gradient(135deg, rgba(147,197,253,0.06), rgba(30,58,95,0.15))', border: '0.5px solid rgba(147,197,253,0.1)', borderRadius: 12, padding: 12 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)', letterSpacing: 1, marginBottom: 4 }}>👻 GHOST MATCH vs förra rundan</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.5)' }}>Förra: <span style={{ fontFamily: 'var(--mono)', fontWeight: 500 }}>{ghostScore.strokes} slag ({ghostScore.stableford}p)</span></div>
-                    <div style={{ fontSize: 14, fontFamily: 'var(--mono)', fontWeight: 600, color: cumDiff > 0 ? '#4ADE80' : cumDiff < 0 ? '#E8634A' : 'rgba(147,197,253,0.4)' }}>
+                    <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.65)' }}>Förra: <span style={{ fontFamily: 'var(--mono)', fontWeight: 500, color: '#F0F4FF' }}>{ghostScore.strokes} slag ({ghostScore.stableford}p)</span></div>
+                    <div style={{ fontSize: 14, fontFamily: 'var(--mono)', fontWeight: 600, color: cumDiff > 0 ? '#4ADE80' : cumDiff < 0 ? '#E8634A' : 'rgba(240,244,255,0.5)' }}>
                       {cumDiff > 0 ? '+' : ''}{cumDiff}p tot
                     </div>
                   </div>
@@ -1072,12 +1078,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               )}
             </div>
 
-            {/* Bottom nav */}
+            {/* Bottom nav - identical to DIO style */}
             <div style={{ display: 'flex', gap: 8, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0))', background: 'rgba(147,197,253,0.04)', borderTop: '0.5px solid rgba(147,197,253,0.1)' }}>
               <button onClick={() => prevHole && (setTabyActiveHole(prevHole), setTabyCaddieMsg(null))} disabled={!prevHole}
-                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'rgba(147,197,253,0.06)' : 'transparent', border: '0.5px solid rgba(147,197,253,0.1)', color: prevHole ? '#93C5FD' : 'rgba(147,197,253,0.2)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← Hål {prevHole || ''}</button>
+                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'rgba(147,197,253,0.08)' : 'transparent', border: '1px solid rgba(147,197,253,0.12)', color: prevHole ? '#F0F4FF' : 'rgba(147,197,253,0.2)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← Hål {prevHole || ''}</button>
               <button onClick={() => nextH ? (setTabyActiveHole(nextH), setTabyCaddieMsg(null)) : setTabyActiveHole(null)}
-                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: '#93C5FD', border: 'none', color: '#0C1830', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
+                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: '#D4A017', border: 'none', color: '#0C1830', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
             </div>
           </div>
         )
