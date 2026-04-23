@@ -247,6 +247,33 @@ function TaByApp({ onSwitchMode }) {
   const [tabyUserLoc, setTabyUserLoc] = useState(null) // {lat, lng, accuracy}
   const [tabyGpsError, setTabyGpsError] = useState(null)
   const tabyGpsWatchId = useRef(null)
+  // Settings state
+  const [editingEventId, setEditingEventId] = useState(null)
+  const [newEventForm, setNewEventForm] = useState({ name: '', event_type: 'event', date: '', format: 'stableford', description: '', participants: [] })
+  const [tabyBroadcastForm, setTabyBroadcastForm] = useState({ title: '', body: '', target: 'all' })
+  const [tabyBroadcastSending, setTabyBroadcastSending] = useState(false)
+  const [showInactivePlayers, setShowInactivePlayers] = useState(false)
+  const [tabyAllPlayers, setTabyAllPlayers] = useState([])
+
+  // Fetch helpers (for settings view actions)
+  const fetchTabyPlayers = async () => {
+    const { data: active } = await supabase.from('inv_players').select('*').eq('taby_active', true).order('taby_hcp')
+    if (active) setTabyPlayers(active)
+    const { data: all } = await supabase.from('inv_players').select('*').order('name')
+    if (all) setTabyAllPlayers(all)
+  }
+  const fetchTabyRounds = async () => {
+    const { data } = await supabase.from('taby_rounds').select('*').order('date', { ascending: false })
+    if (data) setTabyRounds(data)
+  }
+  const fetchTabyScores = async () => {
+    const { data } = await supabase.from('taby_scores').select('*')
+    if (data) setTabyScores(data)
+  }
+  const fetchTabyEvents = async () => {
+    const { data } = await supabase.from('taby_events').select('*').order('date')
+    if (data) setTabyEvents(data)
+  }
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'dark')
@@ -257,6 +284,9 @@ function TaByApp({ onSwitchMode }) {
     const loadData = async () => {
       const { data: players } = await supabase.from('inv_players').select('*').eq('taby_active', true).order('taby_hcp')
       if (players) setTabyPlayers(players)
+      // Also load all players (for admin view)
+      const { data: allPlayers } = await supabase.from('inv_players').select('*').order('name')
+      if (allPlayers) setTabyAllPlayers(allPlayers)
       // Load saved user
       const saved = localStorage.getItem('taby_user')
       if (saved) try { setTabyUser(JSON.parse(saved)) } catch(e) {}
@@ -381,9 +411,10 @@ function TaByApp({ onSwitchMode }) {
     }
   }, [tabyView, newRound?.id])
 
-  // GPS tracking — start watching position when fullscreen scoring is active
+  // GPS tracking — start watching when any round is active (for Dynamic Island badge) or fullscreen scoring open
   useEffect(() => {
-    if (tabyActiveHole && newRound && typeof navigator !== 'undefined' && navigator.geolocation) {
+    const gpsShouldBeOn = (newRound || tabyActiveHole) && typeof navigator !== 'undefined' && navigator.geolocation
+    if (gpsShouldBeOn) {
       if (tabyGpsWatchId.current == null) {
         tabyGpsWatchId.current = navigator.geolocation.watchPosition(
           pos => {
@@ -398,6 +429,7 @@ function TaByApp({ onSwitchMode }) {
       if (tabyGpsWatchId.current != null && typeof navigator !== 'undefined' && navigator.geolocation) {
         navigator.geolocation.clearWatch(tabyGpsWatchId.current)
         tabyGpsWatchId.current = null
+        setTabyUserLoc(null)
       }
     }
     return () => {
@@ -406,7 +438,7 @@ function TaByApp({ onSwitchMode }) {
         tabyGpsWatchId.current = null
       }
     }
-  }, [tabyActiveHole, newRound?.id])
+  }, [newRound?.id, tabyActiveHole])
 
   // Save score for a hole
   const showTabyToast = (msg, type) => {
@@ -746,12 +778,34 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       })()}
 
       {/* Header */}
-      <div style={{ padding: '12px 16px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
+      <div style={{ padding: '12px 16px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ flexShrink: 0 }}>
           <div style={{ fontFamily: 'var(--serif)', fontSize: 18, color: '#93C5FD' }}>Order of Merit</div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,175,55,0.4)', letterSpacing: 2 }}>TÄBY GK · {tabyUser?.nickname}</div>
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
+
+        {/* GPS distance pill — shown when round is active + GPS is locked + on course */}
+        {(() => {
+          if (!newRound || !tabyUserLoc) return null
+          // Determine which hole to show distance for: active fullscreen hole, or next unplayed in round
+          const played = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === tabyUser?.id).map(s => s.hole)
+          const displayHole = tabyActiveHole || [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].find(h => !played.includes(h)) || 18
+          const distGreen = distanceToGreen(tabyUserLoc.lat, tabyUserLoc.lng, displayHole)
+          if (distGreen == null || distGreen > 1500) return null // Not on course
+          return (
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'center', maxWidth: 180 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', background: 'linear-gradient(135deg, rgba(74,222,128,0.15), rgba(30,58,95,0.35))', border: '0.5px solid rgba(74,222,128,0.35)', borderRadius: 14, backdropFilter: 'blur(10px)' }}>
+                <span style={{ fontSize: 12, lineHeight: 1 }}>🚩</span>
+                <div style={{ lineHeight: 1 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 15, color: '#4ADE80', fontWeight: 600, letterSpacing: -0.3 }}>{distGreen}m</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(74,222,128,0.6)', letterSpacing: 1, marginTop: 1 }}>HÅL {displayHole}</div>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           <button onClick={() => { setTabyUser(null); localStorage.removeItem('taby_user') }} style={{ background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', borderRadius: 8, padding: '6px 10px', color: 'rgba(147,197,253,0.4)', fontSize: 9, fontFamily: 'var(--mono)', cursor: 'pointer' }}>Byt</button>
           <button onClick={onSwitchMode} style={{ background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', borderRadius: 8, padding: '6px 10px', color: '#93C5FD', fontSize: 9, fontFamily: 'var(--mono)', cursor: 'pointer', letterSpacing: 1 }}>DIO ↔</button>
         </div>
@@ -759,7 +813,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
       {/* Tab nav */}
       <div style={{ display: 'flex', gap: 4, padding: '0 16px 12px', overflowX: 'auto' }}>
-        {[['leaderboard','Merit'],['scoring','Spela'],['holes','Banguide'],['betting','Betting'],['stats','Stats']].map(([key, label]) => (
+        {[
+          ['leaderboard','Merit'],['scoring','Spela'],['holes','Banguide'],['betting','Betting'],['stats','Stats'],
+          ...(tabyUser?.is_admin || tabyUser?.key === 'filip' || tabyUser?.key === 'marcus' ? [['settings','⚙️']] : [])
+        ].map(([key, label]) => (
           <button key={key} onClick={() => setTabyView(key)} style={{
             padding: '6px 14px', borderRadius: 8, fontSize: 11, fontFamily: 'var(--mono)',
             background: tabyView === key ? 'rgba(147,197,253,0.12)' : 'transparent',
@@ -1419,6 +1476,232 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 </div>
               )
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* ======================================== */}
+      {/* SETTINGS (admin-only)                     */}
+      {/* ======================================== */}
+      {tabyView === 'settings' && (tabyUser?.is_admin || tabyUser?.key === 'filip' || tabyUser?.key === 'marcus') && (
+        <div style={{ padding: '0 16px 16px' }}>
+          <div style={{ fontFamily: 'var(--serif)', fontSize: 20, color: '#D4A017', marginBottom: 4 }}>⚙️ Settings</div>
+          <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 16 }}>Admin-panel för Täby Order of Merit</div>
+
+          {/* HCP per spelare */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D4A017', letterSpacing: 2, marginBottom: 10 }}>TÄBY HANDICAP</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 10 }}>HCP per spelare (Täby-specifik, skiljer från DIO-HCP)</div>
+            {tabyPlayers.map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '0.5px solid rgba(147,197,253,0.06)' }}>
+                {p.image_url ? <img src={p.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
+                <div style={{ flex: 1, fontSize: 13, color: '#F0F4FF' }}>{p.nickname} <span style={{ color: 'rgba(147,197,253,0.4)', fontSize: 10 }}>({p.name?.split(' ')[0]})</span></div>
+                <input type="number" step="0.1" defaultValue={p.taby_hcp ?? p.hcp} style={{ width: 60, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 6, color: '#F0F4FF', padding: '4px 6px', fontSize: 14, textAlign: 'center', fontFamily: 'var(--mono)' }}
+                  onBlur={async (e) => {
+                    const v = parseFloat(e.target.value)
+                    if (!isNaN(v) && v !== parseFloat(p.taby_hcp ?? p.hcp)) {
+                      await supabase.from('inv_players').update({ taby_hcp: v }).eq('id', p.id)
+                      fetchTabyPlayers()
+                      showTabyToast(`${p.nickname} Täby-HCP → ${v}`, 'birdie')
+                    }
+                  }} />
+              </div>
+            ))}
+          </div>
+
+          {/* Spelare admin – aktivera/inaktivera taby_active */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D4A017', letterSpacing: 2 }}>SPELARE</div>
+              <button onClick={() => setShowInactivePlayers(v => !v)} style={{ fontSize: 9, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#93C5FD', padding: '4px 8px', borderRadius: 6, cursor: 'pointer', fontFamily: 'var(--mono)' }}>{showInactivePlayers ? 'Göm inaktiva' : 'Visa inaktiva'}</button>
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 10 }}>Vilka spelare är aktiva i Täby Order of Merit</div>
+            {tabyAllPlayers.filter(p => showInactivePlayers || p.taby_active).map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '0.5px solid rgba(147,197,253,0.06)' }}>
+                {p.image_url ? <img src={p.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', opacity: p.taby_active ? 1 : 0.4 }} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#93C5FD', opacity: p.taby_active ? 1 : 0.4 }}>{p.name?.charAt(0)}</div>}
+                <div style={{ flex: 1, fontSize: 13, color: p.taby_active ? '#F0F4FF' : 'rgba(240,244,255,0.4)' }}>{p.nickname || p.name}</div>
+                <button onClick={async () => { await supabase.from('inv_players').update({ taby_active: !p.taby_active }).eq('id', p.id); fetchTabyPlayers(); showTabyToast(`${p.nickname || p.name} ${!p.taby_active ? 'aktiverad' : 'inaktiverad'}`, 'birdie') }}
+                  style={{ padding: '4px 10px', borderRadius: 6, fontSize: 10, fontFamily: 'var(--mono)', cursor: 'pointer', background: p.taby_active ? 'rgba(74,222,128,0.12)' : 'rgba(147,197,253,0.06)', border: `0.5px solid ${p.taby_active ? 'rgba(74,222,128,0.3)' : 'rgba(147,197,253,0.15)'}`, color: p.taby_active ? '#4ADE80' : 'rgba(147,197,253,0.5)' }}>
+                  {p.taby_active ? '✓ Aktiv' : 'Inaktiv'}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Events (turneringar) CRUD */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D4A017', letterSpacing: 2, marginBottom: 6 }}>TURNERINGAR & EVENTS</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 12 }}>Redigera existerande events eller skapa nya</div>
+
+            {tabyEvents.sort((a, b) => (a.date || '').localeCompare(b.date || '')).map(ev => {
+              const isEditing = editingEventId === ev.id
+              return (
+                <div key={ev.id} style={{ background: 'rgba(30,58,95,0.2)', borderRadius: 10, padding: 12, marginBottom: 8, border: '0.5px solid rgba(147,197,253,0.1)' }}>
+                  {!isEditing ? (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                        <div>
+                          <div style={{ fontSize: 14, color: '#F0F4FF', fontWeight: 600 }}>{ev.name}</div>
+                          <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'rgba(147,197,253,0.5)', marginTop: 2 }}>{ev.date} · {ev.format || 'stableford'} · {ev.status}</div>
+                          {ev.description && <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.5)', marginTop: 4 }}>{ev.description}</div>}
+                        </div>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button onClick={() => setEditingEventId(ev.id)} style={{ padding: '4px 8px', fontSize: 10, background: 'rgba(147,197,253,0.08)', border: '0.5px solid rgba(147,197,253,0.15)', borderRadius: 6, color: '#93C5FD', cursor: 'pointer' }}>✏️</button>
+                          <button onClick={async () => { if (confirm(`Ta bort event "${ev.name}"?`)) { await supabase.from('taby_events').delete().eq('id', ev.id); fetchTabyEvents(); showTabyToast('Event borttaget', 'birdie') } }} style={{ padding: '4px 8px', fontSize: 10, background: 'rgba(232,99,74,0.08)', border: '0.5px solid rgba(232,99,74,0.2)', borderRadius: 6, color: '#E8634A', cursor: 'pointer' }}>🗑️</button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <input defaultValue={ev.name} placeholder="Namn" style={{ background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.2)', borderRadius: 6, color: '#F0F4FF', padding: '6px 10px', fontSize: 13 }}
+                        onBlur={async (e) => { if (e.target.value !== ev.name) { await supabase.from('taby_events').update({ name: e.target.value }).eq('id', ev.id); fetchTabyEvents() } }} />
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <input type="date" defaultValue={ev.date} style={{ flex: 1, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.2)', borderRadius: 6, color: '#F0F4FF', padding: '6px 10px', fontSize: 12, fontFamily: 'var(--mono)' }}
+                          onBlur={async (e) => { if (e.target.value !== ev.date) { await supabase.from('taby_events').update({ date: e.target.value }).eq('id', ev.id); fetchTabyEvents() } }} />
+                        <select defaultValue={ev.format || 'stableford'} style={{ flex: 1, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.2)', borderRadius: 6, color: '#F0F4FF', padding: '6px 10px', fontSize: 12 }}
+                          onChange={async (e) => { await supabase.from('taby_events').update({ format: e.target.value }).eq('id', ev.id); fetchTabyEvents() }}>
+                          <option value="stableford">Stableford</option>
+                          <option value="matchplay">Matchplay</option>
+                          <option value="scramble">Scramble</option>
+                          <option value="foursomes">Foursomes</option>
+                          <option value="36_holes">36 hål</option>
+                          <option value="shotgun">Shotgun</option>
+                        </select>
+                      </div>
+                      <textarea defaultValue={ev.description || ''} placeholder="Beskrivning" rows={2} style={{ background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.2)', borderRadius: 6, color: '#F0F4FF', padding: '6px 10px', fontSize: 12, resize: 'vertical', fontFamily: 'inherit' }}
+                        onBlur={async (e) => { await supabase.from('taby_events').update({ description: e.target.value }).eq('id', ev.id); fetchTabyEvents() }} />
+                      <select defaultValue={ev.status || 'upcoming'} style={{ background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.2)', borderRadius: 6, color: '#F0F4FF', padding: '6px 10px', fontSize: 12 }}
+                        onChange={async (e) => { await supabase.from('taby_events').update({ status: e.target.value }).eq('id', ev.id); fetchTabyEvents() }}>
+                        <option value="upcoming">Kommande</option>
+                        <option value="active">Pågående</option>
+                        <option value="completed">Avslutat</option>
+                        <option value="cancelled">Inställt</option>
+                      </select>
+                      <button onClick={() => setEditingEventId(null)} style={{ padding: '8px', background: 'rgba(74,222,128,0.12)', border: '0.5px solid rgba(74,222,128,0.3)', borderRadius: 6, color: '#4ADE80', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>✓ Klar</button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Skapa nytt event */}
+            <div style={{ marginTop: 12, padding: 12, background: 'rgba(212,160,23,0.06)', borderRadius: 10, border: '0.5px dashed rgba(212,160,23,0.3)' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1.5, marginBottom: 8 }}>+ NYTT EVENT</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <input value={newEventForm.name} onChange={e => setNewEventForm(f => ({ ...f, name: e.target.value }))} placeholder="Eventnamn (ex. Höstkuppen)" style={{ background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.2)', borderRadius: 6, color: '#F0F4FF', padding: '8px 10px', fontSize: 13 }} />
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input type="date" value={newEventForm.date} onChange={e => setNewEventForm(f => ({ ...f, date: e.target.value }))} style={{ flex: 1, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.2)', borderRadius: 6, color: '#F0F4FF', padding: '6px 10px', fontSize: 12, fontFamily: 'var(--mono)' }} />
+                  <select value={newEventForm.format} onChange={e => setNewEventForm(f => ({ ...f, format: e.target.value }))} style={{ flex: 1, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.2)', borderRadius: 6, color: '#F0F4FF', padding: '6px 10px', fontSize: 12 }}>
+                    <option value="stableford">Stableford</option>
+                    <option value="matchplay">Matchplay</option>
+                    <option value="scramble">Scramble</option>
+                    <option value="foursomes">Foursomes</option>
+                    <option value="36_holes">36 hål</option>
+                    <option value="shotgun">Shotgun</option>
+                  </select>
+                </div>
+                <textarea value={newEventForm.description} onChange={e => setNewEventForm(f => ({ ...f, description: e.target.value }))} placeholder="Beskrivning (valfritt)" rows={2} style={{ background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.2)', borderRadius: 6, color: '#F0F4FF', padding: '6px 10px', fontSize: 12, resize: 'vertical', fontFamily: 'inherit' }} />
+                <button onClick={async () => {
+                  if (!newEventForm.name || !newEventForm.date) { showTabyToast('Namn och datum krävs', 'zero'); return }
+                  await supabase.from('taby_events').insert({ name: newEventForm.name, event_type: 'event', date: newEventForm.date, format: newEventForm.format, description: newEventForm.description, status: 'upcoming', participant_ids: tabyPlayers.map(p => p.id) })
+                  setNewEventForm({ name: '', event_type: 'event', date: '', format: 'stableford', description: '', participants: [] })
+                  fetchTabyEvents()
+                  showTabyToast(`Event "${newEventForm.name}" skapat`, 'eagle')
+                }} style={{ padding: '10px', background: 'linear-gradient(135deg, #D4A017, #F5D76E)', border: 'none', borderRadius: 6, color: '#0C1830', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>+ Skapa event</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Rundor & Bollar management */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D4A017', letterSpacing: 2, marginBottom: 6 }}>RUNDOR & BOLLAR</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 12 }}>Alla registrerade rundor. Ta bort rundor med problem.</div>
+            {tabyRounds.length === 0 && <div style={{ textAlign: 'center', padding: 20, fontSize: 12, color: 'rgba(240,244,255,0.3)' }}>Inga rundor ännu</div>}
+            {tabyRounds.slice(0, 20).map(r => {
+              const scoreCount = tabyScores.filter(s => s.round_id === r.id).length
+              const playerCount = r.player_ids?.length || 0
+              const progress = playerCount > 0 ? Math.round((scoreCount / (playerCount * 18)) * 100) : 0
+              return (
+                <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', marginBottom: 4, background: 'rgba(147,197,253,0.03)', borderRadius: 8, border: '0.5px solid rgba(147,197,253,0.06)' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, color: '#F0F4FF' }}>{r.date} {r.event_name ? `· ${r.event_name}` : ''}</div>
+                    <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'rgba(147,197,253,0.5)' }}>{r.type} · {playerCount} spelare · {scoreCount} scores · {progress}%</div>
+                  </div>
+                  <button onClick={async () => {
+                    if (confirm(`Ta bort rundan från ${r.date}? Alla scores försvinner permanent.`)) {
+                      await supabase.from('taby_scores').delete().eq('round_id', r.id)
+                      await supabase.from('taby_rounds').delete().eq('id', r.id)
+                      fetchTabyRounds(); fetchTabyScores()
+                      showTabyToast('Runda borttagen', 'birdie')
+                    }
+                  }} style={{ padding: '4px 10px', fontSize: 10, background: 'rgba(232,99,74,0.08)', border: '0.5px solid rgba(232,99,74,0.2)', borderRadius: 6, color: '#E8634A', cursor: 'pointer' }}>🗑️</button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Push broadcast */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D4A017', letterSpacing: 2, marginBottom: 6 }}>📢 PUSH-NOTIS</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 10 }}>Skicka meddelande till Täby-spelare</div>
+
+            <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.5)', fontFamily: 'var(--mono)', letterSpacing: 1.5, marginBottom: 6 }}>SNABBVAL</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+              {[
+                { t: '🏌️ Tee-off-påminnelse', b: 'Dags att värma upp!' },
+                { t: '⛳ Nästa runda bokad', b: 'Kolla rundorna i appen' },
+                { t: '🏆 Nytt event klart', b: 'Se det nya eventet i Merit-fliken' },
+                { t: '📊 Nya rundor registrerade', b: 'Kolla leaderboarden – nya poäng uppe' },
+              ].map((q, i) => (
+                <button key={i} onClick={() => setTabyBroadcastForm(f => ({ ...f, title: q.t, body: q.b }))}
+                  style={{ fontSize: 10, padding: '5px 9px', background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.15)', color: 'rgba(240,244,255,0.7)', borderRadius: 6, cursor: 'pointer', fontFamily: 'var(--mono)' }}>
+                  {q.t}
+                </button>
+              ))}
+            </div>
+
+            <select value={tabyBroadcastForm.target} onChange={e => setTabyBroadcastForm(f => ({ ...f, target: e.target.value }))}
+              style={{ width: '100%', background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 8, color: '#F0F4FF', padding: '8px', fontSize: 12, marginBottom: 8 }}>
+              <option value="all">📣 Alla Täby-spelare</option>
+              <option value="others">📣 Alla utom mig</option>
+              {tabyPlayers.map(p => <option key={p.id} value={p.id}>👤 {p.nickname}</option>)}
+            </select>
+            <input value={tabyBroadcastForm.title} onChange={e => setTabyBroadcastForm(f => ({ ...f, title: e.target.value }))} placeholder="Titel" maxLength={60}
+              style={{ width: '100%', background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 8, color: '#F0F4FF', padding: '8px', fontSize: 12, marginBottom: 8, boxSizing: 'border-box' }} />
+            <textarea value={tabyBroadcastForm.body} onChange={e => setTabyBroadcastForm(f => ({ ...f, body: e.target.value }))} placeholder="Meddelande" rows={3} maxLength={200}
+              style={{ width: '100%', background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 8, color: '#F0F4FF', padding: '8px', fontSize: 12, marginBottom: 8, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
+            <button disabled={tabyBroadcastSending || !tabyBroadcastForm.title || !tabyBroadcastForm.body} onClick={async () => {
+              setTabyBroadcastSending(true)
+              try {
+                const payload = { title: tabyBroadcastForm.title, body: tabyBroadcastForm.body, type: 'broadcast' }
+                if (tabyBroadcastForm.target === 'others') payload.excludePlayerId = tabyUser?.id
+                else if (tabyBroadcastForm.target !== 'all') payload.targetPlayerId = tabyBroadcastForm.target
+                await sendPush(payload)
+                showTabyToast('Push skickad!', 'eagle')
+                setTabyBroadcastForm({ title: '', body: '', target: 'all' })
+              } catch (e) { showTabyToast('Push-fel: ' + e.message, 'zero') }
+              setTabyBroadcastSending(false)
+            }} style={{ width: '100%', padding: '10px', background: (tabyBroadcastSending || !tabyBroadcastForm.title || !tabyBroadcastForm.body) ? 'rgba(147,197,253,0.08)' : 'linear-gradient(135deg, #D4A017, #F5D76E)', border: 'none', borderRadius: 8, color: (tabyBroadcastSending || !tabyBroadcastForm.title || !tabyBroadcastForm.body) ? 'rgba(147,197,253,0.3)' : '#0C1830', cursor: (tabyBroadcastSending || !tabyBroadcastForm.title || !tabyBroadcastForm.body) ? 'default' : 'pointer', fontSize: 13, fontWeight: 700 }}>
+              {tabyBroadcastSending ? '⏳ Skickar...' : '📤 Skicka push'}
+            </button>
+          </div>
+
+          {/* Danger zone */}
+          <div style={{ background: 'rgba(232,99,74,0.05)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(232,99,74,0.15)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#E8634A', letterSpacing: 2, marginBottom: 6 }}>⚠️ DANGER ZONE</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.5)', marginBottom: 10 }}>Oåterkalleliga actions</div>
+            <button onClick={async () => {
+              if (confirm('RENSA ALLA RUNDOR OCH SCORES? Detta kan ej ångras!')) {
+                if (confirm('Är du HELT säker? Alla Täby-rundor och scores försvinner.')) {
+                  await supabase.from('taby_scores').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+                  await supabase.from('taby_rounds').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+                  fetchTabyRounds(); fetchTabyScores()
+                  showTabyToast('Alla rundor raderade', 'zero')
+                }
+              }
+            }} style={{ width: '100%', padding: '10px', background: 'rgba(232,99,74,0.12)', border: '0.5px solid rgba(232,99,74,0.3)', borderRadius: 8, color: '#E8634A', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--mono)' }}>
+              🗑️ Rensa ALLA rundor + scores
+            </button>
           </div>
         </div>
       )}
