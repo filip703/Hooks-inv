@@ -6,6 +6,27 @@ Komplett utvecklingshistorik för DIO-appen (hooks-inv.vercel.app).
 
 Turnering: **1–3 maj 2026 · Hooks Herrgård · 6 spelare · 4 rundor**
 
+## 23 april 2026 (session 16) – GPS distance-to-green + Rami-bilden uppe
+
+### 📍 GPS på banguide — live distance-to-green
+Koordinater hämtade från **OpenStreetMap Overpass API** (gratis, publikt) för alla 18 hål på Täby GK. Verifierat mot Täbys banguide: 11/18 hål inom 10m, max avvikelse -54m (pga dogleg). **Ingen Google Maps behövs!**
+
+**Nya features i Täby fullscreen scoring:**
+- 📍 Live "TILL GREEN" i meter, uppdateras via GPS watchPosition (5s interval)
+- 📍 "FRÅN TEE" sekundär-info
+- ±accuracy visas om GPS-osäkerhet > 20m
+- "Du är långt från banan" om du är > 1.5km bort (testing utan att vara på banan)
+- Snygg felhantering: tillståndsvarning om platstjänster är av
+
+**Tekniskt:**
+- `TABY_GPS` export i `lib/courses-taby.js` med lat/lng för tee + green per hål
+- `distanceToGreen(lat, lng, hole)` + `distanceToTee()` helpers
+- `navigator.geolocation.watchPosition` startar automatiskt när fullscreen scoring öppnas
+- Rensar watch när fullscreen stängs (batterivänligt)
+
+### 🖼️ Rami-bilden uppladdad
+Bilden ligger nu på Supabase storage: `/inv-images/players/rami.jpg` (22KB JPEG, 366×366). Syns överallt i Täby-appen direkt.
+
 ## 23 april 2026 (session 15) – KRITISK FIX: birdie/eagle-logik + GPS-struktur + Rami
 
 ### 🐛 KRITISK BUGG FIXAD: birdie/eagle baserat på stableford

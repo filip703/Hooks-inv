@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven } from '../lib/courses'
+import { TABY_GPS, distanceToGreen, distanceToTee, haversineDistance } from '../lib/courses-taby'
 import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio } from '../lib/sounds'
 import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush, sendPush } from '../lib/push'
 import { AugustaBadge, LakeBadge, IconTrophy, IconFlag, IconLeaderboard, IconScorecard, IconMenu, IconSwords, IconChat, IconWallet, IconDice, IconCamera, IconInfo, IconUser, IconSettings, IconBell, IconSun, IconMoon, IconRefresh, IconLock, IconSwish, IconGreenJacket, IconGolfBall } from '../lib/icons'
@@ -242,6 +243,10 @@ function TaByApp({ onSwitchMode }) {
   const [tabySpectatePid, setTabySpectatePid] = useState(null)
   const [tabyBanguideOpen, setTabyBanguideOpen] = useState(false)
   const tabyToastT = useRef(null)
+  // GPS state
+  const [tabyUserLoc, setTabyUserLoc] = useState(null) // {lat, lng, accuracy}
+  const [tabyGpsError, setTabyGpsError] = useState(null)
+  const tabyGpsWatchId = useRef(null)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'dark')
@@ -375,6 +380,33 @@ function TaByApp({ onSwitchMode }) {
       setTabyActiveHole(nextUnplayed)
     }
   }, [tabyView, newRound?.id])
+
+  // GPS tracking — start watching position when fullscreen scoring is active
+  useEffect(() => {
+    if (tabyActiveHole && newRound && typeof navigator !== 'undefined' && navigator.geolocation) {
+      if (tabyGpsWatchId.current == null) {
+        tabyGpsWatchId.current = navigator.geolocation.watchPosition(
+          pos => {
+            setTabyUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy })
+            setTabyGpsError(null)
+          },
+          err => { setTabyGpsError(err.message || 'GPS ej tillgänglig'); setTabyUserLoc(null) },
+          { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+        )
+      }
+    } else {
+      if (tabyGpsWatchId.current != null && typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.clearWatch(tabyGpsWatchId.current)
+        tabyGpsWatchId.current = null
+      }
+    }
+    return () => {
+      if (tabyGpsWatchId.current != null && typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.clearWatch(tabyGpsWatchId.current)
+        tabyGpsWatchId.current = null
+      }
+    }
+  }, [tabyActiveHole, newRound?.id])
 
   // Save score for a hole
   const showTabyToast = (msg, type) => {
@@ -1026,6 +1058,52 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 </div>
                 <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.65)', fontStyle: 'italic', marginTop: 8, lineHeight: 1.5 }}>{h.t}</div>
               </div>
+
+              {/* GPS distance-to-green widget */}
+              {(() => {
+                const distToGreen = tabyUserLoc ? distanceToGreen(tabyUserLoc.lat, tabyUserLoc.lng, h.h) : null
+                const distToTee = tabyUserLoc ? distanceToTee(tabyUserLoc.lat, tabyUserLoc.lng, h.h) : null
+                const accuracy = tabyUserLoc?.accuracy
+                // If distance is huge (>1km), user is not on course - hide
+                const onCourse = distToGreen != null && distToGreen < 1500
+                return (
+                  <div style={{ marginBottom: 16, padding: '12px 14px', background: 'linear-gradient(135deg, rgba(74,222,128,0.08), rgba(30,58,95,0.15))', borderRadius: 12, border: '0.5px solid rgba(74,222,128,0.2)' }}>
+                    {tabyUserLoc && onCourse ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ fontSize: 28 }}>📍</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(74,222,128,0.7)', letterSpacing: 1.5 }}>TILL GREEN</div>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                            <div style={{ fontSize: 28, fontFamily: 'var(--mono)', fontWeight: 600, color: '#4ADE80' }}>{distToGreen}m</div>
+                            {accuracy > 20 && <div style={{ fontSize: 9, color: 'rgba(240,244,255,0.3)', fontFamily: 'var(--mono)' }}>±{Math.round(accuracy)}m</div>}
+                          </div>
+                        </div>
+                        {distToTee != null && (
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(240,244,255,0.4)', letterSpacing: 1 }}>FRÅN TEE</div>
+                            <div style={{ fontSize: 16, fontFamily: 'var(--mono)', color: '#F0F4FF' }}>{distToTee}m</div>
+                          </div>
+                        )}
+                      </div>
+                    ) : tabyUserLoc && !onCourse ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(240,244,255,0.5)' }}>
+                        <span>📍</span>
+                        <span>Du är långt från banan ({distToGreen >= 1000 ? (distToGreen/1000).toFixed(1) + 'km' : distToGreen + 'm'} till green)</span>
+                      </div>
+                    ) : tabyGpsError ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(232,99,74,0.8)' }}>
+                        <span>⚠️</span>
+                        <span>GPS ej tillgänglig – aktivera platstjänster för Safari</span>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(240,244,255,0.5)', fontFamily: 'var(--mono)' }}>
+                        <span style={{ animation: 'pulse 1.5s infinite' }}>📍</span>
+                        <span>Hämtar GPS-position...</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* Banguide image - like DIO's flyover slot, clickable to open full modal */}
               <div onClick={() => setTabyBanguideOpen(true)} style={{ borderRadius: 12, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.15)', marginBottom: 16, cursor: 'pointer', position: 'relative' }}>
