@@ -6,6 +6,23 @@ Komplett utvecklingshistorik för DIO-appen (hooks-inv.vercel.app).
 
 Turnering: **1–3 maj 2026 · Hooks Herrgård · 6 spelare · 4 rundor**
 
+## 23 april 2026 (session 15) – KRITISK FIX: birdie/eagle-logik + GPS-struktur + Rami
+
+### 🐛 KRITISK BUGG FIXAD: birdie/eagle baserat på stableford
+Tidigare skrek appen "BIRDIE!" när en spelare fick 3 stableford-poäng. Det är FEL eftersom spelare med extra slag (hög HCP) kan få 3+ stableford på par eller till och med bogey. **En birdie är alltid 1 under banans par, oavsett HCP.**
+
+Fixat både i DIO och Täby:
+- **Birdie** = `strokes === par - 1`
+- **Eagle** = `strokes === par - 2`
+- **Albatross** = `strokes <= par - 3`
+- **Hole-in-one** = `strokes === 1` (specialhändelse med extra message)
+
+### 📍 GPS-struktur i courses-taby.js
+Lagt till `TABY_GPS` export med tom struktur för alla 18 hål (`{tee, green, hazards[]}`). Fylls i med koordinater från Google Maps efter DIO 1 maj. Föreberedd för distans-till-green-funktionalitet.
+
+### 🖼️ Rami profilbild
+Image_url satt i `inv_players` för `rami` → `/inv-images/players/rami.jpg`. Bild måste laddas upp manuellt till Supabase storage (se instruktion nedan).
+
 ## 22 april 2026 (session 14) – Täby one-pager scoring flow
 
 ### 📄 One-pager scoring

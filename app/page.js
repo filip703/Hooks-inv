@@ -431,13 +431,20 @@ function TaByApp({ onSwitchMode }) {
     }
     setScoreInput(prev => ({ ...prev, [hole]: strokes }))
 
-    // Sounds + toasts + chat shoutouts
-    if (stab >= 4) {
-      showTabyToast(`🦅 EAGLE! ${tabyUser.nickname} på hål ${hole}! ${strokes} slag, ${stab}p!`, 'eagle')
-      supabase.from('inv_chat').insert({ player_id: tabyUser.id, message: `🦅 EAGLE på Täby hål ${hole}! ${strokes} slag (${stab}p)`, msg_type: 'shoutout' })
-    } else if (stab === 3) {
+    // Sounds + toasts + chat shoutouts — based on REAL birdie/eagle (strokes vs par), NOT stableford
+    const diffToPar = strokes - par
+    if (strokes === 1) {
+      showTabyToast(`⛳✨ HOLE-IN-ONE! ${tabyUser.nickname} på hål ${hole}! LEGENDARY!`, 'eagle')
+      supabase.from('inv_chat').insert({ player_id: tabyUser.id, message: `⛳ HOLE-IN-ONE på Täby hål ${hole}! Drinks on me!`, msg_type: 'shoutout' })
+    } else if (diffToPar <= -3) {
+      showTabyToast(`🏆 ALBATROSS! ${tabyUser.nickname} på hål ${hole}! ${strokes} slag på par ${par}!`, 'eagle')
+      supabase.from('inv_chat').insert({ player_id: tabyUser.id, message: `🏆 ALBATROSS på Täby hål ${hole}! ${strokes} slag (par ${par})`, msg_type: 'shoutout' })
+    } else if (diffToPar === -2) {
+      showTabyToast(`🦅 EAGLE! ${tabyUser.nickname} på hål ${hole}! ${strokes} slag på par ${par}!`, 'eagle')
+      supabase.from('inv_chat').insert({ player_id: tabyUser.id, message: `🦅 EAGLE på Täby hål ${hole}! ${strokes} slag (par ${par})`, msg_type: 'shoutout' })
+    } else if (diffToPar === -1) {
       showTabyToast(`🐦 Birdie! ${tabyUser.nickname} på hål ${hole}!`, 'birdie')
-      supabase.from('inv_chat').insert({ player_id: tabyUser.id, message: `🐦 Birdie på Täby hål ${hole}! ${strokes} slag`, msg_type: 'shoutout' })
+      supabase.from('inv_chat').insert({ player_id: tabyUser.id, message: `🐦 Birdie på Täby hål ${hole}! ${strokes} slag (par ${par})`, msg_type: 'shoutout' })
     } else if (stab === 0) {
       showTabyToast(`💀 Blowup på hål ${hole}... ${strokes} slag`, 'zero')
     } else {
@@ -1502,7 +1509,12 @@ function DIOApp({ onSwitchMode }) {
       if (p.new?.player_id !== user?.id) {
         if (p.new?.stableford_points >= 3) {
           const pl = players.find(x => x.id === p.new.player_id)
-          if (pl) { const m = getShoutout(pl.name, pl.nickname, p.new.stableford_points); if (m) showToast(m, p.new.stableford_points >= 4 ? 'eagle' : 'birdie') }
+          if (pl) {
+            // Real birdie/eagle check: strokes vs par (NOT stableford!)
+            const holePar = (courses.Skogsbanan.holes[p.new.hole - 1]?.par) || 4
+            const m = getShoutout(pl.name, pl.nickname, p.new.strokes, holePar)
+            if (m) { const diff = p.new.strokes - holePar; showToast(m, diff <= -2 ? 'eagle' : 'birdie') }
+          }
         } else if (p.new?.stableford_points === 0 && p.new?.strokes) {
           const pl = players.find(x => x.id === p.new.player_id)
           if (pl) { const m = getZeroRoast(pl.nickname); addNotif(m, 'zero'); soundZero() }
@@ -1655,14 +1667,20 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     const phcp = getPlayingHcp(Math.min(parseFloat(scoreFor.hcp), 36), c.slope)
     const pts = calcStableford(parseInt(strokes), hd.par, phcp, hd.hcp)
     await supabase.from('inv_scores').upsert({ player_id: scoreFor.id, round_id: roundId, hole, strokes: parseInt(strokes), stableford_points: pts }, { onConflict: 'player_id,round_id,hole' })
-    // Sound + shoutout
-    if (pts >= 3) {
-      const m = getShoutout(scoreFor.name, scoreFor.nickname, pts)
-      if (m) { showToast(m.replace('{{hole}}', hole), pts >= 4 ? 'eagle' : 'birdie'); supabase.from('inv_chat').insert({ player_id: scoreFor.id, message: m.replace('{{hole}}', hole), msg_type: 'shoutout' }) }
+    // Sound + shoutout — based on REAL birdie/eagle (strokes vs par), NOT stableford
+    const strokesInt = parseInt(strokes)
+    const diffToPar = strokesInt - hd.par
+    const isRealBirdie = diffToPar === -1
+    const isRealEagle = diffToPar === -2
+    const isRealAlbatross = diffToPar <= -3
+    const isHIO = strokesInt === 1
+    if (isRealBirdie || isRealEagle || isRealAlbatross || isHIO) {
+      const m = getShoutout(scoreFor.name, scoreFor.nickname, strokesInt, hd.par)
+      if (m) { showToast(m.replace('{{hole}}', hole), (isRealEagle || isRealAlbatross || isHIO) ? 'eagle' : 'birdie'); supabase.from('inv_chat').insert({ player_id: scoreFor.id, message: m.replace('{{hole}}', hole), msg_type: 'shoutout' }) }
       // Push notis till alla utom scoraren
       sendPush({
-        title: pts >= 4 ? `🦅 EAGLE! ${scoreFor.nickname}` : `🐦 BIRDIE! ${scoreFor.nickname}`,
-        body: `Hål ${hole} · ${pts} poäng · ${c.name}`,
+        title: isHIO ? `⛳ HOLE-IN-ONE! ${scoreFor.nickname}` : (isRealEagle || isRealAlbatross) ? `🦅 EAGLE! ${scoreFor.nickname}` : `🐦 BIRDIE! ${scoreFor.nickname}`,
+        body: `Hål ${hole} · ${strokesInt} slag (par ${hd.par}) · ${c.name}`,
         type: 'score',
         excludePlayerId: scoreFor.id,
         prefKey: 'notif_eagles'
