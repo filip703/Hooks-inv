@@ -247,6 +247,13 @@ function TaByApp({ onSwitchMode }) {
   const [tabyUserLoc, setTabyUserLoc] = useState(null) // {lat, lng, accuracy}
   const [tabyGpsError, setTabyGpsError] = useState(null)
   const tabyGpsWatchId = useRef(null)
+  const [tapPoint, setTapPoint] = useState(null) // { hole, dist, x, y }
+  const [measureMode, setMeasureMode] = useState(false)
+  const [tabySettings, setTabySettings] = useState({
+    slope: 130, cr: 70.0, qualifyingRounds: 8,
+    nassauStake: 50, skinsStake: 10, npStake: 50, ldStake: 50,
+    meritPi: 50, meritEvents: 35, meritH2H: 10, meritActivity: 5
+  })
   // Settings state
   const [editingEventId, setEditingEventId] = useState(null)
   const [newEventForm, setNewEventForm] = useState({ name: '', event_type: 'event', date: '', format: 'stableford', description: '', participants: [] })
@@ -290,6 +297,9 @@ function TaByApp({ onSwitchMode }) {
       // Load saved user
       const saved = localStorage.getItem('taby_user')
       if (saved) try { setTabyUser(JSON.parse(saved)) } catch(e) {}
+      // Load settings
+      const savedSettings = localStorage.getItem('taby_settings')
+      if (savedSettings) try { setTabySettings(prev => ({ ...prev, ...JSON.parse(savedSettings) })) } catch(e) {}
       // Load rounds + scores
       const { data: rounds } = await supabase.from('taby_rounds').select('*').order('date', { ascending: false })
       if (rounds) setTabyRounds(rounds)
@@ -449,6 +459,28 @@ function TaByApp({ onSwitchMode }) {
     else if (type === 'birdie') soundBirdie()
     else if (type === 'zero') soundZero()
     else soundScore()
+  }
+
+  const saveTabySetting = (key, value) => {
+    setTabySettings(prev => {
+      const next = { ...prev, [key]: value }
+      try { localStorage.setItem('taby_settings', JSON.stringify(next)) } catch(e) {}
+      return next
+    })
+  }
+
+  // Tap-to-distance: interpolate GPS from image tap position
+  const tapDistToGreen = (tapFracX, tapFracY, holeNum) => {
+    const gps = TABY_GPS[holeNum]
+    if (!gps?.tee?.lat || !gps?.green?.lat) return null
+    const t = Math.max(0, Math.min(1, tapFracY))
+    const lat = gps.tee.lat + (gps.green.lat - gps.tee.lat) * t
+    const lng = gps.tee.lng + (gps.green.lng - gps.tee.lng) * t
+    const dlat = gps.green.lat - gps.tee.lat
+    const dlng = gps.green.lng - gps.tee.lng
+    const len = Math.sqrt(dlat*dlat + dlng*dlng) || 1
+    const lateral = (tapFracX - 0.5) * 0.00015
+    return Math.round(haversineDistance(lat - dlng/len*lateral, lng + dlat/len*lateral, gps.green.lat, gps.green.lng))
   }
 
   // Find player's previous result on a specific hole
@@ -1162,12 +1194,39 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 )
               })()}
 
-              {/* Banguide image - like DIO's flyover slot, clickable to open full modal */}
-              <div onClick={() => setTabyBanguideOpen(true)} style={{ borderRadius: 12, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.15)', marginBottom: 16, cursor: 'pointer', position: 'relative' }}>
-                <img src={`/taby/holes/hole-${h.h}.webp`} alt={`Hål ${h.h}`} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 180, objectFit: 'cover' }} />
-                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 12px', background: 'linear-gradient(180deg, transparent, rgba(12,24,48,0.9))', color: '#93C5FD', fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: 1.5, display: 'flex', justifyContent: 'space-between' }}>
-                  <span>BANGUIDE · HÅL {h.h}</span>
-                  <span>📖 TRYCK FÖR STOR VY</span>
+              {/* Banguide image - tap to measure distance, or hold to open full modal */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ borderRadius: 12, overflow: 'hidden', border: `0.5px solid ${measureMode ? 'rgba(212,160,23,0.4)' : 'rgba(147,197,253,0.15)'}`, position: 'relative', cursor: measureMode ? 'crosshair' : 'pointer' }}
+                  onClick={e => {
+                    if (measureMode) {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const fx = (e.clientX - rect.left) / rect.width
+                      const fy = (e.clientY - rect.top) / rect.height
+                      const dist = tapDistToGreen(fx, fy, h.h)
+                      setTapPoint({ hole: h.h, dist, x: fx, y: fy })
+                    } else {
+                      setTabyBanguideOpen(true)
+                    }
+                  }}>
+                  <img src={`/taby/holes/hole-${h.h}.webp`} alt={`Hål ${h.h}`} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 180, objectFit: 'cover' }} />
+                  {/* Tap marker */}
+                  {measureMode && tapPoint?.hole === h.h && (
+                    <div style={{ position: 'absolute', left: `calc(${tapPoint.x * 100}% - 8px)`, top: `calc(${tapPoint.y * 100}% - 8px)`, width: 16, height: 16, borderRadius: '50%', background: 'rgba(212,160,23,0.9)', border: '2px solid #fff', boxShadow: '0 0 8px rgba(212,160,23,0.8)', pointerEvents: 'none' }} />
+                  )}
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 12px', background: 'linear-gradient(180deg, transparent, rgba(12,24,48,0.9))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#93C5FD', fontSize: 9, fontFamily: 'var(--mono)', letterSpacing: 1.5 }}>BANGUIDE · HÅL {h.h}</span>
+                    {measureMode && tapPoint?.hole === h.h
+                      ? <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 700, color: '#D4A017' }}>🎯 {tapPoint.dist}m till green</span>
+                      : <span style={{ color: 'rgba(147,197,253,0.5)', fontSize: 9, fontFamily: 'var(--mono)' }}>{measureMode ? '📏 TRYCK FÖR AVSTÅND' : '📖 TRYCK FÖR STOR VY'}</span>
+                    }
+                  </div>
+                </div>
+                {/* Measure toggle button */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                  <button onClick={() => { setMeasureMode(m => !m); setTapPoint(null) }}
+                    style={{ padding: '4px 10px', borderRadius: 8, fontSize: 10, fontFamily: 'var(--mono)', cursor: 'pointer', background: measureMode ? 'rgba(212,160,23,0.15)' : 'rgba(147,197,253,0.06)', border: measureMode ? '0.5px solid rgba(212,160,23,0.4)' : '0.5px solid rgba(147,197,253,0.12)', color: measureMode ? '#D4A017' : 'rgba(147,197,253,0.5)', letterSpacing: 0.5 }}>
+                    {measureMode ? '📏 Mätläge på' : '📏 Mät avstånd'}
+                  </button>
                 </div>
               </div>
 
@@ -1296,8 +1355,30 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             </div>
             {curHole.w && <div style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: 'rgba(96,165,250,0.1)', border: '0.5px solid rgba(96,165,250,0.2)', color: '#60A5FA', fontFamily: 'var(--mono)' }}>💧</div>}
           </div>
-          <div style={{ borderRadius: 16, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.1)', marginBottom: 8 }}>
+          <div style={{ borderRadius: 16, overflow: 'hidden', border: tapPoint?.hole === curHole.h ? '1px solid rgba(147,197,253,0.4)' : '0.5px solid rgba(147,197,253,0.1)', marginBottom: 8, position: 'relative', cursor: 'crosshair' }}
+            onClick={e => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              const fx = (e.clientX - rect.left) / rect.width
+              const fy = (e.clientY - rect.top) / rect.height
+              const dist = tapDistToGreen(fx, fy, curHole.h)
+              setTapPoint({ hole: curHole.h, dist, x: fx, y: fy })
+            }}>
             <img src={`/taby/holes/hole-${curHole.h}.webp`} alt={`Hål ${curHole.h}`} style={{ width: '100%', height: 'auto', display: 'block' }} />
+            {tapPoint?.hole === curHole.h && (
+              <>
+                {/* Tap marker */}
+                <div style={{ position: 'absolute', left: `calc(${tapPoint.x * 100}% - 8px)`, top: `calc(${tapPoint.y * 100}% - 8px)`, width: 16, height: 16, borderRadius: '50%', background: 'rgba(212,160,23,0.9)', border: '2px solid #fff', boxShadow: '0 0 8px rgba(212,160,23,0.8)', pointerEvents: 'none' }} />
+                {/* Distance pill */}
+                <div style={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)', background: 'rgba(12,24,48,0.92)', border: '0.5px solid rgba(212,160,23,0.5)', borderRadius: 20, padding: '4px 14px', display: 'flex', alignItems: 'center', gap: 6, backdropFilter: 'blur(8px)', pointerEvents: 'none' }}>
+                  <span style={{ fontSize: 12 }}>🎯</span>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 700, color: '#D4A017' }}>{tapPoint.dist}m</span>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)' }}>till green</span>
+                </div>
+              </>
+            )}
+            {!tapPoint?.hole && (
+              <div style={{ position: 'absolute', bottom: 6, right: 8, fontSize: 9, fontFamily: 'var(--mono)', color: 'rgba(147,197,253,0.4)', letterSpacing: 1 }}>📏 TRYCK FÖR AVSTÅND</div>
+            )}
           </div>
           <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, border: '0.5px solid rgba(147,197,253,0.08)', padding: '10px 14px' }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,175,55,0.5)', letterSpacing: 1.5, marginBottom: 4 }}>SPELTIPS</div>
@@ -1684,6 +1765,102 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             }} style={{ width: '100%', padding: '10px', background: (tabyBroadcastSending || !tabyBroadcastForm.title || !tabyBroadcastForm.body) ? 'rgba(147,197,253,0.08)' : 'linear-gradient(135deg, #D4A017, #F5D76E)', border: 'none', borderRadius: 8, color: (tabyBroadcastSending || !tabyBroadcastForm.title || !tabyBroadcastForm.body) ? 'rgba(147,197,253,0.3)' : '#0C1830', cursor: (tabyBroadcastSending || !tabyBroadcastForm.title || !tabyBroadcastForm.body) ? 'default' : 'pointer', fontSize: 13, fontWeight: 700 }}>
               {tabyBroadcastSending ? '⏳ Skickar...' : '📤 Skicka push'}
             </button>
+          </div>
+
+          {/* Säsong & Bana */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D4A017', letterSpacing: 2, marginBottom: 10 }}>⛳ SÄSONG & BANA</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { label: 'Slope', key: 'slope', step: 1, min: 55, max: 155 },
+                { label: 'CR', key: 'cr', step: 0.1, min: 60, max: 80 },
+                { label: 'Qualifying-rundor (för PI)', key: 'qualifyingRounds', step: 1, min: 1, max: 20 },
+              ].map(({ label, key, step, min, max }) => (
+                <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ flex: 1, fontSize: 12, color: '#F0F4FF' }}>{label}</div>
+                  <input type="number" step={step} min={min} max={max} value={tabySettings[key]} onChange={e => saveTabySetting(key, parseFloat(e.target.value))}
+                    style={{ width: 70, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 6, color: '#F0F4FF', padding: '4px 6px', fontSize: 14, textAlign: 'center', fontFamily: 'var(--mono)' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Merit-vikter */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D4A017', letterSpacing: 2, marginBottom: 6 }}>🏆 MERIT-VIKTER (%)</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 10 }}>Totalt ska vara 100%. Spara = reload appen.</div>
+            {[
+              { label: 'Performance Index (PI)', key: 'meritPi', color: '#93C5FD' },
+              { label: 'Events', key: 'meritEvents', color: '#D4A017' },
+              { label: 'Head-to-Head', key: 'meritH2H', color: '#4ADE80' },
+              { label: 'Aktivitet (cap 12 rundor)', key: 'meritActivity', color: '#E8634A' },
+            ].map(({ label, key, color }) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <div style={{ flex: 1, fontSize: 12, color: '#F0F4FF' }}>{label}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <input type="number" step={5} min={0} max={100} value={tabySettings[key]} onChange={e => saveTabySetting(key, parseInt(e.target.value) || 0)}
+                    style={{ width: 52, background: 'rgba(147,197,253,0.08)', border: `1px solid ${color}30`, borderRadius: 6, color, padding: '4px 6px', fontSize: 14, textAlign: 'center', fontFamily: 'var(--mono)' }} />
+                  <span style={{ fontSize: 12, color: 'rgba(240,244,255,0.4)' }}>%</span>
+                </div>
+              </div>
+            ))}
+            {(() => {
+              const sum = (tabySettings.meritPi||0)+(tabySettings.meritEvents||0)+(tabySettings.meritH2H||0)+(tabySettings.meritActivity||0)
+              return <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: sum === 100 ? '#4ADE80' : '#E8634A', marginTop: 4 }}>Summa: {sum}% {sum === 100 ? '✓' : `(bör vara 100%)`}</div>
+            })()}
+          </div>
+
+          {/* Sidospelspriser */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D4A017', letterSpacing: 2, marginBottom: 10 }}>💰 SIDOSPELSPRISER (kr)</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 10 }}>Standardinsats för bollar och sidospel</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { label: 'Nassau per sida', key: 'nassauStake' },
+                { label: 'Skins per hål', key: 'skinsStake' },
+                { label: 'Närmast pin (NP)', key: 'npStake' },
+                { label: 'Längst drive (LD)', key: 'ldStake' },
+              ].map(({ label, key }) => (
+                <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ flex: 1, fontSize: 12, color: '#F0F4FF' }}>{label}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {[10,25,50,100].map(v => (
+                      <button key={v} onClick={() => saveTabySetting(key, v)} style={{ padding: '4px 8px', borderRadius: 6, fontSize: 10, fontFamily: 'var(--mono)', cursor: 'pointer', background: tabySettings[key] === v ? 'rgba(147,197,253,0.2)' : 'rgba(147,197,253,0.04)', border: tabySettings[key] === v ? '1px solid #93C5FD' : '0.5px solid rgba(147,197,253,0.1)', color: tabySettings[key] === v ? '#93C5FD' : 'rgba(240,244,255,0.4)' }}>{v}</button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Event-vinnare */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D4A017', letterSpacing: 2, marginBottom: 6 }}>🎖️ EVENT-VINNARE</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 10 }}>Sätt plats (1-6) per spelare per event. Ger Merit-poäng.</div>
+            {tabyEvents.map(ev => (
+              <div key={ev.id} style={{ background: 'rgba(30,58,95,0.2)', borderRadius: 10, padding: 12, marginBottom: 8, border: '0.5px solid rgba(147,197,253,0.1)' }}>
+                <div style={{ fontSize: 13, color: '#F0F4FF', fontWeight: 600, marginBottom: 8 }}>{ev.event_name || ev.name} <span style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>{ev.date}</span></div>
+                {tabyPlayers.map(p => {
+                  const results = ev.results || {}
+                  const pos = results[p.id]
+                  return (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <div style={{ flex: 1, fontSize: 12, color: '#F0F4FF' }}>{p.nickname}</div>
+                      <div style={{ display: 'flex', gap: 3 }}>
+                        {[1,2,3,4,5,6,'DNS'].map(v => (
+                          <button key={v} onClick={async () => {
+                            const newResults = { ...(ev.results || {}), [p.id]: v }
+                            await supabase.from('taby_events').update({ results: newResults }).eq('id', ev.id)
+                            fetchTabyEvents()
+                          }} style={{ padding: '3px 6px', borderRadius: 5, fontSize: 10, fontFamily: 'var(--mono)', cursor: 'pointer', background: pos === v ? (v === 1 ? 'rgba(212,160,23,0.25)' : 'rgba(147,197,253,0.15)') : 'rgba(147,197,253,0.03)', border: pos === v ? (v === 1 ? '1px solid #D4A017' : '1px solid #93C5FD') : '0.5px solid rgba(147,197,253,0.08)', color: pos === v ? (v === 1 ? '#D4A017' : '#93C5FD') : 'rgba(240,244,255,0.3)' }}>{v}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+            {tabyEvents.length === 0 && <div style={{ textAlign: 'center', padding: 12, fontSize: 12, color: 'rgba(240,244,255,0.3)' }}>Inga events ännu – skapa ett ovan</div>}
           </div>
 
           {/* Danger zone */}
