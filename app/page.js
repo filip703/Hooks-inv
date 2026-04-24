@@ -224,6 +224,7 @@ function TaByApp({ onSwitchMode }) {
   const [tabyRounds, setTabyRounds] = useState([])
   const [tabyScores, setTabyScores] = useState([])
   const [newRound, setNewRound] = useState(null)
+  const [roundSetup, setRoundSetup] = useState({ format: 'stableford', eventId: null, opponentId: null, selectedPlayers: null })
   const [scoreInput, setScoreInput] = useState({})
   const [tabyActiveHole, setTabyActiveHole] = useState(null)
   const [tabyCaddieMsg, setTabyCaddieMsg] = useState(null)
@@ -385,21 +386,27 @@ function TaByApp({ onSwitchMode }) {
   }
 
   // Create new round
-  const startRound = async (selectedPlayers) => {
+  const startRound = async (selectedPlayers, opts = {}) => {
     const playerIds = selectedPlayers.map(p => p.id)
     const type = playerIds.length >= 5 ? 'event' : playerIds.length >= 2 ? 'group' : 'solo'
+    const format = opts.format || roundSetup.format || 'stableford'
+    const eventId = opts.eventId || roundSetup.eventId || null
+    const opponentId = opts.opponentId || roundSetup.opponentId || null
     const { data } = await supabase.from('taby_rounds').insert({
       date: new Date().toISOString().split('T')[0],
       type,
       player_ids: playerIds,
-      created_by: tabyUser?.id
+      created_by: tabyUser?.id,
+      format,
+      event_id: eventId || undefined,
+      opponent_id: opponentId || undefined
     }).select().single()
     if (data) {
       setNewRound(data)
       setScoreInput({})
       setTabyRounds(prev => [data, ...prev])
       setTabyView('scoring')
-      setTabyActiveHole(1) // Auto-open fullscreen on hole 1 (one-pager flow)
+      setTabyActiveHole(1)
     }
   }
 
@@ -518,7 +525,9 @@ function TaByApp({ onSwitchMode }) {
     const par = PARS[hole - 1]
     const holeData = holes[hole - 1]
     const extra = getExtra(holeData.i, tabyUser.taby_hcp || tabyUser.hcp)
-    const stab = calcStab(strokes, par, extra)
+    const fmt = newRound.format || 'stableford'
+    // Stableford only for stableford/matchplay/skins (matchplay uses stableford as sub-metric, stroke doesn't)
+    const stab = fmt === 'stroke' ? null : calcStab(strokes, par, extra)
 
     const { data } = await supabase.from('taby_scores').upsert({
       round_id: newRound.id,
@@ -963,6 +972,37 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 color: '#93C5FD', fontSize: 13
               }}>Starta med alla →</button>
 
+              {/* Format & event selector */}
+              <div style={{ marginTop: 14, background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, border: '0.5px solid rgba(147,197,253,0.1)' }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.5)', letterSpacing: 1.5, marginBottom: 10 }}>SPELSÄTT</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                  {[{key:'stableford',label:'⭐ Stableford'},{key:'stroke',label:'✏️ Slagspel'},{key:'matchplay',label:'⚔️ Matchplay'},{key:'skins',label:'🦈 Skins'}].map(({key,label}) => (
+                    <button key={key} onClick={() => setRoundSetup(s => ({...s,format:key,opponentId:null}))} style={{ padding:'7px 12px', borderRadius:8, fontSize:12, cursor:'pointer', fontFamily:'var(--mono)', background:roundSetup.format===key?'rgba(147,197,253,0.15)':'rgba(147,197,253,0.03)', border:roundSetup.format===key?'1px solid #93C5FD':'0.5px solid rgba(147,197,253,0.1)', color:roundSetup.format===key?'#93C5FD':'rgba(240,244,255,0.4)' }}>{label}</button>
+                  ))}
+                </div>
+                {roundSetup.format === 'matchplay' && (
+                  <div style={{ marginBottom:12 }}>
+                    <div style={{ fontSize:11, color:'rgba(240,244,255,0.5)', marginBottom:6 }}>Motståndare:</div>
+                    <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                      {tabyPlayers.filter(p => p.id !== tabyUser?.id).map(p => (
+                        <button key={p.id} onClick={() => setRoundSetup(s => ({...s,opponentId:p.id}))} style={{ padding:'5px 10px', borderRadius:7, fontSize:11, cursor:'pointer', fontFamily:'var(--mono)', background:roundSetup.opponentId===p.id?'rgba(232,99,74,0.15)':'rgba(147,197,253,0.03)', border:roundSetup.opponentId===p.id?'1px solid #E8634A':'0.5px solid rgba(147,197,253,0.1)', color:roundSetup.opponentId===p.id?'#E8634A':'rgba(240,244,255,0.4)' }}>{p.nickname}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {tabyEvents.filter(e => e.status==='upcoming'||e.status==='active').length > 0 && (
+                  <div>
+                    <div style={{ fontSize:11, color:'rgba(240,244,255,0.5)', marginBottom:6 }}>Koppla till event (valfritt):</div>
+                    <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                      <button onClick={() => setRoundSetup(s => ({...s,eventId:null}))} style={{ padding:'5px 10px', borderRadius:7, fontSize:11, cursor:'pointer', fontFamily:'var(--mono)', background:!roundSetup.eventId?'rgba(147,197,253,0.1)':'rgba(147,197,253,0.03)', border:!roundSetup.eventId?'1px solid #93C5FD':'0.5px solid rgba(147,197,253,0.1)', color:!roundSetup.eventId?'#93C5FD':'rgba(240,244,255,0.3)' }}>Ingen</button>
+                      {tabyEvents.filter(e => e.status==='upcoming'||e.status==='active').map(ev => (
+                        <button key={ev.id} onClick={() => setRoundSetup(s => ({...s,eventId:ev.id,format:ev.format||s.format}))} style={{ padding:'5px 10px', borderRadius:7, fontSize:11, cursor:'pointer', fontFamily:'var(--mono)', background:roundSetup.eventId===ev.id?'rgba(212,160,23,0.15)':'rgba(147,197,253,0.03)', border:roundSetup.eventId===ev.id?'1px solid #D4A017':'0.5px solid rgba(147,197,253,0.1)', color:roundSetup.eventId===ev.id?'#D4A017':'rgba(240,244,255,0.3)' }}>{ev.name||ev.event_name}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Mini banguide med avståndsmätning */}
               {(() => {
                 const curH = holes.find(h => h.h === tabyHole) || holes[0]
@@ -1152,18 +1192,69 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {tabyActiveHole && newRound && (() => {
         const h = holes[tabyActiveHole - 1]
         if (!h) return null
+        const fmt = newRound.format || 'stableford'
         const sc = roundScores.find(s => s.hole === h.h)
         const currentVal = sc?.strokes || h.p
         const extra = getExtra(h.i, tabyUser?.taby_hcp || tabyUser?.hcp)
         const stab = sc?.stableford ?? null
         const prevHole = h.h > 1 ? h.h - 1 : null
         const nextH = h.h < 18 ? h.h + 1 : null
-        // Ghost match: find user's most recent completed round before this one
-        const prevRound = tabyRounds.find(r => r.id !== newRound.id && r.player_ids?.includes(tabyUser?.id) && tabyScores.filter(s => s.round_id === r.id && s.player_id === tabyUser?.id).length >= 18)
+
+        // Format label for top bar
+        const fmtLabel = { stableford: '⭐ Stableford', stroke: '✏️ Slagspel', matchplay: '⚔️ Matchplay', skins: '🦈 Skins' }[fmt] || fmt
+
+        // Ghost match (only for stableford)
+        const prevRound = fmt === 'stableford' ? tabyRounds.find(r => r.id !== newRound.id && r.player_ids?.includes(tabyUser?.id) && tabyScores.filter(s => s.round_id === r.id && s.player_id === tabyUser?.id).length >= 18) : null
         const ghostScore = prevRound ? tabyScores.find(s => s.round_id === prevRound.id && s.player_id === tabyUser?.id && s.hole === h.h) : null
         const ghostCum = prevRound ? tabyScores.filter(s => s.round_id === prevRound.id && s.player_id === tabyUser?.id && s.hole <= h.h).reduce((sum, s) => sum + (s.stableford || 0), 0) : 0
         const currCum = roundScores.filter(s => s.hole <= h.h).reduce((sum, s) => sum + (s.stableford || 0), 0)
         const cumDiff = prevRound ? currCum - ghostCum : 0
+
+        // Matchplay: compute hole-by-hole result vs opponent
+        const opponent = fmt === 'matchplay' && newRound.opponent_id ? tabyPlayers.find(p => p.id === newRound.opponent_id) : null
+        const opponentScores = opponent ? tabyScores.filter(s => s.round_id === newRound.id && s.player_id === opponent.id) : []
+        const mpHoles = fmt === 'matchplay' ? holes.map(hs => {
+          const myS = roundScores.find(s => s.hole === hs.h)
+          const oppS = opponentScores.find(s => s.hole === hs.h)
+          const myExtra = getExtra(hs.i, tabyUser?.taby_hcp || tabyUser?.hcp)
+          const oppExtra = getExtra(hs.i, opponent?.taby_hcp || opponent?.hcp || 0)
+          if (!myS?.strokes || !oppS?.strokes) return null
+          const myNetto = myS.strokes - myExtra
+          const oppNetto = oppS.strokes - oppExtra
+          return myNetto < oppNetto ? 'win' : myNetto > oppNetto ? 'loss' : 'half'
+        }) : []
+        // Running matchplay score: holes up/down
+        const mpScore = mpHoles.reduce((acc, r) => {
+          if (r === 'win') return acc + 1
+          if (r === 'loss') return acc - 1
+          return acc
+        }, 0)
+        const mpRemaining = 18 - mpHoles.filter(r => r !== null).length
+        const mpStatusStr = mpScore === 0 ? 'AS' : mpScore > 0 ? `UP ${mpScore}` : `DN ${Math.abs(mpScore)}`
+        const mpColor = mpScore > 0 ? '#4ADE80' : mpScore < 0 ? '#E8634A' : '#93C5FD'
+
+        // Skins: for each played hole, who won? (lowest netto, no tie = carry)
+        const skinsResults = fmt === 'skins' ? (() => {
+          let carry = 0
+          return holes.map(hs => {
+            const allScores = newRound.player_ids?.map(pid => {
+              const s = tabyScores.find(x => x.round_id === newRound.id && x.player_id === pid && x.hole === hs.h)
+              const pl = tabyPlayers.find(x => x.id === pid)
+              const ex = getExtra(hs.i, pl?.taby_hcp || pl?.hcp || 0)
+              return s?.strokes ? { pid, netto: s.strokes - ex } : null
+            }).filter(Boolean) || []
+            if (allScores.length < (newRound.player_ids?.length || 1)) { carry++; return { hole: hs.h, winner: null, carry } }
+            const min = Math.min(...allScores.map(x => x.netto))
+            const winners = allScores.filter(x => x.netto === min)
+            if (winners.length > 1) { carry++; return { hole: hs.h, winner: null, carry } }
+            const result = { hole: hs.h, winner: winners[0].pid, skins: 1 + carry }
+            carry = 0
+            return result
+          })
+        })() : []
+        const mySkins = skinsResults.filter(s => s?.winner === tabyUser?.id).reduce((sum, s) => sum + (s.skins || 0), 0)
+        const pendingSkins = skinsResults.filter(s => s && !s.winner).reduce((sum, s) => sum + (s.carry || 0), 0) + (skinsResults.some(s => s && !s.winner) ? 1 : 0)
+
         // Others on this hole
         const othersOnHole = newRound.player_ids?.filter(pid => pid !== tabyUser?.id).map(pid => {
           const p = tabyPlayers.find(x => x.id === pid)
@@ -1175,7 +1266,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             {/* Top bar */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', background: 'rgba(147,197,253,0.04)', borderBottom: '0.5px solid rgba(147,197,253,0.1)' }}>
               <button onClick={() => setTabyActiveHole(null)} style={{ background: 'none', border: 'none', color: '#F0F4FF', fontSize: 16, cursor: 'pointer' }}>← Alla hål</button>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'rgba(240,244,255,0.5)' }}>{newRound?.date || 'Runda'} · Täby GK</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.5)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(147,197,253,0.08)', border: '0.5px solid rgba(147,197,253,0.15)', fontSize: 10, color: '#93C5FD' }}>{fmtLabel}</span>
+                <span>{newRound?.date || 'Runda'}</span>
+              </div>
             </div>
 
             {/* HOLE STRIP - jump to any hole, color-coded by score */}
@@ -1183,8 +1277,29 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               {holes.map(hs => {
                 const hsc = roundScores.find(s => s.hole === hs.h)
                 const isActive = hs.h === h.h
-                const bg = hsc ? (hsc.stableford >= 4 ? '#D4A017' : hsc.stableford >= 3 ? '#4ADE80' : hsc.stableford >= 1 ? 'rgba(147,197,253,0.2)' : '#E8634A') : 'rgba(147,197,253,0.06)'
-                const color = hsc ? (hsc.stableford === 0 ? '#fff' : hsc.stableford >= 3 ? '#0C1830' : '#F0F4FF') : (isActive ? '#D4A017' : 'rgba(147,197,253,0.5)')
+                // Color: slagspel uses vs-par, stableford/matchplay/skins use stableford scale
+                let bg, color
+                if (hsc?.strokes) {
+                  if (fmt === 'stroke') {
+                    const diff = hsc.strokes - PARS[hs.h - 1]
+                    bg = diff <= -2 ? '#D4A017' : diff === -1 ? '#4ADE80' : diff === 0 ? 'rgba(147,197,253,0.2)' : diff === 1 ? '#F97316' : '#E8634A'
+                    color = diff <= -1 ? '#0C1830' : '#F0F4FF'
+                  } else if (fmt === 'matchplay') {
+                    const r = mpHoles[hs.h - 1]
+                    bg = r === 'win' ? '#4ADE80' : r === 'loss' ? '#E8634A' : r === 'half' ? 'rgba(147,197,253,0.2)' : 'rgba(147,197,253,0.06)'
+                    color = (r === 'win' || r === 'half') ? '#0C1830' : '#F0F4FF'
+                  } else if (fmt === 'skins') {
+                    const sk = skinsResults[hs.h - 1]
+                    bg = sk?.winner === tabyUser?.id ? '#D4A017' : sk?.winner ? 'rgba(232,99,74,0.3)' : sk ? 'rgba(147,197,253,0.12)' : 'rgba(147,197,253,0.06)'
+                    color = sk?.winner === tabyUser?.id ? '#0C1830' : '#F0F4FF'
+                  } else {
+                    bg = hsc.stableford >= 4 ? '#D4A017' : hsc.stableford >= 3 ? '#4ADE80' : hsc.stableford >= 1 ? 'rgba(147,197,253,0.2)' : '#E8634A'
+                    color = hsc.stableford === 0 ? '#fff' : hsc.stableford >= 3 ? '#0C1830' : '#F0F4FF'
+                  }
+                } else {
+                  bg = 'rgba(147,197,253,0.06)'
+                  color = isActive ? '#D4A017' : 'rgba(147,197,253,0.5)'
+                }
                 return (
                   <button key={hs.h} onClick={() => { setTabyActiveHole(hs.h); setTabyCaddieMsg(null) }}
                     style={{ minWidth: 28, height: 28, borderRadius: 6, background: bg, color, border: isActive ? '1.5px solid #D4A017' : '0.5px solid rgba(147,197,253,0.1)', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1194,11 +1309,13 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               })}
             </div>
 
-            {/* Running totals - always visible under strip */}
+            {/* Running totals - format-aware */}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 16px', fontSize: 11, fontFamily: 'var(--mono)', color: 'rgba(240,244,255,0.5)', borderBottom: '0.5px solid rgba(147,197,253,0.08)' }}>
               <span>{holesPlayed}/18 hål</span>
-              <span>{totalStrokes} slag {vsParStr !== 0 ? `(${vsParStr > 0 ? '+' : ''}${vsParStr})` : ''}</span>
-              <span style={{ color: '#D4A017', fontWeight: 600 }}>{totalStab}p</span>
+              {fmt === 'stroke' && <span style={{ color: vsParStr < 0 ? '#4ADE80' : vsParStr > 0 ? '#E8634A' : '#93C5FD', fontWeight: 600 }}>{totalStrokes > 0 ? `${totalStrokes} slag (${vsParStr > 0 ? '+' : ''}${vsParStr || 'E'})` : '—'}</span>}
+              {fmt === 'stableford' && <span style={{ color: '#D4A017', fontWeight: 600 }}>{totalStab}p stableford</span>}
+              {fmt === 'matchplay' && <span style={{ color: mpColor, fontWeight: 700 }}>{mpStatusStr}{mpRemaining > 0 ? ` (${mpRemaining} kvar)` : ''}{opponent ? ` vs ${opponent.nickname}` : ''}</span>}
+              {fmt === 'skins' && <span style={{ color: '#D4A017', fontWeight: 600 }}>🦈 {mySkins} skins {pendingSkins > 0 ? `· ${pendingSkins} på spel` : ''}</span>}
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
@@ -1219,6 +1336,50 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   {h.i >= 16 && <div style={{ padding: '3px 10px', borderRadius: 8, background: 'rgba(74,222,128,0.1)', border: '0.5px solid rgba(74,222,128,0.2)', color: '#4ADE80', fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: 1 }}>🎯 ENKLASTE</div>}
                 </div>
                 <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.65)', fontStyle: 'italic', marginTop: 8, lineHeight: 1.5 }}>{h.t}</div>
+
+                {/* Matchplay: live hole status */}
+                {fmt === 'matchplay' && opponent && (() => {
+                  const myS = roundScores.find(s => s.hole === h.h)
+                  const oppS = opponentScores.find(s => s.hole === h.h)
+                  const holeResult = mpHoles[h.h - 1]
+                  return (
+                    <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(30,58,95,0.3)', border: `0.5px solid ${mpColor}30` }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.4)', letterSpacing: 1.5, marginBottom: 6 }}>MATCHPLAY vs {opponent.nickname?.toUpperCase()}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 22, fontWeight: 700, color: '#F0F4FF', fontFamily: 'var(--mono)' }}>{myS?.strokes || '—'}</div>
+                          <div style={{ fontSize: 9, color: 'rgba(240,244,255,0.4)', fontFamily: 'var(--mono)' }}>{tabyUser?.nickname}</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 20, fontWeight: 700, color: mpColor, fontFamily: 'var(--mono)' }}>{mpStatusStr}</div>
+                          {holeResult && <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: holeResult === 'win' ? '#4ADE80' : holeResult === 'loss' ? '#E8634A' : '#93C5FD' }}>
+                            {holeResult === 'win' ? '▲ hål vunnet' : holeResult === 'loss' ? '▼ hål förlorat' : '= halvt hål'}
+                          </div>}
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: 22, fontWeight: 700, color: 'rgba(240,244,255,0.5)', fontFamily: 'var(--mono)' }}>{oppS?.strokes || '—'}</div>
+                          <div style={{ fontSize: 9, color: 'rgba(240,244,255,0.4)', fontFamily: 'var(--mono)' }}>{opponent.nickname}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Skins: who has what on this hole */}
+                {fmt === 'skins' && (() => {
+                  const sk = skinsResults[h.h - 1]
+                  if (!sk) return null
+                  const winner = sk.winner ? tabyPlayers.find(p => p.id === sk.winner) : null
+                  return (
+                    <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(30,58,95,0.3)', border: '0.5px solid rgba(212,160,23,0.2)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 16 }}>🦈</span>
+                      {winner
+                        ? <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: winner.id === tabyUser?.id ? '#D4A017' : '#93C5FD' }}>{winner.nickname} vann {sk.skins} skin{sk.skins > 1 ? 's' : ''}!</span>
+                        : <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'rgba(240,244,255,0.5)' }}>Oavgjort – {sk.carry || 1} skin{(sk.carry || 1) > 1 ? 's' : ''} på spel</span>
+                      }
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* GPS distance-to-green widget */}
