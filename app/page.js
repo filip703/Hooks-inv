@@ -483,6 +483,19 @@ function TaByApp({ onSwitchMode }) {
     return Math.round(haversineDistance(lat - dlng/len*lateral, lng + dlat/len*lateral, gps.green.lat, gps.green.lng))
   }
 
+  const tapToGpsCoords = (tapFracX, tapFracY, holeNum) => {
+    const gps = TABY_GPS[holeNum]
+    if (!gps?.tee?.lat || !gps?.green?.lat) return null
+    const t = Math.max(0, Math.min(1, tapFracY))
+    const lat = gps.tee.lat + (gps.green.lat - gps.tee.lat) * t
+    const lng = gps.tee.lng + (gps.green.lng - gps.tee.lng) * t
+    const dlat = gps.green.lat - gps.tee.lat
+    const dlng = gps.green.lng - gps.tee.lng
+    const len = Math.sqrt(dlat*dlat + dlng*dlng) || 1
+    const lateral = (tapFracX - 0.5) * 0.00015
+    return { lat: lat - dlng/len*lateral, lng: lng + dlat/len*lateral }
+  }
+
   // Find player's previous result on a specific hole
   const getTabyHoleHistory = (playerId, hole) => {
     const playerPrevScores = tabyScores.filter(s => s.player_id === playerId && s.hole === hole && (!newRound || s.round_id !== newRound.id))
@@ -953,6 +966,70 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)',
                 color: '#93C5FD', fontSize: 13
               }}>Starta med alla →</button>
+
+              {/* Mini banguide med avståndsmätning */}
+              {(() => {
+                const curH = holes.find(h => h.h === tabyHole) || holes[0]
+                const gps = TABY_GPS[tabyHole]
+                return (
+                  <div style={{ marginTop: 20 }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.5)', letterSpacing: 1.5, marginBottom: 8 }}>📍 BANGUIDE & AVSTÅND</div>
+                    {/* Hole selector */}
+                    <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 10 }}>
+                      {holes.map(h => (
+                        <button key={h.h} onClick={() => { setTabyHole(h.h); setTapPoint(null) }} style={{ width: 30, height: 30, borderRadius: 7, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 600, cursor: 'pointer', background: tabyHole === h.h ? 'rgba(147,197,253,0.15)' : 'rgba(147,197,253,0.03)', border: tabyHole === h.h ? '1px solid #93C5FD' : '0.5px solid rgba(147,197,253,0.08)', color: tabyHole === h.h ? '#93C5FD' : 'rgba(240,244,255,0.3)' }}>{h.h}</button>
+                      ))}
+                    </div>
+                    {/* Hole info row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <div style={{ fontFamily: 'var(--serif)', fontSize: 28, color: '#93C5FD', fontWeight: 700, lineHeight: 1 }}>{curH.h}</div>
+                      <div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.6)' }}>PAR {curH.p} · IDX {curH.i}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(212,175,55,0.5)' }}>{curH.m}m</div>
+                      </div>
+                      {curH.w && <div style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: 'rgba(96,165,250,0.1)', border: '0.5px solid rgba(96,165,250,0.2)', color: '#60A5FA', fontFamily: 'var(--mono)' }}>💧</div>}
+                      {/* GPS distance to green from user position */}
+                      {tabyUserLoc && (() => {
+                        const d = distanceToGreen(tabyUserLoc.lat, tabyUserLoc.lng, tabyHole)
+                        if (!d || d > 1500) return null
+                        return <div style={{ marginLeft: 'auto', padding: '4px 10px', background: 'rgba(74,222,128,0.1)', border: '0.5px solid rgba(74,222,128,0.25)', borderRadius: 10 }}>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: '#4ADE80' }}>{d}m</div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(74,222,128,0.6)', letterSpacing: 1 }}>TILL GREEN</div>
+                        </div>
+                      })()}
+                    </div>
+                    {/* Tappable image */}
+                    <div style={{ borderRadius: 14, overflow: 'hidden', border: tapPoint?.hole === tabyHole ? '1px solid rgba(212,160,23,0.5)' : '0.5px solid rgba(147,197,253,0.12)', position: 'relative', cursor: 'crosshair', marginBottom: 6 }}
+                      onClick={e => {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        const fx = (e.clientX - rect.left) / rect.width
+                        const fy = (e.clientY - rect.top) / rect.height
+                        const tapCoords = tapToGpsCoords(fx, fy, tabyHole)
+                        const distGreen = tapCoords ? Math.round(haversineDistance(tapCoords.lat, tapCoords.lng, gps.green.lat, gps.green.lng)) : null
+                        const distUser = (tapCoords && tabyUserLoc) ? Math.round(haversineDistance(tabyUserLoc.lat, tabyUserLoc.lng, tapCoords.lat, tapCoords.lng)) : null
+                        setTapPoint({ hole: tabyHole, distGreen, distUser, x: fx, y: fy })
+                      }}>
+                      <img src={`/taby/holes/hole-${tabyHole}.webp`} alt={`Hål ${tabyHole}`} style={{ width: '100%', height: 'auto', display: 'block' }} />
+                      {/* Tap marker */}
+                      {tapPoint?.hole === tabyHole && (
+                        <div style={{ position: 'absolute', left: `calc(${tapPoint.x * 100}% - 8px)`, top: `calc(${tapPoint.y * 100}% - 8px)`, width: 16, height: 16, borderRadius: '50%', background: 'rgba(212,160,23,0.9)', border: '2px solid #fff', boxShadow: '0 0 8px rgba(212,160,23,0.8)', pointerEvents: 'none' }} />
+                      )}
+                      {/* Distance pills on image */}
+                      {tapPoint?.hole === tabyHole ? (
+                        <div style={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)', background: 'rgba(12,24,48,0.92)', border: '0.5px solid rgba(212,160,23,0.5)', borderRadius: 20, padding: '5px 14px', display: 'flex', alignItems: 'center', gap: 10, backdropFilter: 'blur(8px)', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+                          {tapPoint.distUser != null && <><span style={{ fontSize: 10 }}>📍</span><span style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: '#93C5FD' }}>{tapPoint.distUser}m</span><span style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.5)' }}>från dig</span></>}
+                          {tapPoint.distUser != null && tapPoint.distGreen != null && <span style={{ color: 'rgba(240,244,255,0.2)', fontSize: 10 }}>·</span>}
+                          {tapPoint.distGreen != null && <><span style={{ fontSize: 10 }}>🚩</span><span style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: '#D4A017' }}>{tapPoint.distGreen}m</span><span style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,160,23,0.5)' }}>till green</span></>}
+                        </div>
+                      ) : (
+                        <div style={{ position: 'absolute', bottom: 6, right: 8, fontSize: 9, fontFamily: 'var(--mono)', color: 'rgba(147,197,253,0.4)', letterSpacing: 1 }}>📏 TRYCK FÖR AVSTÅND</div>
+                      )}
+                    </div>
+                    {/* Tip */}
+                    <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.5)', lineHeight: 1.4, fontStyle: 'italic' }}>{curH.t}</div>
+                  </div>
+                )
+              })()}
             </div>
           ) : (
             <div>
