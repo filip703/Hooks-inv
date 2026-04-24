@@ -735,23 +735,87 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {tabyBanguideOpen && tabyActiveHole && (() => {
         const h = holes[tabyActiveHole - 1]
         if (!h) return null
+        const gps = TABY_GPS[h.h]
+        const liveDistGreen = tabyUserLoc ? distanceToGreen(tabyUserLoc.lat, tabyUserLoc.lng, h.h) : null
+        const onCourse = liveDistGreen != null && liveDistGreen < 1500
         return (
-          <div onClick={() => setTabyBanguideOpen(false)}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 500, display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: 16, paddingTop: 'calc(16px + env(safe-area-inset-top, 0px))' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ position: 'fixed', inset: 0, background: '#0C1830', zIndex: 500, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', paddingTop: 'calc(14px + env(safe-area-inset-top, 0px))', background: 'rgba(12,24,48,0.95)', borderBottom: '0.5px solid rgba(147,197,253,0.1)', position: 'sticky', top: 0, zIndex: 10 }}>
               <div>
-                <div style={{ fontFamily: 'var(--serif)', fontSize: 28, color: '#93C5FD' }}>Hål {h.h}</div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.5)' }}>PAR {h.p} · INDEX {h.i} · {h.m}m</div>
+                <div style={{ fontFamily: 'var(--serif)', fontSize: 26, color: '#93C5FD', lineHeight: 1 }}>Hål {h.h}</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(240,244,255,0.4)', marginTop: 2 }}>PAR {h.p} · INDEX {h.i} · {h.m}m</div>
               </div>
-              <button onClick={() => setTabyBanguideOpen(false)} style={{ background: 'rgba(147,197,253,0.08)', border: '0.5px solid rgba(147,197,253,0.2)', color: '#93C5FD', fontSize: 18, cursor: 'pointer', width: 36, height: 36, borderRadius: 10 }}>✕</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {/* Live GPS pill */}
+                {onCourse && (
+                  <div style={{ padding: '5px 12px', background: 'rgba(74,222,128,0.1)', border: '0.5px solid rgba(74,222,128,0.3)', borderRadius: 10, textAlign: 'center' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 15, fontWeight: 700, color: '#4ADE80', lineHeight: 1 }}>{liveDistGreen}m</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(74,222,128,0.6)', letterSpacing: 1 }}>TILL GREEN</div>
+                  </div>
+                )}
+                <button onClick={() => { setTabyBanguideOpen(false); setTapPoint(null) }} style={{ background: 'rgba(147,197,253,0.08)', border: '0.5px solid rgba(147,197,253,0.2)', color: '#93C5FD', fontSize: 18, cursor: 'pointer', width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}>✕</button>
+              </div>
             </div>
-            <img src={`/taby/holes/hole-${h.h}.webp`} alt={`Hål ${h.h}`}
-              onClick={e => e.stopPropagation()}
-              style={{ width: '100%', height: 'auto', borderRadius: 12, marginBottom: 12 }} />
-            <div onClick={e => e.stopPropagation()} style={{ padding: 14, background: 'rgba(147,197,253,0.06)', borderRadius: 12, border: '0.5px solid rgba(147,197,253,0.12)' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1.5, marginBottom: 6 }}>SPELTIPS</div>
-              <div style={{ fontSize: 14, color: 'rgba(240,244,255,0.8)', lineHeight: 1.6 }}>{h.t}</div>
-              {h.w && <div style={{ marginTop: 8, padding: '6px 10px', background: 'rgba(96,165,250,0.12)', borderRadius: 8, color: '#60A5FA', fontSize: 12 }}>💧 Vatten i spel på detta hål</div>}
+
+            {/* Tappable banguide image */}
+            <div style={{ padding: '12px 16px 0' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.4)', letterSpacing: 1.5, marginBottom: 6, textAlign: 'center' }}>
+                {tapPoint?.hole === h.h ? '📏 TRYCK IGEN FÖR NYTT AVSTÅND' : '📏 TRYCK PÅ BILDEN FÖR AVSTÅND'}
+              </div>
+              <div style={{ borderRadius: 14, overflow: 'hidden', border: tapPoint?.hole === h.h ? '1px solid rgba(212,160,23,0.5)' : '0.5px solid rgba(147,197,253,0.15)', position: 'relative', cursor: 'crosshair' }}
+                onClick={e => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const fx = (e.clientX - rect.left) / rect.width
+                  const fy = (e.clientY - rect.top) / rect.height
+                  const tapCoords = tapToGpsCoords(fx, fy, h.h)
+                  const distGreen = tapCoords ? Math.round(haversineDistance(tapCoords.lat, tapCoords.lng, gps.green.lat, gps.green.lng)) : null
+                  const distUser = (tapCoords && tabyUserLoc) ? Math.round(haversineDistance(tabyUserLoc.lat, tabyUserLoc.lng, tapCoords.lat, tapCoords.lng)) : null
+                  setTapPoint({ hole: h.h, distGreen, distUser, x: fx, y: fy })
+                }}>
+                <img src={`/taby/holes/hole-${h.h}.webp`} alt={`Hål ${h.h}`} style={{ width: '100%', height: 'auto', display: 'block' }} />
+                {/* Tap marker */}
+                {tapPoint?.hole === h.h && (
+                  <div style={{ position: 'absolute', left: `calc(${tapPoint.x * 100}% - 10px)`, top: `calc(${tapPoint.y * 100}% - 10px)`, width: 20, height: 20, borderRadius: '50%', background: 'rgba(212,160,23,0.9)', border: '2.5px solid #fff', boxShadow: '0 0 12px rgba(212,160,23,0.9)', pointerEvents: 'none' }} />
+                )}
+                {/* Distance pill on image */}
+                {tapPoint?.hole === h.h ? (
+                  <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', background: 'rgba(12,24,48,0.94)', border: '0.5px solid rgba(212,160,23,0.6)', borderRadius: 24, padding: '7px 18px', display: 'flex', alignItems: 'center', gap: 10, backdropFilter: 'blur(12px)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                    {tapPoint.distUser != null && <>
+                      <span style={{ fontSize: 11 }}>📍</span>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 700, color: '#93C5FD', lineHeight: 1 }}>{tapPoint.distUser}m</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.5)' }}>från dig</div>
+                      </div>
+                    </>}
+                    {tapPoint.distUser != null && tapPoint.distGreen != null && <div style={{ width: 1, height: 28, background: 'rgba(240,244,255,0.1)' }} />}
+                    {tapPoint.distGreen != null && <>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 700, color: '#D4A017', lineHeight: 1 }}>{tapPoint.distGreen}m</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,160,23,0.5)' }}>till green</div>
+                      </div>
+                      <span style={{ fontSize: 11 }}>🚩</span>
+                    </>}
+                    {tapPoint.distUser == null && tapPoint.distGreen != null && <>
+                      <span style={{ fontSize: 11 }}>🚩</span>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 700, color: '#D4A017' }}>{tapPoint.distGreen}m till green</div>
+                    </>}
+                  </div>
+                ) : (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.08)' }}>
+                    <div style={{ padding: '8px 16px', background: 'rgba(12,24,48,0.7)', borderRadius: 12, backdropFilter: 'blur(8px)', fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.5)' }}>Tryck var som helst</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Tip + hole info */}
+            <div style={{ padding: '12px 16px 32px' }}>
+              <div style={{ padding: 14, background: 'rgba(147,197,253,0.04)', borderRadius: 12, border: '0.5px solid rgba(147,197,253,0.1)', marginTop: 8 }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1.5, marginBottom: 6 }}>SPELTIPS</div>
+                <div style={{ fontSize: 14, color: 'rgba(240,244,255,0.8)', lineHeight: 1.6 }}>{h.t}</div>
+                {h.w && <div style={{ marginTop: 8, padding: '6px 10px', background: 'rgba(96,165,250,0.1)', borderRadius: 8, color: '#60A5FA', fontSize: 12 }}>💧 Vatten i spel</div>}
+              </div>
             </div>
           </div>
         )
@@ -1428,39 +1492,15 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 )
               })()}
 
-              {/* Banguide image - tap to measure distance, or hold to open full modal */}
+              {/* Banguide image - tap opens full measure modal */}
               <div style={{ marginBottom: 16 }}>
-                <div style={{ borderRadius: 12, overflow: 'hidden', border: `0.5px solid ${measureMode ? 'rgba(212,160,23,0.4)' : 'rgba(147,197,253,0.15)'}`, position: 'relative', cursor: measureMode ? 'crosshair' : 'pointer' }}
-                  onClick={e => {
-                    if (measureMode) {
-                      const rect = e.currentTarget.getBoundingClientRect()
-                      const fx = (e.clientX - rect.left) / rect.width
-                      const fy = (e.clientY - rect.top) / rect.height
-                      const dist = tapDistToGreen(fx, fy, h.h)
-                      setTapPoint({ hole: h.h, dist, x: fx, y: fy })
-                    } else {
-                      setTabyBanguideOpen(true)
-                    }
-                  }}>
+                <div style={{ borderRadius: 12, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.15)', position: 'relative', cursor: 'pointer' }}
+                  onClick={() => { setTabyBanguideOpen(true); setTapPoint(null) }}>
                   <img src={`/taby/holes/hole-${h.h}.webp`} alt={`Hål ${h.h}`} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 180, objectFit: 'cover' }} />
-                  {/* Tap marker */}
-                  {measureMode && tapPoint?.hole === h.h && (
-                    <div style={{ position: 'absolute', left: `calc(${tapPoint.x * 100}% - 8px)`, top: `calc(${tapPoint.y * 100}% - 8px)`, width: 16, height: 16, borderRadius: '50%', background: 'rgba(212,160,23,0.9)', border: '2px solid #fff', boxShadow: '0 0 8px rgba(212,160,23,0.8)', pointerEvents: 'none' }} />
-                  )}
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 12px', background: 'linear-gradient(180deg, transparent, rgba(12,24,48,0.9))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: '#93C5FD', fontSize: 9, fontFamily: 'var(--mono)', letterSpacing: 1.5 }}>BANGUIDE · HÅL {h.h}</span>
-                    {measureMode && tapPoint?.hole === h.h
-                      ? <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 700, color: '#D4A017' }}>🎯 {tapPoint.dist}m till green</span>
-                      : <span style={{ color: 'rgba(147,197,253,0.5)', fontSize: 9, fontFamily: 'var(--mono)' }}>{measureMode ? '📏 TRYCK FÖR AVSTÅND' : '📖 TRYCK FÖR STOR VY'}</span>
-                    }
+                    <span style={{ color: 'rgba(147,197,253,0.6)', fontSize: 10, fontFamily: 'var(--mono)' }}>📏 Tryck för avstånd</span>
                   </div>
-                </div>
-                {/* Measure toggle button */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-                  <button onClick={() => { setMeasureMode(m => !m); setTapPoint(null) }}
-                    style={{ padding: '4px 10px', borderRadius: 8, fontSize: 10, fontFamily: 'var(--mono)', cursor: 'pointer', background: measureMode ? 'rgba(212,160,23,0.15)' : 'rgba(147,197,253,0.06)', border: measureMode ? '0.5px solid rgba(212,160,23,0.4)' : '0.5px solid rgba(147,197,253,0.12)', color: measureMode ? '#D4A017' : 'rgba(147,197,253,0.5)', letterSpacing: 0.5 }}>
-                    {measureMode ? '📏 Mätläge på' : '📏 Mät avstånd'}
-                  </button>
                 </div>
               </div>
 
