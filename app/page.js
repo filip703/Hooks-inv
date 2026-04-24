@@ -470,30 +470,26 @@ function TaByApp({ onSwitchMode }) {
   }
 
   // Tap-to-distance: interpolate GPS from image tap position
-  const tapDistToGreen = (tapFracX, tapFracY, holeNum) => {
-    const gps = TABY_GPS[holeNum]
-    if (!gps?.tee?.lat || !gps?.green?.lat) return null
-    const t = Math.max(0, Math.min(1, tapFracY))
-    const lat = gps.tee.lat + (gps.green.lat - gps.tee.lat) * t
-    const lng = gps.tee.lng + (gps.green.lng - gps.tee.lng) * t
-    const dlat = gps.green.lat - gps.tee.lat
-    const dlng = gps.green.lng - gps.tee.lng
-    const len = Math.sqrt(dlat*dlat + dlng*dlng) || 1
-    const lateral = (tapFracX - 0.5) * 0.00015
-    return Math.round(haversineDistance(lat - dlng/len*lateral, lng + dlat/len*lateral, gps.green.lat, gps.green.lng))
-  }
-
+  // tapFracY=0 = top of image = GREEN end (Swedish hole guides: tee at bottom, green at top)
   const tapToGpsCoords = (tapFracX, tapFracY, holeNum) => {
     const gps = TABY_GPS[holeNum]
     if (!gps?.tee?.lat || !gps?.green?.lat) return null
-    const t = Math.max(0, Math.min(1, tapFracY))
+    const t = Math.max(0, Math.min(1, 1 - tapFracY)) // flip: top=green, bottom=tee
     const lat = gps.tee.lat + (gps.green.lat - gps.tee.lat) * t
     const lng = gps.tee.lng + (gps.green.lng - gps.tee.lng) * t
     const dlat = gps.green.lat - gps.tee.lat
     const dlng = gps.green.lng - gps.tee.lng
     const len = Math.sqrt(dlat*dlat + dlng*dlng) || 1
-    const lateral = (tapFracX - 0.5) * 0.00015
+    const lateral = (tapFracX - 0.5) * 0.002 // ±57m at image edges
     return { lat: lat - dlng/len*lateral, lng: lng + dlat/len*lateral }
+  }
+
+  const tapDistToGreen = (tapFracX, tapFracY, holeNum) => {
+    const gps = TABY_GPS[holeNum]
+    if (!gps?.green?.lat) return null
+    const coords = tapToGpsCoords(tapFracX, tapFracY, holeNum)
+    if (!coords) return null
+    return Math.round(haversineDistance(coords.lat, coords.lng, gps.green.lat, gps.green.lng))
   }
 
   // Find player's previous result on a specific hole
