@@ -1011,30 +1011,94 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         <div style={{ padding: '0 16px' }}>
           {!newRound ? (
             <div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,175,55,0.5)', letterSpacing: 1.5, marginBottom: 12 }}>SKAPA BOLL</div>
-              <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.5)', marginBottom: 12 }}>Välj vilka som spelar:</div>
-              {tabyPlayers.map(p => (
-                <button key={p.id} onClick={() => {}} style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', marginBottom: 4,
-                  background: p.id === tabyUser?.id ? 'rgba(212,175,55,0.08)' : 'rgba(147,197,253,0.03)',
-                  border: p.id === tabyUser?.id ? '0.5px solid rgba(212,175,55,0.2)' : '0.5px solid rgba(147,197,253,0.06)',
-                  borderRadius: 10, cursor: 'pointer', textAlign: 'left'
+              {/* JOIN ACTIVE ROUND BANNER */}
+              {tabyRounds.filter(r => {
+                if (!r.player_ids?.includes(tabyUser?.id)) return false
+                const created = new Date(r.created_at || r.date)
+                const ageHours = (new Date() - created) / 36e5
+                if (ageHours > 24) return false
+                const userHolesPlayed = tabyScores.filter(s => s.round_id === r.id && s.player_id === tabyUser?.id).length
+                return userHolesPlayed < 18
+              }).slice(0, 2).map(r => {
+                const otherPlayers = tabyPlayers.filter(p => r.player_ids?.includes(p.id) && p.id !== tabyUser?.id)
+                const userHoles = tabyScores.filter(s => s.round_id === r.id && s.player_id === tabyUser?.id).length
+                const fmtLabel = r.format === 'stroke' ? 'Slagspel' : r.format === 'matchplay' ? 'Matchplay' : r.format === 'skins' ? 'Skins' : 'Stableford'
+                return (
+                  <button key={r.id} onClick={() => resumeRound(r)} style={{
+                    width: '100%', padding: 14, marginBottom: 10, borderRadius: 12, cursor: 'pointer',
+                    background: 'linear-gradient(135deg, rgba(74,222,128,0.12), rgba(30,58,95,0.3))',
+                    border: '0.5px solid rgba(74,222,128,0.3)', textAlign: 'left'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <div style={{ fontSize: 14, color: '#F0F4FF', fontWeight: 600 }}>{userHoles > 0 ? '▶ Fortsätt rundan' : '🔴 Joina rundan'}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#4ADE80' }}>{userHoles > 0 ? `${userHoles}/18 hål` : 'Ej startad'}</div>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.6)', marginBottom: 6 }}>{fmtLabel} · {r.player_ids?.length || 1} spelare</div>
+                    {otherPlayers.length > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                        {otherPlayers.slice(0, 5).map(p => (
+                          <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '2px 8px 2px 3px', background: 'rgba(147,197,253,0.08)', borderRadius: 10 }}>
+                            {p.image_url ? <img src={p.image_url} style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'rgba(147,197,253,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
+                            <span style={{ fontSize: 10, color: 'rgba(240,244,255,0.7)' }}>{p.nickname}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,175,55,0.5)', letterSpacing: 1.5 }}>SKAPA BOLL</div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button onClick={() => setRoundSetup(s => ({ ...s, selectedPlayers: [tabyUser?.id] }))} style={{ fontFamily: 'var(--mono)', fontSize: 9, padding: '4px 8px', background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: 'rgba(147,197,253,0.7)', borderRadius: 6, cursor: 'pointer' }}>Bara jag</button>
+                  <button onClick={() => setRoundSetup(s => ({ ...s, selectedPlayers: tabyPlayers.map(p => p.id) }))} style={{ fontFamily: 'var(--mono)', fontSize: 9, padding: '4px 8px', background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: 'rgba(147,197,253,0.7)', borderRadius: 6, cursor: 'pointer' }}>Alla</button>
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.5)', marginBottom: 12 }}>Markera vilka som spelar – {(roundSetup.selectedPlayers || [tabyUser?.id]).filter(Boolean).length} valda:</div>
+              {tabyPlayers.map(p => {
+                const sel = roundSetup.selectedPlayers || [tabyUser?.id].filter(Boolean)
+                const isSelected = sel.includes(p.id)
+                const isSelf = p.id === tabyUser?.id
+                return (
+                  <button key={p.id} onClick={() => {
+                    const cur = roundSetup.selectedPlayers || [tabyUser?.id].filter(Boolean)
+                    const next = cur.includes(p.id) ? cur.filter(x => x !== p.id) : [...cur, p.id]
+                    setRoundSetup(s => ({ ...s, selectedPlayers: next }))
+                  }} style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', marginBottom: 4,
+                    background: isSelected ? (isSelf ? 'rgba(212,175,55,0.12)' : 'rgba(74,222,128,0.08)') : 'rgba(147,197,253,0.03)',
+                    border: isSelected ? (isSelf ? '0.5px solid rgba(212,175,55,0.4)' : '0.5px solid rgba(74,222,128,0.3)') : '0.5px solid rgba(147,197,253,0.06)',
+                    borderRadius: 10, cursor: 'pointer', textAlign: 'left'
+                  }}>
+                    <div style={{ width: 22, height: 22, borderRadius: 6, background: isSelected ? (isSelf ? '#D4A017' : '#4ADE80') : 'rgba(147,197,253,0.08)', border: isSelected ? 'none' : '0.5px solid rgba(147,197,253,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#0C1830', fontWeight: 700 }}>{isSelected ? '✓' : ''}</div>
+                    {p.image_url ? <img src={p.image_url} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 28, height: 28, borderRadius: '50%', background: isSelf ? 'rgba(212,175,55,0.2)' : 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: isSelf ? '#D4A017' : '#93C5FD' }}>{p.name?.charAt(0)}</div>}
+                    <div style={{ flex: 1, fontSize: 13, color: '#F0F4FF' }}>{p.nickname}{isSelf && <span style={{ fontSize: 9, color: 'rgba(212,175,55,0.6)', marginLeft: 6 }}>(du)</span>}</div>
+                    <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>HCP {p.taby_hcp || p.hcp}</div>
+                  </button>
+                )
+              })}
+              <button
+                onClick={() => {
+                  const sel = roundSetup.selectedPlayers || [tabyUser?.id].filter(Boolean)
+                  if (sel.length === 0) return
+                  startRound(tabyPlayers.filter(p => sel.includes(p.id)))
+                }}
+                disabled={(roundSetup.selectedPlayers || [tabyUser?.id]).filter(Boolean).length === 0}
+                style={{
+                  width: '100%', marginTop: 12, padding: 14, borderRadius: 12,
+                  cursor: 'pointer',
+                  background: 'linear-gradient(135deg, rgba(212,175,55,0.18), rgba(212,175,55,0.06))',
+                  border: '0.5px solid rgba(212,175,55,0.35)',
+                  color: '#D4A017', fontSize: 14, fontWeight: 600
                 }}>
-                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: p.id === tabyUser?.id ? 'rgba(212,175,55,0.2)' : 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: p.id === tabyUser?.id ? '#D4A017' : '#93C5FD' }}>{p.name?.charAt(0)}</div>
-                  <div style={{ flex: 1, fontSize: 13, color: '#F0F4FF' }}>{p.nickname}</div>
-                  <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>HCP {p.taby_hcp || p.hcp}</div>
-                </button>
-              ))}
-              <button onClick={() => startRound(tabyPlayers.filter(p => p.id === tabyUser?.id))} style={{
-                width: '100%', marginTop: 12, padding: 14, borderRadius: 12, cursor: 'pointer',
-                background: 'linear-gradient(135deg, rgba(212,175,55,0.15), rgba(212,175,55,0.05))',
-                border: '0.5px solid rgba(212,175,55,0.3)', color: '#D4A017', fontSize: 14, fontWeight: 600
-              }}>Starta solo-runda →</button>
-              <button onClick={() => startRound(tabyPlayers)} style={{
-                width: '100%', marginTop: 6, padding: 14, borderRadius: 12, cursor: 'pointer',
-                background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)',
-                color: '#93C5FD', fontSize: 13
-              }}>Starta med alla →</button>
+                {(() => {
+                  const n = (roundSetup.selectedPlayers || [tabyUser?.id]).filter(Boolean).length
+                  if (n === 0) return 'Välj minst en spelare'
+                  if (n === 1) return 'Starta solo-runda →'
+                  return `Starta runda med ${n} spelare →`
+                })()}
+              </button>
 
               {/* Format & event selector */}
               <div style={{ marginTop: 14, background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, border: '0.5px solid rgba(147,197,253,0.1)' }}>
