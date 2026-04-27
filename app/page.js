@@ -287,6 +287,14 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [tabyBroadcastSending, setTabyBroadcastSending] = useState(false)
   const [showInactivePlayers, setShowInactivePlayers] = useState(false)
   const [tabyAllPlayers, setTabyAllPlayers] = useState([])
+  const [tabyHoleImages, setTabyHoleImages] = useState({}) // { 1: 'url', 2: 'url', ... }
+  const [tabyDioConfig, setTabyDioConfig] = useState({ // för admin-redigering av DIO-datum från Täby-appen
+    startDate: '2026-05-22T09:00:00+02:00',
+    endDate: '2026-05-24T20:00:00+02:00',
+    datesLabel: '22–24 MAJ',
+    venue: 'HOOKS HERRGÅRD',
+    year: '2026'
+  })
 
   // Fetch helpers (for settings view actions)
   const fetchTabyPlayers = async () => {
@@ -343,12 +351,40 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       if (wagers) setTabyBetWagers(wagers)
       const { data: h2h } = await supabase.from('taby_h2h').select('*').order('created_at', { ascending: false })
       if (h2h) setTabyH2H(h2h)
+      // Hole images
+      const { data: holeImgs } = await supabase.from('taby_hole_images').select('*')
+      if (holeImgs) {
+        const map = {}
+        holeImgs.forEach(r => { map[r.hole_number] = r.image_url })
+        setTabyHoleImages(map)
+      }
+      // DIO config (för admin från Täby)
+      const { data: dioSet } = await supabase.from('inv_settings').select('key, value').in('key', ['dio_start_date', 'dio_end_date', 'dio_dates_label', 'dio_venue', 'dio_year'])
+      if (dioSet) {
+        const cfg = {}
+        dioSet.forEach(row => {
+          let v = row.value
+          if (typeof v === 'string' && v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1)
+          cfg[row.key] = v
+        })
+        setTabyDioConfig(prev => ({
+          ...prev,
+          startDate: cfg.dio_start_date || prev.startDate,
+          endDate: cfg.dio_end_date || prev.endDate,
+          datesLabel: cfg.dio_dates_label || prev.datesLabel,
+          venue: cfg.dio_venue || prev.venue,
+          year: cfg.dio_year || prev.year
+        }))
+      }
     }
     loadData()
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
 
   useEffect(() => { if (tabyUser) localStorage.setItem('taby_user', JSON.stringify(tabyUser)) }, [tabyUser])
+
+  // Hole image URL — Supabase storage först (admin-uploaded), fallback till /public/
+  const holeImageUrl = (holeNum) => tabyHoleImages[holeNum] || `/taby/holes/hole-${holeNum}.webp`
 
   // Hole data — mappad från TABY_HOLES (lib/courses-taby.js) som har officiell data från Täby GK banguide
   // Kompakt format för UI: h=hole, p=par, i=index, m=meters (tee 60), t=tip, w=water,
@@ -802,7 +838,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   const distUser = (tapCoords && tabyUserLoc) ? Math.round(haversineDistance(tabyUserLoc.lat, tabyUserLoc.lng, tapCoords.lat, tapCoords.lng)) : null
                   setTapPoint({ hole: h.h, distGreen, distUser, x: fx, y: fy })
                 }}>
-                <img src={`/taby/holes/hole-${h.h}.webp`} alt={`Hål ${h.h}`} style={{ width: '100%', height: 'auto', display: 'block' }} />
+                <img src={holeImageUrl(h.h)} alt={`Hål ${h.h}`} style={{ width: '100%', height: 'auto', display: 'block' }} />
                 {/* Tap marker */}
                 {tapPoint?.hole === h.h && (
                   <div style={{ position: 'absolute', left: `calc(${tapPoint.x * 100}% - 10px)`, top: `calc(${tapPoint.y * 100}% - 10px)`, width: 20, height: 20, borderRadius: '50%', background: 'rgba(212,160,23,0.9)', border: '2.5px solid #fff', boxShadow: '0 0 12px rgba(212,160,23,0.9)', pointerEvents: 'none' }} />
@@ -1252,7 +1288,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                         const distUser = (tapCoords && tabyUserLoc) ? Math.round(haversineDistance(tabyUserLoc.lat, tabyUserLoc.lng, tapCoords.lat, tapCoords.lng)) : null
                         setTapPoint({ hole: tabyHole, distGreen, distUser, x: fx, y: fy })
                       }}>
-                      <img src={`/taby/holes/hole-${tabyHole}.webp`} alt={`Hål ${tabyHole}`} style={{ width: '100%', height: 'auto', display: 'block' }} />
+                      <img src={holeImageUrl(tabyHole)} alt={`Hål ${tabyHole}`} style={{ width: '100%', height: 'auto', display: 'block' }} />
                       {/* Tap marker */}
                       {tapPoint?.hole === tabyHole && (
                         <div style={{ position: 'absolute', left: `calc(${tapPoint.x * 100}% - 8px)`, top: `calc(${tapPoint.y * 100}% - 8px)`, width: 16, height: 16, borderRadius: '50%', background: 'rgba(212,160,23,0.9)', border: '2px solid #fff', boxShadow: '0 0 8px rgba(212,160,23,0.8)', pointerEvents: 'none' }} />
@@ -1639,7 +1675,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <div style={{ marginBottom: 16 }}>
                 <div style={{ borderRadius: 12, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.15)', position: 'relative', cursor: 'pointer' }}
                   onClick={() => { setTabyBanguideOpen(true); setTapPoint(null) }}>
-                  <img src={`/taby/holes/hole-${h.h}.webp`} alt={`Hål ${h.h}`} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 180, objectFit: 'cover' }} />
+                  <img src={holeImageUrl(h.h)} alt={`Hål ${h.h}`} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 180, objectFit: 'cover' }} />
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 12px', background: 'linear-gradient(180deg, transparent, rgba(12,24,48,0.9))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: '#93C5FD', fontSize: 9, fontFamily: 'var(--mono)', letterSpacing: 1.5 }}>BANGUIDE · HÅL {h.h}</span>
                     <span style={{ color: 'rgba(147,197,253,0.6)', fontSize: 10, fontFamily: 'var(--mono)' }}>📏 Tryck för avstånd</span>
@@ -1780,7 +1816,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               const dist = tapDistToGreen(fx, fy, curHole.h)
               setTapPoint({ hole: curHole.h, dist, x: fx, y: fy })
             }}>
-            <img src={`/taby/holes/hole-${curHole.h}.webp`} alt={`Hål ${curHole.h}`} style={{ width: '100%', height: 'auto', display: 'block' }} />
+            <img src={holeImageUrl(curHole.h)} alt={`Hål ${curHole.h}`} style={{ width: '100%', height: 'auto', display: 'block' }} />
             {tapPoint?.hole === curHole.h && (
               <>
                 {/* Tap marker */}
@@ -1985,6 +2021,182 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         <div style={{ padding: '0 16px 16px' }}>
           <div style={{ fontFamily: 'var(--serif)', fontSize: 20, color: '#D4A017', marginBottom: 4 }}>⚙️ Settings</div>
           <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 16 }}>Admin-panel för Täby Order of Merit</div>
+
+          {/* DIO Konfiguration */}
+          <div style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.06), rgba(27,67,50,0.04))', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(212,175,55,0.12)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D4A017', letterSpacing: 2, marginBottom: 10 }}>🏆 DIO KONFIGURATION</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 10 }}>Hooks Herrgård – startdatum, plats, period</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+              <div>
+                <div style={{ fontSize: 10, color: 'rgba(240,244,255,0.5)', marginBottom: 4 }}>Startdatum</div>
+                <input type="datetime-local" defaultValue={tabyDioConfig.startDate.slice(0, 16)}
+                  style={{ width: '100%', background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 6, color: '#F0F4FF', padding: '6px 8px', fontSize: 12, fontFamily: 'var(--mono)' }}
+                  onBlur={async (e) => {
+                    const v = e.target.value + ':00+02:00'
+                    await supabase.from('inv_settings').upsert({ key: 'dio_start_date', value: JSON.stringify(v), updated_by: tabyUser.nickname })
+                    setTabyDioConfig(prev => ({ ...prev, startDate: v }))
+                    showTabyToast('DIO startdatum sparat', 'birdie')
+                  }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: 'rgba(240,244,255,0.5)', marginBottom: 4 }}>Slutdatum</div>
+                <input type="datetime-local" defaultValue={tabyDioConfig.endDate.slice(0, 16)}
+                  style={{ width: '100%', background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 6, color: '#F0F4FF', padding: '6px 8px', fontSize: 12, fontFamily: 'var(--mono)' }}
+                  onBlur={async (e) => {
+                    const v = e.target.value + ':00+02:00'
+                    await supabase.from('inv_settings').upsert({ key: 'dio_end_date', value: JSON.stringify(v), updated_by: tabyUser.nickname })
+                    setTabyDioConfig(prev => ({ ...prev, endDate: v }))
+                    showTabyToast('DIO slutdatum sparat', 'birdie')
+                  }} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <div style={{ fontSize: 10, color: 'rgba(240,244,255,0.5)', marginBottom: 4 }}>Etikett (visning)</div>
+                <input type="text" defaultValue={tabyDioConfig.datesLabel} placeholder="22–24 MAJ"
+                  style={{ width: '100%', background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 6, color: '#F0F4FF', padding: '6px 8px', fontSize: 12, fontFamily: 'var(--mono)' }}
+                  onBlur={async (e) => {
+                    await supabase.from('inv_settings').upsert({ key: 'dio_dates_label', value: JSON.stringify(e.target.value), updated_by: tabyUser.nickname })
+                    setTabyDioConfig(prev => ({ ...prev, datesLabel: e.target.value }))
+                    showTabyToast('Etikett sparad', 'birdie')
+                  }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: 'rgba(240,244,255,0.5)', marginBottom: 4 }}>Plats</div>
+                <input type="text" defaultValue={tabyDioConfig.venue} placeholder="HOOKS HERRGÅRD"
+                  style={{ width: '100%', background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 6, color: '#F0F4FF', padding: '6px 8px', fontSize: 12, fontFamily: 'var(--mono)' }}
+                  onBlur={async (e) => {
+                    await supabase.from('inv_settings').upsert({ key: 'dio_venue', value: JSON.stringify(e.target.value), updated_by: tabyUser.nickname })
+                    setTabyDioConfig(prev => ({ ...prev, venue: e.target.value }))
+                    showTabyToast('Plats sparad', 'birdie')
+                  }} />
+              </div>
+            </div>
+            <div style={{ marginTop: 8, padding: '6px 10px', background: 'rgba(74,222,128,0.06)', borderRadius: 6, fontSize: 10, color: 'rgba(74,222,128,0.7)' }}>
+              ✓ Aktiv: {tabyDioConfig.datesLabel} {tabyDioConfig.year} · {tabyDioConfig.venue} · {(() => {
+                const d = (new Date(tabyDioConfig.startDate) - new Date()) / 86400000
+                return d > 0 ? `${Math.ceil(d)} dagar kvar` : 'Pågår nu'
+              })()}
+            </div>
+          </div>
+
+          {/* Spelarnamn-redigering */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#93C5FD', letterSpacing: 2, marginBottom: 10 }}>👤 SPELARNAMN & NICKNAMES</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 10 }}>Ändras både i splash, leaderboard, scoring och chat</div>
+            {tabyAllPlayers.filter(p => p.key !== 'spectator').map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '0.5px solid rgba(147,197,253,0.06)' }}>
+                {p.image_url ? <img src={p.image_url} style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD', flexShrink: 0 }}>{p.name?.charAt(0)}</div>}
+                <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                  <input type="text" defaultValue={p.name} placeholder="Fullt namn"
+                    style={{ background: 'rgba(147,197,253,0.06)', border: '1px solid rgba(147,197,253,0.1)', borderRadius: 5, color: '#F0F4FF', padding: '4px 7px', fontSize: 11 }}
+                    onBlur={async (e) => {
+                      const v = e.target.value.trim()
+                      if (v && v !== p.name) {
+                        await supabase.from('inv_players').update({ name: v }).eq('id', p.id)
+                        fetchTabyPlayers()
+                        showTabyToast(`Namn → ${v}`, 'birdie')
+                      }
+                    }} />
+                  <input type="text" defaultValue={p.nickname} placeholder="Nickname"
+                    style={{ background: 'rgba(212,160,23,0.06)', border: '1px solid rgba(212,160,23,0.15)', borderRadius: 5, color: '#D4A017', padding: '4px 7px', fontSize: 11, fontFamily: 'var(--mono)' }}
+                    onBlur={async (e) => {
+                      const v = e.target.value.trim()
+                      if (v && v !== p.nickname) {
+                        await supabase.from('inv_players').update({ nickname: v }).eq('id', p.id)
+                        fetchTabyPlayers()
+                        showTabyToast(`Nickname → ${v}`, 'birdie')
+                      }
+                    }} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Walk-up music */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#93C5FD', letterSpacing: 2, marginBottom: 10 }}>🎵 WALK-UP MUSIC</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 10 }}>Låt per spelare (visas i Min Profil)</div>
+            {tabyAllPlayers.filter(p => p.key !== 'spectator').map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '0.5px solid rgba(147,197,253,0.06)' }}>
+                <div style={{ width: 80, fontSize: 11, color: 'rgba(147,197,253,0.7)', fontFamily: 'var(--mono)' }}>{p.nickname}</div>
+                <input type="text" defaultValue={p.song || ''} placeholder="Artist – Låt"
+                  style={{ flex: 1, background: 'rgba(147,197,253,0.06)', border: '1px solid rgba(147,197,253,0.1)', borderRadius: 5, color: '#F0F4FF', padding: '5px 8px', fontSize: 11 }}
+                  onBlur={async (e) => {
+                    const v = e.target.value.trim()
+                    if (v !== (p.song || '')) {
+                      await supabase.from('inv_players').update({ song: v || null }).eq('id', p.id)
+                      fetchTabyPlayers()
+                      showTabyToast(`${p.nickname} walk-up uppdaterad`, 'birdie')
+                    }
+                  }} />
+              </div>
+            ))}
+          </div>
+
+          {/* Banguide-bilder */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#4ADE80', letterSpacing: 2, marginBottom: 10 }}>📷 BANGUIDE-BILDER</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 10 }}>Ladda upp officiella banguide-bilder per hål. Sparas i Supabase storage.</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].map(holeNum => {
+                const hasCustom = !!tabyHoleImages[holeNum]
+                return (
+                  <div key={holeNum} style={{ position: 'relative' }}>
+                    <label style={{ display: 'block', cursor: 'pointer' }}>
+                      <input type="file" accept="image/*" style={{ display: 'none' }}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          showTabyToast(`Laddar upp hål ${holeNum}...`, 'score')
+                          const ext = file.name.split('.').pop().toLowerCase()
+                          const path = `taby/holes/hole-${holeNum}.${ext}`
+                          const { error: upErr } = await supabase.storage.from('inv-images').upload(path, file, { contentType: file.type, upsert: true })
+                          if (upErr) {
+                            showTabyToast(`Upload fel: ${upErr.message}`, 'zero')
+                            return
+                          }
+                          const url = `https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/${path}?t=${Date.now()}`
+                          await supabase.from('taby_hole_images').upsert({ hole_number: holeNum, image_url: url, uploaded_by: tabyUser.nickname })
+                          setTabyHoleImages(prev => ({ ...prev, [holeNum]: url }))
+                          showTabyToast(`✓ Hål ${holeNum} uppladdad`, 'birdie')
+                        }} />
+                      <div style={{ aspectRatio: '3/4', background: hasCustom ? 'rgba(74,222,128,0.06)' : 'rgba(147,197,253,0.04)', border: hasCustom ? '0.5px solid rgba(74,222,128,0.3)' : '0.5px dashed rgba(147,197,253,0.2)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 6, position: 'relative', overflow: 'hidden' }}>
+                        {hasCustom && (
+                          <img src={tabyHoleImages[holeNum]} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.3 }} />
+                        )}
+                        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+                          <div style={{ fontFamily: 'var(--serif)', fontSize: 18, color: hasCustom ? '#4ADE80' : '#93C5FD' }}>{holeNum}</div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: hasCustom ? 'rgba(74,222,128,0.6)' : 'rgba(147,197,253,0.4)', letterSpacing: 1, marginTop: 2 }}>
+                            {hasCustom ? '✓ UPLOAD' : 'TRYCK'}
+                          </div>
+                        </div>
+                      </div>
+                    </label>
+                    {hasCustom && (
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Ta bort uppladdad bild för hål ${holeNum}?`)) return
+                          await supabase.from('taby_hole_images').delete().eq('hole_number', holeNum)
+                          setTabyHoleImages(prev => {
+                            const next = { ...prev }
+                            delete next[holeNum]
+                            return next
+                          })
+                          showTabyToast(`Hål ${holeNum} återställd`, 'score')
+                        }}
+                        style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(232,99,74,0.8)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(212,160,23,0.04)', borderRadius: 6, fontSize: 10, color: 'rgba(212,160,23,0.7)', lineHeight: 1.5 }}>
+              💡 <strong style={{ color: '#D4A017' }}>Tips:</strong> Fota banguide-skylten på respektive tee, eller skicka officiella bilderna från klubben. Bilderna visas direkt i banguide-modalen och fullscreen scoring.
+            </div>
+          </div>
 
           {/* HCP per spelare */}
           <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
