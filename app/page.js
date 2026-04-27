@@ -4614,6 +4614,25 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)', marginTop: 4 }}>HCP {user.hcp} · {user.team === 'green' ? '🟢 Jägermeister' : '🔵 Fernet'}</div>
           </div>
 
+          {/* Storyn bakom namnet */}
+          {user.nickname_story && (
+            <div style={{ background: 'linear-gradient(135deg, rgba(201,168,76,0.08), rgba(27,67,50,0.15))', border: '0.5px solid rgba(212,175,55,0.2)', borderRadius: 12, padding: 16, marginBottom: 14 }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>📖 STORYN BAKOM NAMNET</div>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 14, fontStyle: 'italic', color: 'var(--cream)', lineHeight: 1.6 }}>
+                {user.nickname_story}
+              </div>
+              {user.song && (
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: '0.5px solid rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 14 }}>🎵</span>
+                  <div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'var(--cream-muted)', letterSpacing: 1.5 }}>WALK-UP MUSIC</div>
+                    <div style={{ fontSize: 12, color: 'var(--cream)' }}>{user.song}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Kontaktuppgifter */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>KONTAKT</div>
