@@ -3314,6 +3314,14 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       <div className="splash-badge-phase">
         <img src="/dio-badge.png" alt="DIO" className="splash-badge-img" />
         <div className="splash-venue">Hooks Herrgård · {dioConfig.datesLabel} {dioConfig.year}</div>
+        {/* Current Champion — under loggan */}
+        <div className="splash-champion-current">
+          <div className="splash-champion-crown">👑</div>
+          <div className="splash-champion-label">Reigning Champion</div>
+          <div className="splash-champion-name">Matthis</div>
+          <div className="splash-champion-surname">Jacobsson</div>
+          <div className="splash-champion-nick">&ldquo;The Grinder&rdquo; · 2025</div>
+        </div>
       </div>
 
       {/* Past Champions plates — slides in from bottom */}

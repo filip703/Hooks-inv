@@ -593,6 +593,50 @@ body {
   text-transform: uppercase;
 }
 
+/* ── Current Champion — under loggan ── */
+.splash-champion-current {
+  display: flex; flex-direction: column; align-items: center;
+  margin-top: 28px;
+  opacity: 0;
+  animation: champIn 1.0s cubic-bezier(0.16,1,0.3,1) 2.6s forwards;
+}
+.splash-champion-crown {
+  font-size: 26px; line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(212,175,55,0.8));
+  animation: crownPulse 2.2s ease-in-out 3.6s infinite;
+}
+.splash-champion-label {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 5px;
+  color: rgba(212,175,55,0.65); text-transform: uppercase;
+  margin-top: 6px; margin-bottom: 4px;
+}
+.splash-champion-name {
+  font-family: var(--serif); font-size: 42px; font-weight: 300;
+  color: #FAF8F0; line-height: 1;
+  text-shadow: 0 0 40px rgba(212,175,55,0.45), 0 2px 12px rgba(0,0,0,0.6);
+  letter-spacing: -0.01em;
+}
+.splash-champion-surname {
+  font-family: var(--serif); font-style: italic; font-size: 32px;
+  color: var(--gold); line-height: 1; margin-top: 1px;
+  text-shadow: 0 0 30px rgba(212,175,55,0.55);
+}
+.splash-champion-nick {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
+  color: rgba(212,175,55,0.55); margin-top: 8px;
+}
+
+@keyframes champIn {
+  0%   { opacity: 0; transform: translateY(16px) scale(0.92); filter: blur(4px); }
+  50%  { filter: blur(0px); }
+  70%  { transform: translateY(-3px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes crownPulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(212,175,55,0.7)); }
+  50%       { transform: scale(1.12); filter: drop-shadow(0 0 22px rgba(212,175,55,1.0)); }
+}
+
 @keyframes badgePop {
   0%   { opacity: 0; transform: scale(0.65); }
   55%  { opacity: 1; transform: scale(1.05); }
