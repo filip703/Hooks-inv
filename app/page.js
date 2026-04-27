@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven } from '../lib/courses'
-import { TABY_GPS, distanceToGreen, distanceToTee, haversineDistance } from '../lib/courses-taby'
+import { TABY_GPS, TABY_HOLES, TABY_COURSE, distanceToGreen, distanceToTee, haversineDistance } from '../lib/courses-taby'
 import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio } from '../lib/sounds'
 import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush, sendPush } from '../lib/push'
 import { AugustaBadge, LakeBadge, IconTrophy, IconFlag, IconLeaderboard, IconScorecard, IconMenu, IconSwords, IconChat, IconWallet, IconDice, IconCamera, IconInfo, IconUser, IconSettings, IconBell, IconSun, IconMoon, IconRefresh, IconLock, IconSwish, IconGreenJacket, IconGolfBall } from '../lib/icons'
@@ -350,26 +350,28 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
 
   useEffect(() => { if (tabyUser) localStorage.setItem('taby_user', JSON.stringify(tabyUser)) }, [tabyUser])
 
-  const holes = [
-    { h:1,p:5,i:13,m:441,t:'Sikta mot högsta tallen. Brant slänt bakom green.',w:false },
-    { h:2,p:4,i:9,m:372,t:'Vänster fairway ger bättre vinkel.',w:false },
-    { h:3,p:4,i:3,m:357,t:'Damm vänster fairway. Upphöjd green.',w:true },
-    { h:4,p:3,i:17,m:137,t:'Vatten följer vänster green. Uppförsputt föredras.',w:true },
-    { h:5,p:4,i:1,m:396,t:'Svåraste hålet. Hela vägen uppför.',w:false },
-    { h:6,p:5,i:7,m:484,t:'Längsta hålet. Blint inspel – invänta klocka.',w:false },
-    { h:7,p:3,i:15,m:178,t:'20m nedför. Kort/vänster rullar till bunkrarna.',w:false },
-    { h:8,p:4,i:5,m:383,t:'Håll vänster för optimal vinkel mot green.',w:false },
-    { h:9,p:4,i:11,m:320,t:'Sikta talldungen höger. Damm vänster green.',w:true },
-    { h:10,p:4,i:8,m:378,t:'Över kullen mitt i fairway. Damm höger.',w:true },
-    { h:11,p:4,i:12,m:350,t:'Vatten kort och höger om green.',w:true },
-    { h:12,p:5,i:4,m:472,t:'Platå-hål. Damm bakom krönet. Klocksignal!',w:true },
-    { h:13,p:4,i:14,m:310,t:'Blint utslag! Utsiktstornet.',w:false },
-    { h:14,p:3,i:2,m:180,t:'Signaturhål! Sjön. Bollen rullar mot vattnet.',w:true },
-    { h:15,p:4,i:18,m:309,t:'Ett av Sveriges vackraste hål.',w:true },
-    { h:16,p:4,i:6,m:363,t:'Dold damm vänster. Kraftigt lutande green.',w:true },
-    { h:17,p:3,i:16,m:157,t:'Sjöhålet! Vatten framför och vänster.',w:true },
-    { h:18,p:5,i:10,m:440,t:'Ny green 2026. OB vänster, vatten höger.',w:true },
-  ]
+  // Hole data — mappad från TABY_HOLES (lib/courses-taby.js) som har officiell data från Täby GK banguide
+  // Kompakt format för UI: h=hole, p=par, i=index, m=meters (tee 60), t=tip, w=water,
+  // tees={teeMarker:meters}, approaches, layup, inspel, greenSections, signature/blind/bell flags
+  const holes = TABY_HOLES.map(h => ({
+    h: h.hole,
+    p: h.par,
+    i: h.index,
+    m: h.meters[60],
+    t: h.tip,
+    w: h.water,
+    tees: h.meters,
+    approaches: h.approaches,
+    layup: h.layup,
+    inspel: h.inspel,
+    greenSections: h.greenSections,
+    signature: h.signature,
+    blind: h.blind,
+    bell: h.bell,
+    bunkers: h.bunkers,
+    elevation: h.elevation,
+    banGuideImage: h.banGuideImage
+  }))
   const PARS = holes.map(h => h.p)
   const totalPar = PARS.reduce((s, p) => s + p, 0) // 72
   const curHole = holes[tabyHole - 1]
@@ -841,8 +843,56 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <div style={{ padding: 14, background: 'rgba(147,197,253,0.04)', borderRadius: 12, border: '0.5px solid rgba(147,197,253,0.1)', marginTop: 8 }}>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1.5, marginBottom: 6 }}>SPELTIPS</div>
                 <div style={{ fontSize: 14, color: 'rgba(240,244,255,0.8)', lineHeight: 1.6 }}>{h.t}</div>
-                {h.w && <div style={{ marginTop: 8, padding: '6px 10px', background: 'rgba(96,165,250,0.1)', borderRadius: 8, color: '#60A5FA', fontSize: 12 }}>💧 Vatten i spel</div>}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                  {h.w && <div style={{ padding: '4px 9px', background: 'rgba(96,165,250,0.1)', borderRadius: 6, color: '#60A5FA', fontSize: 11 }}>💧 Vatten i spel</div>}
+                  {h.bunkers && <div style={{ padding: '4px 9px', background: 'rgba(212,160,23,0.1)', borderRadius: 6, color: '#D4A017', fontSize: 11 }}>⚪ Bunkers</div>}
+                  {h.bell && <div style={{ padding: '4px 9px', background: 'rgba(232,99,74,0.1)', borderRadius: 6, color: '#E8634A', fontSize: 11 }}>🔔 Klocksignal</div>}
+                  {h.blind && <div style={{ padding: '4px 9px', background: 'rgba(212,160,23,0.12)', borderRadius: 6, color: '#D4A017', fontSize: 11 }}>👁 Blint utslag</div>}
+                  {h.signature && <div style={{ padding: '4px 9px', background: 'linear-gradient(135deg, rgba(212,160,23,0.18), rgba(74,222,128,0.1))', borderRadius: 6, color: '#D4A017', fontSize: 11, fontWeight: 600 }}>⭐ Signaturhål</div>}
+                </div>
               </div>
+
+              {/* Tee-distanser */}
+              {h.tees && (
+                <div style={{ marginTop: 12, padding: 14, background: 'rgba(147,197,253,0.04)', borderRadius: 12, border: '0.5px solid rgba(147,197,253,0.1)' }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 1.5, marginBottom: 8 }}>TEE-DISTANSER</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                    {Object.entries(h.tees).map(([tee, m]) => (
+                      <div key={tee} style={{ padding: '6px 8px', background: 'rgba(12,24,48,0.4)', borderRadius: 8, textAlign: 'center', border: '0.5px solid rgba(147,197,253,0.08)' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(147,197,253,0.7)' }}>{tee}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: '#F0F4FF', fontWeight: 600 }}>{m}m</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Inspelmått */}
+              {h.inspel && h.inspel.length > 0 && (
+                <div style={{ marginTop: 12, padding: 14, background: 'rgba(147,197,253,0.04)', borderRadius: 12, border: '0.5px solid rgba(147,197,253,0.1)' }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#4ADE80', letterSpacing: 1.5, marginBottom: 8 }}>INSPELMÅTT (TILL FRAMKANT)</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {h.inspel.map((m, i) => (
+                      <div key={i} style={{ padding: '5px 11px', background: 'rgba(74,222,128,0.06)', border: '0.5px solid rgba(74,222,128,0.15)', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: 12, color: '#4ADE80' }}>{m}m</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Approaches per tee (om det finns) */}
+              {h.approaches && Object.keys(h.approaches).length > 0 && h.par !== 3 && (
+                <div style={{ marginTop: 12, padding: 14, background: 'rgba(147,197,253,0.04)', borderRadius: 12, border: '0.5px solid rgba(147,197,253,0.1)' }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,160,23,0.7)', letterSpacing: 1.5, marginBottom: 8 }}>APPROACH-AVSTÅND</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                    {Object.entries(h.approaches).map(([tee, m]) => (
+                      <div key={tee} style={{ padding: '6px 8px', background: 'rgba(12,24,48,0.4)', borderRadius: 8, textAlign: 'center', border: '0.5px solid rgba(212,160,23,0.1)' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(212,160,23,0.6)' }}>tee {tee}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: '#F0F4FF' }}>{m}m</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )
