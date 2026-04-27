@@ -2295,13 +2295,13 @@ function DIOApp({ onSwitchMode }) {
     const { data } = await supabase.from('inv_prop_bets').select('*').order('created_at', { ascending: false })
     if (data) setPropBets(data)
   }, [])
-  useEffect(() => { fetchAll(); fetchChat(); fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments(); fetchOdds() }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds])
+  useEffect(() => { fetchAll(); fetchChat(); fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments(); fetchOdds(); fetchHistoria() }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds])
 
   // Auto-refresh när appen blir synlig (PWA: när man växlar tillbaka)
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        fetchAll(); fetchChat(); fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments(); fetchOdds()
+        fetchAll(); fetchChat(); fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments(); fetchOdds(); fetchHistoria()
       }
     }
     document.addEventListener('visibilitychange', onVisible)
@@ -2341,7 +2341,8 @@ function DIOApp({ onSwitchMode }) {
     const c9 = supabase.channel('odds3').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_odds_wagers' }, () => fetchOdds()).subscribe()
     const c4 = supabase.channel('h2h1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_h2h_matches' }, () => fetchH2h()).subscribe()
     const c5 = supabase.channel('prop1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_prop_bets' }, () => fetchProps()).subscribe()
-    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4); supabase.removeChannel(c5); supabase.removeChannel(c6); supabase.removeChannel(c7); supabase.removeChannel(c8); supabase.removeChannel(c9) }
+    const c10 = supabase.channel('hist1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_historia' }, () => fetchHistoria()).subscribe()
+    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4); supabase.removeChannel(c5); supabase.removeChannel(c6); supabase.removeChannel(c7); supabase.removeChannel(c8); supabase.removeChannel(c9); supabase.removeChannel(c10) }
   }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds, players])
 
   const addNotif = (msg, type) => {
