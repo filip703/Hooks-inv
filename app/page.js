@@ -470,6 +470,38 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       setTabyRounds(prev => [data, ...prev])
       setTabyView('scoring')
       setTabyActiveHole(1)
+
+      // Push-notiser till alla Täby-spelare som ÄR med i rundan (joinable) + de som inte är med (FYI)
+      try {
+        const fmtLabel = format === 'stroke' ? 'Slagspel' : format === 'matchplay' ? 'Matchplay' : format === 'skins' ? 'Skins' : 'Stableford'
+        const otherInRound = selectedPlayers.filter(p => p.id !== tabyUser?.id)
+        const notInRound = tabyPlayers.filter(p => !playerIds.includes(p.id) && p.key !== 'spectator')
+
+        // Spelare i rundan: "Joina rundan!"
+        for (const p of otherInRound) {
+          await sendPush({
+            title: `🏌️ ${tabyUser.nickname} startade en runda!`,
+            body: `${fmtLabel} på Täby GK – du är inbjuden. Öppna appen för att joina.`,
+            targetPlayerId: p.id,
+            url: 'https://hooks-inv.vercel.app/?taby_only=1',
+            type: 'taby_round_invite'
+          }).catch(() => {})
+        }
+
+        // Övriga Täby-spelare: "FYI"
+        for (const p of notInRound) {
+          await sendPush({
+            title: `⛳ Ny runda igång på Täby`,
+            body: `${tabyUser.nickname}${otherInRound.length > 0 ? ` + ${otherInRound.length} till` : ''} drar igång ${fmtLabel.toLowerCase()}`,
+            targetPlayerId: p.id,
+            url: 'https://hooks-inv.vercel.app/?taby_only=1',
+            type: 'taby_round_fyi'
+          }).catch(() => {})
+        }
+        showTabyToast(`Runda skapad – notiser skickade till ${otherInRound.length + notInRound.length} spelare`, 'birdie')
+      } catch (err) {
+        console.error('Push error:', err)
+      }
     }
   }
 
@@ -1745,20 +1777,68 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 )
               })()}
 
-              {/* Others on this hole */}
-              {othersOnHole.length > 0 && (
-                <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 12, marginBottom: 12 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)', letterSpacing: 1, marginBottom: 6 }}>ALLA PÅ HÅL {h.h}</div>
-                  {othersOnHole.map(({ player: p, score: s }) => (
-                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '0.5px solid rgba(147,197,253,0.06)' }}>
-                      {p.image_url ? <img src={p.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
-                      <div style={{ flex: 1, fontSize: 13, color: 'rgba(240,244,255,0.65)' }}>{p.nickname}</div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'rgba(240,244,255,0.85)' }}>{s?.strokes || '–'}</div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, minWidth: 28, textAlign: 'right', color: (s?.stableford || 0) >= 3 ? '#4ADE80' : s?.stableford === 0 ? '#E8634A' : 'rgba(240,244,255,0.5)' }}>{s?.stableford != null ? s.stableford + 'p' : ''}</div>
+              {/* LIVE LEADERBOARD - alla i rundan, sorterat efter total stableford */}
+              {newRound.player_ids?.length > 1 && (() => {
+                const standings = newRound.player_ids.map(pid => {
+                  const p = tabyPlayers.find(x => x.id === pid)
+                  if (!p) return null
+                  const allScores = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === pid)
+                  const totalStab = allScores.reduce((sum, s) => sum + (s.stableford || 0), 0)
+                  const totalStrokes = allScores.reduce((sum, s) => sum + (s.strokes || 0), 0)
+                  const holesPlayedHere = allScores.length
+                  const parPlayed = allScores.reduce((sum, s) => sum + PARS[s.hole - 1], 0)
+                  const vsPar = totalStrokes - parPlayed
+                  const thisHoleScore = allScores.find(s => s.hole === h.h)
+                  return { player: p, totalStab, totalStrokes, holesPlayed: holesPlayedHere, vsPar, thisHoleScore, isMe: pid === tabyUser?.id }
+                }).filter(Boolean).sort((a, b) => b.totalStab - a.totalStab || a.holesPlayed - b.holesPlayed)
+                const myPos = standings.findIndex(s => s.isMe) + 1
+
+                return (
+                  <div style={{ background: 'linear-gradient(135deg, rgba(212,160,23,0.06), rgba(147,197,253,0.04))', borderRadius: 12, padding: 12, marginBottom: 12, border: '0.5px solid rgba(212,160,23,0.15)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1.5 }}>🏆 LIVE LEADERBOARD</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,160,23,0.6)' }}>HÅL {h.h}/18</div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    {standings.map((s, idx) => {
+                      const pos = idx + 1
+                      const onThisHole = s.thisHoleScore
+                      return (
+                        <div key={s.player.id} style={{
+                          display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px',
+                          marginBottom: idx < standings.length - 1 ? 3 : 0,
+                          background: s.isMe ? 'rgba(212,160,23,0.1)' : 'rgba(147,197,253,0.03)',
+                          borderRadius: 8,
+                          border: s.isMe ? '0.5px solid rgba(212,160,23,0.3)' : '0.5px solid transparent'
+                        }}>
+                          <div style={{ width: 18, fontFamily: 'var(--serif)', fontSize: pos === 1 ? 16 : 13, color: pos === 1 ? '#D4A017' : 'rgba(240,244,255,0.4)', textAlign: 'center', fontWeight: pos === 1 ? 600 : 400 }}>{pos}</div>
+                          {s.player.image_url ? <img src={s.player.image_url} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#93C5FD' }}>{s.player.name?.charAt(0)}</div>}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, color: '#F0F4FF', fontWeight: s.isMe ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {s.player.nickname}{s.isMe && <span style={{ fontSize: 9, color: '#D4A017', marginLeft: 4 }}>(du)</span>}
+                            </div>
+                            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.5)' }}>
+                              {s.holesPlayed > 0 ? `${s.holesPlayed} hål · ${s.totalStrokes} slag${s.holesPlayed > 0 ? ` (${s.vsPar > 0 ? '+' : ''}${s.vsPar})` : ''}` : 'Ej startad'}
+                            </div>
+                          </div>
+                          {/* Hål-score */}
+                          <div style={{ width: 40, textAlign: 'center' }}>
+                            {onThisHole?.strokes ? (
+                              <>
+                                <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: '#F0F4FF', fontWeight: 500, lineHeight: 1 }}>{onThisHole.strokes}</div>
+                                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: (onThisHole.stableford || 0) >= 3 ? '#4ADE80' : onThisHole.stableford === 0 ? '#E8634A' : 'rgba(147,197,253,0.5)', marginTop: 1 }}>{onThisHole.stableford}p</div>
+                              </>
+                            ) : (
+                              <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(147,197,253,0.25)' }}>—</div>
+                            )}
+                          </div>
+                          {/* Total */}
+                          <div style={{ minWidth: 36, textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600, color: pos === 1 ? '#D4A017' : '#F0F4FF' }}>{s.totalStab}p</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
 
               {/* Ghost Match */}
               {ghostScore && (
@@ -1948,14 +2028,148 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       )}
 
       {/* STATS VIEW */}
-      {tabyView === 'stats' && (
+      {tabyView === 'stats' && (() => {
+        // Spelar-väljare för stats — default = inloggad användare
+        const statsPlayerId = (tabyUser?.statsViewPid) || tabyUser?.id
+
+        // Beräkna hålstatistik för vald spelare
+        const playerScores = tabyScores.filter(s => s.player_id === statsPlayerId && s.strokes)
+        const holeStats = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].map(holeNum => {
+          const scores = playerScores.filter(s => s.hole === holeNum)
+          if (scores.length === 0) return { hole: holeNum, count: 0 }
+          const strokes = scores.map(s => s.strokes)
+          const stabs = scores.map(s => s.stableford || 0)
+          const avgStrokes = strokes.reduce((a,b) => a+b, 0) / scores.length
+          const avgStab = stabs.reduce((a,b) => a+b, 0) / scores.length
+          const bestStrokes = Math.min(...strokes)
+          const worstStrokes = Math.max(...strokes)
+          const bestStab = Math.max(...stabs)
+          const par = PARS[holeNum - 1]
+          // Hitta birdies, eagles, blowups
+          const birdies = scores.filter(s => s.strokes === par - 1).length
+          const eagles = scores.filter(s => s.strokes <= par - 2).length
+          const pars = scores.filter(s => s.strokes === par).length
+          const blowups = scores.filter(s => (s.stableford || 0) === 0).length
+          return { hole: holeNum, count: scores.length, avgStrokes, avgStab, bestStrokes, worstStrokes, bestStab, par, birdies, eagles, pars, blowups }
+        })
+
+        const totalRounds = [...new Set(playerScores.map(s => s.round_id))].length
+        const totalBirdies = holeStats.reduce((s, h) => s + (h.birdies || 0), 0)
+        const totalEagles = holeStats.reduce((s, h) => s + (h.eagles || 0), 0)
+        const totalBlowups = holeStats.reduce((s, h) => s + (h.blowups || 0), 0)
+        const playedHoles = holeStats.filter(h => h.count > 0)
+        const bestHole = playedHoles.length > 0 ? playedHoles.reduce((best, cur) => cur.avgStab > (best?.avgStab || -1) ? cur : best, null) : null
+        const worstHole = playedHoles.length > 0 ? playedHoles.reduce((worst, cur) => cur.avgStab < (worst?.avgStab || 99) ? cur : worst, null) : null
+
+        const selectedPlayer = tabyPlayers.find(p => p.id === statsPlayerId) || tabyUser
+
+        return (
         <div style={{ padding: '0 16px' }}>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,175,55,0.5)', letterSpacing: 1.5, marginBottom: 12 }}>DINA RUNDOR</div>
-          {tabyRounds.filter(r => r.player_ids?.includes(tabyUser?.id)).length === 0 ? (
-            <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 30, textAlign: 'center', color: 'rgba(240,244,255,0.3)' }}>Inga rundor ännu. Spela din första!</div>
+          {/* Spelar-väljare */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 12, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
+            {tabyPlayers.map(p => {
+              const isActive = statsPlayerId === p.id
+              return (
+                <button key={p.id}
+                  onClick={() => setTabyUser(prev => ({ ...prev, statsViewPid: p.id }))}
+                  style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 8, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--mono)',
+                    background: isActive ? 'rgba(212,160,23,0.15)' : 'rgba(147,197,253,0.04)',
+                    border: isActive ? '0.5px solid rgba(212,160,23,0.4)' : '0.5px solid rgba(147,197,253,0.08)',
+                    color: isActive ? '#D4A017' : 'rgba(240,244,255,0.6)',
+                    display: 'flex', alignItems: 'center', gap: 6
+                  }}>
+                  {p.image_url ? <img src={p.image_url} style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
+                  {p.nickname}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Översikt */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 14 }}>
+            <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 10, padding: '10px 4px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: '#93C5FD' }}>{totalRounds}</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(147,197,253,0.4)', letterSpacing: 1, marginTop: 2 }}>RUNDOR</div>
+            </div>
+            <div style={{ background: 'rgba(74,222,128,0.04)', borderRadius: 10, padding: '10px 4px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: '#4ADE80' }}>{totalBirdies}</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(74,222,128,0.6)', letterSpacing: 1, marginTop: 2 }}>BIRDIES</div>
+            </div>
+            <div style={{ background: 'rgba(212,160,23,0.06)', borderRadius: 10, padding: '10px 4px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: '#D4A017' }}>{totalEagles}</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(212,160,23,0.6)', letterSpacing: 1, marginTop: 2 }}>EAGLES</div>
+            </div>
+            <div style={{ background: 'rgba(232,99,74,0.04)', borderRadius: 10, padding: '10px 4px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: '#E8634A' }}>{totalBlowups}</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(232,99,74,0.6)', letterSpacing: 1, marginTop: 2 }}>BLOWUPS</div>
+            </div>
+          </div>
+
+          {/* Bästa & sämsta hål */}
+          {(bestHole || worstHole) && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 14 }}>
+              {bestHole && (
+                <div style={{ background: 'linear-gradient(135deg, rgba(74,222,128,0.08), rgba(74,222,128,0.02))', border: '0.5px solid rgba(74,222,128,0.2)', borderRadius: 10, padding: 10 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(74,222,128,0.7)', letterSpacing: 1.5 }}>FAVORITHÅLET</div>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#4ADE80', marginTop: 2 }}>Hål {bestHole.hole}</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)' }}>Snitt {bestHole.avgStab.toFixed(1)}p · Bäst {bestHole.bestStab}p</div>
+                </div>
+              )}
+              {worstHole && (
+                <div style={{ background: 'linear-gradient(135deg, rgba(232,99,74,0.08), rgba(232,99,74,0.02))', border: '0.5px solid rgba(232,99,74,0.2)', borderRadius: 10, padding: 10 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(232,99,74,0.7)', letterSpacing: 1.5 }}>SKRÄCKHÅLET</div>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#E8634A', marginTop: 2 }}>Hål {worstHole.hole}</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)' }}>Snitt {worstHole.avgStab.toFixed(1)}p · {worstHole.blowups} blowups</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Hålstatistik per hål */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 10, border: '0.5px solid rgba(147,197,253,0.08)', marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px 8px' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 1.5 }}>HÅLSTATISTIK</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)' }}>{selectedPlayer?.nickname}</div>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: 'var(--mono)' }}>
+              <thead>
+                <tr style={{ borderBottom: '0.5px solid rgba(147,197,253,0.1)' }}>
+                  <th style={{ padding: '5px 4px', color: 'rgba(147,197,253,0.5)', textAlign: 'left', fontSize: 8, letterSpacing: 1 }}>HÅL</th>
+                  <th style={{ padding: '5px 4px', color: 'rgba(147,197,253,0.5)', textAlign: 'center', fontSize: 8, letterSpacing: 1 }}>PAR</th>
+                  <th style={{ padding: '5px 4px', color: 'rgba(147,197,253,0.5)', textAlign: 'center', fontSize: 8, letterSpacing: 1 }}>SPELAT</th>
+                  <th style={{ padding: '5px 4px', color: 'rgba(147,197,253,0.5)', textAlign: 'center', fontSize: 8, letterSpacing: 1 }}>SNITT</th>
+                  <th style={{ padding: '5px 4px', color: 'rgba(74,222,128,0.5)', textAlign: 'center', fontSize: 8, letterSpacing: 1 }}>BÄST</th>
+                  <th style={{ padding: '5px 4px', color: 'rgba(232,99,74,0.5)', textAlign: 'center', fontSize: 8, letterSpacing: 1 }}>SÄMST</th>
+                  <th style={{ padding: '5px 4px', color: 'rgba(212,160,23,0.5)', textAlign: 'right', fontSize: 8, letterSpacing: 1 }}>SNITT P</th>
+                </tr>
+              </thead>
+              <tbody>
+                {holeStats.map(s => {
+                  const par = PARS[s.hole - 1]
+                  const isPar5 = par === 5
+                  const isPar3 = par === 3
+                  return (
+                    <tr key={s.hole} style={{ borderBottom: '0.5px solid rgba(147,197,253,0.04)' }}>
+                      <td style={{ padding: '5px 4px', color: '#F0F4FF', fontWeight: 500 }}>{s.hole}{s.eagles > 0 ? ' 🦅' : s.birdies > 0 ? ' 🐦' : ''}</td>
+                      <td style={{ padding: '5px 4px', textAlign: 'center', color: isPar5 ? '#D4A017' : isPar3 ? '#93C5FD' : 'rgba(240,244,255,0.5)' }}>{par}</td>
+                      <td style={{ padding: '5px 4px', textAlign: 'center', color: 'rgba(240,244,255,0.4)' }}>{s.count || '—'}</td>
+                      <td style={{ padding: '5px 4px', textAlign: 'center', color: '#F0F4FF' }}>{s.count > 0 ? s.avgStrokes.toFixed(1) : '—'}</td>
+                      <td style={{ padding: '5px 4px', textAlign: 'center', color: s.count > 0 ? '#4ADE80' : 'rgba(74,222,128,0.2)' }}>{s.count > 0 ? s.bestStrokes : '—'}</td>
+                      <td style={{ padding: '5px 4px', textAlign: 'center', color: s.count > 0 ? '#E8634A' : 'rgba(232,99,74,0.2)' }}>{s.count > 0 ? s.worstStrokes : '—'}</td>
+                      <td style={{ padding: '5px 4px', textAlign: 'right', color: s.count > 0 ? (s.avgStab >= 2 ? '#4ADE80' : s.avgStab >= 1.5 ? '#D4A017' : '#E8634A') : 'rgba(240,244,255,0.2)', fontWeight: 600 }}>{s.count > 0 ? s.avgStab.toFixed(1) : '—'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,175,55,0.5)', letterSpacing: 1.5, marginBottom: 12 }}>{statsPlayerId === tabyUser?.id ? 'DINA RUNDOR' : `${selectedPlayer?.nickname?.toUpperCase()}S RUNDOR`}</div>
+          {tabyRounds.filter(r => r.player_ids?.includes(statsPlayerId)).length === 0 ? (
+            <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 30, textAlign: 'center', color: 'rgba(240,244,255,0.3)' }}>Inga rundor ännu.</div>
           ) : (
-            tabyRounds.filter(r => r.player_ids?.includes(tabyUser?.id)).map(round => {
-              const rs = tabyScores.filter(s => s.round_id === round.id && s.player_id === tabyUser?.id)
+            tabyRounds.filter(r => r.player_ids?.includes(statsPlayerId)).map(round => {
+              const rs = tabyScores.filter(s => s.round_id === round.id && s.player_id === statsPlayerId)
               const stab = rs.reduce((s, sc) => s + sc.stableford, 0)
               const strokes = rs.reduce((s, sc) => s + sc.strokes, 0)
               const par = rs.reduce((s, sc) => s + PARS[sc.hole - 1], 0)
@@ -2012,7 +2226,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             })()}
           </div>
         </div>
-      )}
+      )})()}
 
       {/* ======================================== */}
       {/* SETTINGS (admin-only)                     */}
