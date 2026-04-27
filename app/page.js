@@ -3304,35 +3304,42 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       ]
 
   if (splash) return (
-    <div className={`splash-screen ${splashExit ? 'splash-exit' : ''}`}>
-      {/* Phase 1: The Reveal (0-3.5s) */}
-      <div className="reveal-phase">
-        <div className="reveal-line reveal-l1" />
-        <div className="reveal-badge">
-          <img src="/dio-badge.png" alt="Douche Invitational Only" className="splash-img" />
-        </div>
-        <div className="reveal-line reveal-l2" />
-        <div className="reveal-title">Douche Invitational <em>Only</em></div>
-        <div className="reveal-line reveal-l3" />
-        <div className="reveal-sub">HOOKS HERRGÅRD · 2026</div>
-        <div className="reveal-tagline">Le Douche de Golf</div>
+    <div className={`splash-screen ${splashExit ? 'splash-exit' : ''}`} onClick={() => {
+      setSplashExit(true); setTimeout(() => setSplash(false), 700)
+    }}>
+      {/* Background photo */}
+      <div className="splash-bg" />
+
+      {/* Badge + venue — centre stage */}
+      <div className="splash-badge-phase">
+        <img src="/dio-badge.png" alt="DIO" className="splash-badge-img" />
+        <div className="splash-venue">Hooks Herrgård · {dioConfig.datesLabel} {dioConfig.year}</div>
       </div>
 
-      {/* Phase 2: Player Intros (3.5-7.5s) */}
-      <div className="intro-phase">
-        {introPlayers.map((p, i) => (
-          <div key={i} className="intro-card" style={{ animationDelay: `${3.6 + i * 0.65}s` }}>
-            <div className="intro-img-ring" style={{ borderColor: p.team === 'green' ? '#22c55e' : '#60a5fa' }}>
-              <img src={p.img} alt={p.nick} className="intro-img" />
+      {/* Past Champions plates — slides in from bottom */}
+      <div className="splash-champions">
+        <div className="splash-champions-label">Past Champions</div>
+        <div className="splash-plates-row">
+          {[
+            { year: '2021', first: 'Marcus', last: 'Ullholm' },
+            { year: '2022', first: 'Filip', last: 'Hector' },
+            { year: '2023', first: 'Filip', last: 'Hector' },
+            { year: '2024', first: 'Magnus', last: 'Jarlgren' },
+            { year: '2025', first: 'Matthis', last: 'Jacobsson' },
+          ].map(c => (
+            <div key={c.year} className="splash-plate">
+              <div className="splash-plate-year">{c.year}</div>
+              <div className="splash-plate-name">
+                <span>{c.first}</span>
+                <span>{c.last}</span>
+              </div>
             </div>
-            <div className="intro-nick" style={{ color: p.team === 'green' ? '#22c55e' : '#60a5fa' }}>{p.nick}</div>
-            <div className="intro-name">{p.name.split(' ')[0]}</div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      {/* Phase 3: LET'S DOUCHE on clean screen */}
-      <div className="intro-finale">
+      {/* Finale: LET'S DOUCHE */}
+      <div className="splash-finale">
         <div className="finale-text">LET&apos;S</div>
         <div className="finale-douche">DOUCHE</div>
         <div className="finale-icon"><AugustaBadge size={44}><IconFlag size={22} color="#FAF8F0" /></AugustaBadge></div>
