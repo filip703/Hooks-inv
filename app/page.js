@@ -165,7 +165,32 @@ function Badge({ text, color, bg }) {
 
 export default function Home() {
   const [appMode, setAppMode] = useState(null)
-  useEffect(() => { if (typeof window !== 'undefined') { const s = localStorage.getItem('app_mode'); if (s === 'dio' || s === 'taby') setAppMode(s) } }, [])
+  const [tabyOnly, setTabyOnly] = useState(false) // true = lås mode till Täby (för delning till nya spelare)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    // Check URL params first — overrides localStorage
+    const params = new URLSearchParams(window.location.search)
+    const urlMode = params.get('mode')
+    const urlTabyOnly = params.get('taby_only') === '1' || params.get('only') === 'taby'
+    if (urlTabyOnly) {
+      setTabyOnly(true)
+      setAppMode('taby')
+      try { localStorage.setItem('taby_only', '1') } catch(e) {}
+      return
+    }
+    if (urlMode === 'taby' || urlMode === 'dio') {
+      setAppMode(urlMode)
+      return
+    }
+    // Persistent taby_only (saved from earlier visit)
+    if (localStorage.getItem('taby_only') === '1') {
+      setTabyOnly(true)
+      setAppMode('taby')
+      return
+    }
+    const s = localStorage.getItem('app_mode')
+    if (s === 'dio' || s === 'taby') setAppMode(s)
+  }, [])
   useEffect(() => { if (appMode && typeof window !== 'undefined') { localStorage.setItem('app_mode', appMode); document.documentElement.setAttribute('data-mode', appMode) } }, [appMode])
 
   if (!appMode) return (
@@ -176,7 +201,7 @@ export default function Home() {
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 50%)', pointerEvents: 'none', borderRadius: 20 }} />
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ fontFamily: 'var(--serif)', fontSize: 24, color: '#D4AF37', marginBottom: 4 }}>DIO 2026</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(250,248,240,0.4)', letterSpacing: 1 }}>HOOKS HERRGÅRD · 1–4 MAJ</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(250,248,240,0.4)', letterSpacing: 1 }}>HOOKS HERRGÅRD · MAJ 2026</div>
             <div style={{ fontSize: 12, color: 'rgba(250,248,240,0.5)', marginTop: 8 }}>Douche Invitational Only</div>
           </div>
         </button>
@@ -192,7 +217,7 @@ export default function Home() {
       <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(250,248,240,0.15)', letterSpacing: 2, marginTop: 12 }}>POWERED BY CHAOS</div>
     </div>
   )
-  if (appMode === 'taby') return <TaByApp onSwitchMode={() => { setAppMode(null); localStorage.removeItem('app_mode') }} />
+  if (appMode === 'taby') return <TaByApp onSwitchMode={tabyOnly ? null : () => { setAppMode(null); localStorage.removeItem('app_mode') }} tabyOnly={tabyOnly} />
   return <DIOApp onSwitchMode={() => { setAppMode(null); localStorage.removeItem('app_mode') }} />
 }
 
@@ -214,7 +239,7 @@ const Sparkline = ({ values, width = 60, height = 16, color = '#D4A017' }) => {
   )
 }
 
-function TaByApp({ onSwitchMode }) {
+function TaByApp({ onSwitchMode, tabyOnly }) {
   const [tabySplash, setTabySplash] = useState(true)
   const [tabySplashExit, setTabySplashExit] = useState(false)
   const [tabyView, setTabyView] = useState('leaderboard')
@@ -685,7 +710,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           </button>
         ))}
       </div>
-      <button onClick={onSwitchMode} style={{ marginTop: 24, background: 'none', border: '0.5px solid rgba(147,197,253,0.1)', borderRadius: 8, padding: '8px 16px', color: 'rgba(147,197,253,0.4)', fontSize: 10, fontFamily: 'var(--mono)', cursor: 'pointer' }}>← DIO</button>
+      {!tabyOnly && onSwitchMode && (
+        <button onClick={onSwitchMode} style={{ marginTop: 24, background: 'none', border: '0.5px solid rgba(147,197,253,0.1)', borderRadius: 8, padding: '8px 16px', color: 'rgba(147,197,253,0.4)', fontSize: 10, fontFamily: 'var(--mono)', cursor: 'pointer' }}>← DIO</button>
+      )}
     </div>
   )
 
@@ -921,7 +948,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           <button onClick={() => { setTabyUser(null); localStorage.removeItem('taby_user') }} style={{ background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', borderRadius: 8, padding: '6px 10px', color: 'rgba(147,197,253,0.4)', fontSize: 9, fontFamily: 'var(--mono)', cursor: 'pointer' }}>Byt</button>
-          <button onClick={onSwitchMode} style={{ background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', borderRadius: 8, padding: '6px 10px', color: '#93C5FD', fontSize: 9, fontFamily: 'var(--mono)', cursor: 'pointer', letterSpacing: 1 }}>DIO ↔</button>
+          {!tabyOnly && onSwitchMode && (
+            <button onClick={onSwitchMode} style={{ background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', borderRadius: 8, padding: '6px 10px', color: '#93C5FD', fontSize: 9, fontFamily: 'var(--mono)', cursor: 'pointer', letterSpacing: 1 }}>DIO ↔</button>
+          )}
         </div>
       </div>
 
@@ -2228,6 +2257,13 @@ function DIOApp({ onSwitchMode }) {
   const [user, setUser] = useState(null)
   const [view, setView] = useState('leaderboard')
   const [players, setPlayers] = useState([])
+  const [dioConfig, setDioConfig] = useState({
+    startDate: '2026-05-22T09:00:00+02:00',
+    endDate: '2026-05-24T20:00:00+02:00',
+    datesLabel: '22–24 MAJ',
+    venue: 'HOOKS HERRGÅRD',
+    year: '2026'
+  })
   const [rounds, setRounds] = useState([])
   const [scores, setScores] = useState([])
   const [selRound, setSelRound] = useState(1)
@@ -2320,8 +2356,31 @@ function DIOApp({ onSwitchMode }) {
 
   const fetchAll = useCallback(async () => {
     if (!supabase) return
-    const [p, r, s, ex] = await Promise.all([supabase.from('inv_players').select('*').eq('dio_active', true).order('hcp'), supabase.from('inv_rounds').select('*').order('round_number'), supabase.from('inv_scores').select('*'), supabase.from('inv_expenses').select('*').order('created_at', { ascending: false })])
+    const [p, r, s, ex, set] = await Promise.all([
+      supabase.from('inv_players').select('*').eq('dio_active', true).order('hcp'),
+      supabase.from('inv_rounds').select('*').order('round_number'),
+      supabase.from('inv_scores').select('*'),
+      supabase.from('inv_expenses').select('*').order('created_at', { ascending: false }),
+      supabase.from('inv_settings').select('key, value').in('key', ['dio_start_date', 'dio_end_date', 'dio_dates_label', 'dio_venue', 'dio_year'])
+    ])
     if (p.data) setPlayers(p.data); if (r.data) setRounds(r.data); if (s.data) setScores(s.data); if (ex.data) setExpenses(ex.data)
+    if (set.data) {
+      const cfg = {}
+      set.data.forEach(row => {
+        // Strip JSON quotes if value is string-encoded
+        let v = row.value
+        if (typeof v === 'string' && v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1)
+        cfg[row.key] = v
+      })
+      setDioConfig(prev => ({
+        ...prev,
+        startDate: cfg.dio_start_date || prev.startDate,
+        endDate: cfg.dio_end_date || prev.endDate,
+        datesLabel: cfg.dio_dates_label || prev.datesLabel,
+        venue: cfg.dio_venue || prev.venue,
+        year: cfg.dio_year || prev.year
+      }))
+    }
   }, [])
   const fetchChat = useCallback(async () => {
     if (!supabase) return
@@ -2751,15 +2810,22 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
   // ===== LOGIN =====
   // ===== SPLASH SCREEN =====
-  // Player intro sequence
-  const introPlayers = [
-    { name: 'Marcus Ullholm', nick: 'The Spreadsheet', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/marcus.jpg', team: 'blue' },
-    { name: 'Matthis Jackobson', nick: 'Pro Am', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/matthis.jpg', team: 'green' },
-    { name: 'Fredrik Hellstenius', nick: 'Old Fashioned', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/fredrik.jpg', team: 'blue' },
-    { name: 'Magnus Jarlgren', nick: 'Plan B', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/magnus.jpg', team: 'blue' },
-    { name: 'Filip Hector', nick: 'Long Gone', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/filip.jpg', team: 'green' },
-    { name: 'Martin Jarlgren', nick: 'Plus One', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/martin.jpg', team: 'green' },
-  ]
+  // Player intro sequence — dynamiskt från databasen (faller tillbaka till hårdkodat bara om DB inte laddats än)
+  const introPlayers = (players && players.length > 0)
+    ? players.filter(p => p.key !== 'spectator').map(p => ({
+        name: p.name,
+        nick: p.nickname,
+        img: p.image_url || `https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/${p.key}.jpg`,
+        team: p.team === 'green' ? 'green' : 'blue'
+      }))
+    : [
+        { name: 'Marcus Ullholm', nick: 'Five o\'Clock', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/marcus.jpg', team: 'blue' },
+        { name: 'Matthis Jackobson', nick: 'The Grinder', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/matthis.jpg', team: 'green' },
+        { name: 'Fredrik Hellstenius', nick: 'The Fossil', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/fredrik.jpg', team: 'blue' },
+        { name: 'Magnus Jarlgren', nick: 'The Hybrid', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/magnus.jpg', team: 'blue' },
+        { name: 'Filip Hector', nick: 'Mr Vain', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/filip.jpg', team: 'green' },
+        { name: 'Martin Jarlgren', nick: 'Plus One', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/martin.jpg', team: 'green' },
+      ]
 
   if (splash) return (
     <div className={`splash-screen ${splashExit ? 'splash-exit' : ''}`}>
@@ -3234,7 +3300,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           </table>
           {/* Countdown to first tee */}
           {(() => {
-            const teeOff = new Date('2026-05-01T09:00:00+02:00')
+            const teeOff = new Date(dioConfig.startDate)
             const now = new Date()
             const diff = teeOff - now
             if (diff > 0 && diff < 30 * 24 * 60 * 60 * 1000) {
