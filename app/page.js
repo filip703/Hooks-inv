@@ -2860,7 +2860,7 @@ function DIOApp({ onSwitchMode }) {
   }, [])
   const fetchChat = useCallback(async () => {
     if (!supabase) return
-    const { data } = await supabase.from('inv_chat').select('*, inv_players(name, nickname, image_url, team)').order('created_at', { ascending: true }).limit(200)
+    const { data } = await supabase.from('inv_chat').select('*, inv_players(name, nickname, image_url, team)').order('created_at', { ascending: false }).limit(200)
     if (data) setChat(data)
   }, [])
   const fetchExpenses = useCallback(async () => {
@@ -4111,7 +4111,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         {view === 'feed' && (<>
           <div className="section-title">Live Feed</div>
           <div className="section-sub">Chat, birdies, nollor och skitsnack</div>
-          <div style={{ background: 'var(--surface)', borderRadius: 12, maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', padding: 10 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 12, maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column-reverse' }}>
             {chat.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--cream-muted)', fontSize: 13 }}>🏌️ Tomt här. Skriv något!</div>}
             {chat.map((m, i) => {
               const me = m.player_id === user?.id
