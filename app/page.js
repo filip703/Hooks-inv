@@ -286,6 +286,15 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [tabyBroadcastForm, setTabyBroadcastForm] = useState({ title: '', body: '', target: 'all' })
   const [tabyBroadcastSending, setTabyBroadcastSending] = useState(false)
   const [showInactivePlayers, setShowInactivePlayers] = useState(false)
+  const [tabyExpenses, setTabyExpenses] = useState([])
+  const [tabyPayments, setTabyPayments] = useState([])
+  // Even Steven form state
+  const [walletDesc, setWalletDesc] = useState('')
+  const [walletAmount, setWalletAmount] = useState('')
+  const [walletTag, setWalletTag] = useState('övrigt')
+  const [walletTargetKey, setWalletTargetKey] = useState('')
+  // Chat form state
+  const [tabyMsg, setTabyMsg] = useState('')
   const [tabyAllPlayers, setTabyAllPlayers] = useState([])
   const [tabyHoleImages, setTabyHoleImages] = useState({}) // { 1: 'url', 2: 'url', ... }
   const [tabyDioConfig, setTabyDioConfig] = useState({ // för admin-redigering av DIO-datum från Täby-appen
@@ -351,6 +360,12 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       if (wagers) setTabyBetWagers(wagers)
       const { data: h2h } = await supabase.from('taby_h2h').select('*').order('created_at', { ascending: false })
       if (h2h) setTabyH2H(h2h)
+      // Expenses + payments
+      const { data: exps } = await supabase.from('taby_expenses').select('*').order('created_at', { ascending: false })
+      if (exps) setTabyExpenses(exps)
+      const { data: pays } = await supabase.from('taby_payments').select('*').order('created_at', { ascending: false })
+      if (pays) setTabyPayments(pays)
+
       // Hole images
       const { data: holeImgs } = await supabase.from('taby_hole_images').select('*')
       if (holeImgs) {
@@ -1075,7 +1090,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {/* Tab nav */}
       <div style={{ display: 'flex', gap: 4, padding: '0 16px 12px', overflowX: 'auto' }}>
         {[
-          ['leaderboard','Merit'],['scoring','Spela'],['holes','Banguide'],['betting','Betting'],['stats','Stats'],
+          ['leaderboard','Merit'],['scoring','Spela'],['holes','Banguide'],
+          ['wallet','💰'],['betting','Betting'],['feed','Chat'],['stats','Stats'],
           ...(tabyUser?.is_admin || tabyUser?.key === 'filip' || tabyUser?.key === 'marcus' ? [['settings','⚙️']] : [])
         ].map(([key, label]) => (
           <button key={key} onClick={() => setTabyView(key)} style={{
@@ -2227,6 +2243,229 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           </div>
         </div>
       )})()}
+
+      {/* ======================================== */}
+      {/* WALLET / EVEN STEVEN                      */}
+      {/* ======================================== */}
+      {tabyView === 'wallet' && (() => {
+        // Settlement engine — minimera transaktioner
+        const calcSettlement = () => {
+          const balances = {}
+          tabyPlayers.forEach(p => { balances[p.key] = 0 })
+          tabyExpenses.forEach(exp => {
+            if (!exp.settled) {
+              if (exp.target_key) {
+                // Person-to-person: target är skyldig
+                balances[exp.target_key] = (balances[exp.target_key] || 0) - exp.amount
+                balances[exp.paid_by] = (balances[exp.paid_by] || 0) + exp.amount
+              } else {
+                // Delade kostnader
+                const n = tabyPlayers.length
+                tabyPlayers.forEach(p => {
+                  balances[p.key] = (balances[p.key] || 0) - exp.amount / n
+                })
+                balances[exp.paid_by] = (balances[exp.paid_by] || 0) + exp.amount
+              }
+            }
+          })
+          // Minimera transaktioner
+          const transactions = []
+          const pos = Object.entries(balances).filter(([,v]) => v > 0.5).sort((a,b) => b[1]-a[1])
+          const neg = Object.entries(balances).filter(([,v]) => v < -0.5).sort((a,b) => a[1]-b[1])
+          let i=0, j=0
+          const p2 = pos.map(([k,v]) => ({k, v}))
+          const n2 = neg.map(([k,v]) => ({k, v: -v}))
+          while (i < p2.length && j < n2.length) {
+            const amount = Math.min(p2[i].v, n2[j].v)
+            if (amount > 0.5) transactions.push({ from: n2[j].k, to: p2[i].k, amount: Math.round(amount) })
+            p2[i].v -= amount; n2[j].v -= amount
+            if (p2[i].v < 0.5) i++
+            if (n2[j].v < 0.5) j++
+          }
+          return transactions
+        }
+        const settlement = calcSettlement()
+        const myKey = tabyUser?.key
+        const myPlayer = tabyPlayers.find(p => p.key === myKey)
+        const myExpenses = tabyExpenses.filter(e => e.paid_by === myKey || e.target_key === myKey || !e.target_key)
+        const mySettlement = settlement.filter(t => t.from === myKey || t.to === myKey)
+        const totalOwed = settlement.filter(t => t.from === myKey).reduce((s,t) => s+t.amount, 0)
+        const totalOwing = settlement.filter(t => t.to === myKey).reduce((s,t) => s+t.amount, 0)
+
+        return (
+        <div style={{ padding: '0 16px 80px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#D4A017' }}>💰 Even Steven</div>
+            <button onClick={async () => {
+              const { data: exps } = await supabase.from('taby_expenses').select('*').order('created_at', { ascending: false })
+              if (exps) setTabyExpenses(exps)
+              const { data: pays } = await supabase.from('taby_payments').select('*').order('created_at', { ascending: false })
+              if (pays) setTabyPayments(pays)
+              showTabyToast('Uppdaterad', 'birdie')
+            }} style={{ background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', borderRadius: 8, padding: '6px 12px', color: '#93C5FD', fontSize: 11, cursor: 'pointer' }}>🔄</button>
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 16 }}>Utgifter & settlement</div>
+
+          {/* Min status */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+            <div style={{ background: totalOwed > 0 ? 'rgba(232,99,74,0.1)' : 'rgba(147,197,253,0.04)', border: totalOwed > 0 ? '0.5px solid rgba(232,99,74,0.3)' : '0.5px solid rgba(147,197,253,0.08)', borderRadius: 12, padding: 14 }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: totalOwed > 0 ? '#E8634A' : 'rgba(147,197,253,0.4)', letterSpacing: 1.5, marginBottom: 4 }}>DU SKYLDIG</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 24, color: totalOwed > 0 ? '#E8634A' : 'rgba(240,244,255,0.4)' }}>{totalOwed > 0 ? `${totalOwed} kr` : '0 kr'}</div>
+            </div>
+            <div style={{ background: totalOwing > 0 ? 'rgba(74,222,128,0.08)' : 'rgba(147,197,253,0.04)', border: totalOwing > 0 ? '0.5px solid rgba(74,222,128,0.25)' : '0.5px solid rgba(147,197,253,0.08)', borderRadius: 12, padding: 14 }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: totalOwing > 0 ? '#4ADE80' : 'rgba(147,197,253,0.4)', letterSpacing: 1.5, marginBottom: 4 }}>DU FÅR</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 24, color: totalOwing > 0 ? '#4ADE80' : 'rgba(240,244,255,0.4)' }}>{totalOwing > 0 ? `${totalOwing} kr` : '0 kr'}</div>
+            </div>
+          </div>
+
+          {/* Settlement plan */}
+          {settlement.length > 0 && (
+            <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 16, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 1.5, marginBottom: 10 }}>GÖR UPP</div>
+              {settlement.map((t, i) => {
+                const fromP = tabyPlayers.find(p => p.key === t.from)
+                const toP = tabyPlayers.find(p => p.key === t.to)
+                const isMe = t.from === myKey
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: i < settlement.length-1 ? '0.5px solid rgba(147,197,253,0.06)' : 'none' }}>
+                    {fromP?.image_url ? <img src={fromP.image_url} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(232,99,74,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#E8634A' }}>{fromP?.name?.charAt(0)}</div>}
+                    <div style={{ flex: 1, fontSize: 12, color: isMe ? '#E8634A' : 'rgba(240,244,255,0.7)' }}>
+                      <span style={{ fontWeight: isMe ? 600 : 400 }}>{fromP?.nickname || t.from}</span>
+                      <span style={{ color: 'rgba(240,244,255,0.3)' }}> → </span>
+                      <span>{toP?.nickname || t.to}</span>
+                    </div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: isMe ? '#E8634A' : '#D4A017', fontWeight: 600 }}>{t.amount} kr</div>
+                    {isMe && toP?.phone && (
+                      <a href={`swish://payment?phone=${toP.phone.replace(/\D/g,'')}&amount=${t.amount}&message=Täby+Order+of+Merit&edit=amount`}
+                        style={{ background: 'rgba(74,222,128,0.12)', border: '0.5px solid rgba(74,222,128,0.3)', borderRadius: 6, padding: '4px 10px', color: '#4ADE80', fontSize: 10, fontFamily: 'var(--mono)', textDecoration: 'none' }}>
+                        Swish
+                      </a>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Lägg till utgift */}
+          <div style={{ background: 'rgba(212,160,23,0.06)', borderRadius: 12, padding: 14, marginBottom: 16, border: '0.5px solid rgba(212,160,23,0.15)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1.5, marginBottom: 10 }}>LÄGG TILL UTGIFT</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <input type="text" placeholder="Vad?" value={walletDesc} onChange={e => setWalletDesc(e.target.value)}
+                style={{ flex: 1, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 8, color: '#F0F4FF', padding: '8px 12px', fontSize: 13 }} />
+              <input type="number" placeholder="kr" value={walletAmount} onChange={e => setWalletAmount(e.target.value)}
+                style={{ width: 80, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 8, color: '#F0F4FF', padding: '8px 10px', fontSize: 13, fontFamily: 'var(--mono)', textAlign: 'center' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+              <select value={walletTag} onChange={e => setWalletTag(e.target.value)}
+                style={{ flex: 1, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 8, color: '#F0F4FF', padding: '8px 10px', fontSize: 12 }}>
+                <option value="övrigt">Övrigt</option>
+                <option value="mat">🍽 Mat</option>
+                <option value="bar">🍺 Bar</option>
+                <option value="aktivitet">⛳ Aktivitet</option>
+                <option value="transport">🚗 Transport</option>
+              </select>
+              <select value={walletTargetKey} onChange={e => setWalletTargetKey(e.target.value)}
+                style={{ flex: 1, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 8, color: '#F0F4FF', padding: '8px 10px', fontSize: 12 }}>
+                <option value="">Delas lika</option>
+                {tabyPlayers.filter(p => p.key !== myKey).map(p => <option key={p.key} value={p.key}>{p.nickname} betalar</option>)}
+              </select>
+            </div>
+            <button onClick={async () => {
+              if (!walletAmount || !walletDesc) return
+              const { data } = await supabase.from('taby_expenses').insert({
+                paid_by: myKey, amount: parseFloat(walletAmount), description: walletDesc, tag: walletTag,
+                target_key: walletTargetKey || null
+              }).select().single()
+              if (data) { setTabyExpenses(prev => [data, ...prev]); setWalletDesc(''); setWalletAmount(''); setWalletTargetKey('') }
+              showTabyToast(`${walletAmount} kr tillagt!`, 'birdie')
+            }} style={{ width: '100%', padding: '10px', borderRadius: 8, cursor: 'pointer', background: 'linear-gradient(135deg, rgba(212,160,23,0.18), rgba(212,160,23,0.06))', border: '0.5px solid rgba(212,160,23,0.35)', color: '#D4A017', fontSize: 13, fontWeight: 600 }}>
+              + Lägg till
+            </button>
+          </div>
+
+          {/* Utgiftslista */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.5)', letterSpacing: 1.5, marginBottom: 8 }}>ALLA UTGIFTER</div>
+          {tabyExpenses.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: 'rgba(240,244,255,0.2)', fontSize: 13 }}>Inga utgifter ännu</div>
+          ) : tabyExpenses.map(exp => {
+            const payer = tabyPlayers.find(p => p.key === exp.paid_by)
+            const target = exp.target_key ? tabyPlayers.find(p => p.key === exp.target_key) : null
+            const tagEmoji = { mat: '🍽', bar: '🍺', aktivitet: '⛳', transport: '🚗', övrigt: '💳' }[exp.tag] || '💳'
+            const isMe = exp.paid_by === myKey
+            return (
+              <div key={exp.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '0.5px solid rgba(147,197,253,0.06)' }}>
+                <div style={{ fontSize: 18 }}>{tagEmoji}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: '#F0F4FF' }}>{exp.description}</div>
+                  <div style={{ fontSize: 10, color: 'rgba(147,197,253,0.5)', fontFamily: 'var(--mono)', marginTop: 2 }}>
+                    {payer?.nickname}{target ? ` → ${target.nickname}` : ' → alla'} · {new Date(exp.created_at).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })}
+                  </div>
+                </div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: isMe ? '#4ADE80' : 'rgba(240,244,255,0.7)', fontWeight: isMe ? 600 : 400 }}>{exp.amount} kr</div>
+                {(isMe || tabyUser?.key === 'filip' || tabyUser?.key === 'marcus') && (
+                  <button onClick={async () => {
+                    await supabase.from('taby_expenses').delete().eq('id', exp.id)
+                    setTabyExpenses(prev => prev.filter(e => e.id !== exp.id))
+                  }} style={{ background: 'none', border: 'none', color: 'rgba(232,99,74,0.4)', fontSize: 14, cursor: 'pointer', padding: 4 }}>✕</button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        )
+      })()}
+
+      {/* ======================================== */}
+      {/* CHAT / FEED (Täby)                        */}
+      {/* ======================================== */}
+      {tabyView === 'feed' && (() => {
+        const tabyChats = chat.filter(m => !m.msg_type || m.msg_type === 'chat' || m.msg_type === 'shoutout')
+        return (
+        <div style={{ padding: '0 16px 80px' }}>
+          <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#93C5FD', marginBottom: 4 }}>💬 Chat</div>
+          <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 12 }}>Birdies, trash talk och gänget</div>
+
+          {/* Chat list */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, maxHeight: 'calc(100vh - 320px)', overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column-reverse', marginBottom: 12 }}>
+            {tabyChats.map((m, i) => {
+              const p = tabyPlayers.find(pl => pl.id === m.player_id) || tabyAllPlayers.find(pl => pl.id === m.player_id)
+              const isMe = m.player_id === tabyUser?.id
+              const isShout = m.msg_type === 'shoutout'
+              return (
+                <div key={m.id} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '0.5px solid rgba(147,197,253,0.04)', flexDirection: isMe ? 'row-reverse' : 'row' }}>
+                  {p?.image_url ? <img src={p.image_url} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#93C5FD', flexShrink: 0 }}>{p?.name?.charAt(0) || '?'}</div>}
+                  <div style={{ flex: 1, maxWidth: '75%' }}>
+                    {!isMe && <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: '#D4A017', marginBottom: 2 }}>{p?.nickname}</div>}
+                    <div style={{ background: isShout ? 'rgba(212,160,23,0.1)' : isMe ? 'rgba(147,197,253,0.1)' : 'rgba(30,58,95,0.5)', borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px', padding: '8px 10px', fontSize: 13, color: isShout ? '#D4A017' : '#F0F4FF', lineHeight: 1.4 }}>
+                      {m.image_url && <img src={m.image_url} style={{ width: '100%', borderRadius: 6, marginBottom: 4 }} />}
+                      {m.message}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Input */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input value={tabyMsg} onChange={e => setTabyMsg(e.target.value)}
+              onKeyDown={async e => {
+                if (e.key === 'Enter' && tabyMsg.trim()) {
+                  await supabase.from('inv_chat').insert({ player_id: tabyUser?.id, message: tabyMsg.trim(), msg_type: 'chat' })
+                  setTabyMsg('')
+                }
+              }}
+              placeholder="Skriv något..." style={{ flex: 1, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 24, color: '#F0F4FF', padding: '10px 16px', fontSize: 14 }} />
+            <button onClick={async () => {
+              if (!tabyMsg.trim()) return
+              await supabase.from('inv_chat').insert({ player_id: tabyUser?.id, message: tabyMsg.trim(), msg_type: 'chat' })
+              setTabyMsg('')
+            }} style={{ background: 'rgba(147,197,253,0.12)', border: '0.5px solid rgba(147,197,253,0.2)', borderRadius: '50%', width: 42, height: 42, color: '#93C5FD', fontSize: 18, cursor: 'pointer', flexShrink: 0 }}>↑</button>
+          </div>
+        </div>
+        )
+      })()}
 
       {/* ======================================== */}
       {/* SETTINGS (admin-only)                     */}
