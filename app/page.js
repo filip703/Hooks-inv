@@ -294,6 +294,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [walletAmount, setWalletAmount] = useState('')
   const [walletTag, setWalletTag] = useState('övrigt')
   const [walletTargetKey, setWalletTargetKey] = useState('')
+  const [tabyChat, setTabyChat] = useState([])
   // Chat form state
   const [tabyMsg, setTabyMsg] = useState('')
   const [tabyAllPlayers, setTabyAllPlayers] = useState([])
@@ -361,6 +362,10 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       if (wagers) setTabyBetWagers(wagers)
       const { data: h2h } = await supabase.from('taby_h2h').select('*').order('created_at', { ascending: false })
       if (h2h) setTabyH2H(h2h)
+      // Chat
+      const { data: chatData } = await supabase.from('inv_chat').select('*').order('created_at', { ascending: false }).limit(150)
+      if (chatData) setTabyChat(chatData)
+
       // Expenses + payments
       const { data: exps } = await supabase.from('taby_expenses').select('*').order('created_at', { ascending: false })
       if (exps) setTabyExpenses(exps)
@@ -424,8 +429,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       supabase.channel('inv_chat_taby_rt').on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'inv_chat' },
         (payload) => {
-          setChat(prev => [payload.new, ...prev].slice(0, 200))
-          if (payload.new?.player_id !== tabyUser?.id) soundChat?.()
+          setTabyChat(prev => [payload.new, ...prev].slice(0, 150))
         }
       ).subscribe(),
     ]
@@ -2616,7 +2620,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {/* CHAT / FEED (Täby)                        */}
       {/* ======================================== */}
       {tabyView === 'feed' && (() => {
-        const tabyChats = chat.filter(m => !m.msg_type || m.msg_type === 'chat' || m.msg_type === 'shoutout')
+        const feedMessages = tabyChat.filter(m => !m.msg_type || m.msg_type === 'chat' || m.msg_type === 'shoutout')
         return (
         <div style={{ padding: '0 16px 80px' }}>
           <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#93C5FD', marginBottom: 4 }}>💬 Chat</div>
@@ -2624,7 +2628,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
           {/* Chat list */}
           <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, maxHeight: 'calc(100vh - 320px)', overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column-reverse', marginBottom: 12 }}>
-            {tabyChats.map((m, i) => {
+            {feedMessages.map((m, i) => {
               const p = tabyPlayers.find(pl => pl.id === m.player_id) || tabyAllPlayers.find(pl => pl.id === m.player_id)
               const isMe = m.player_id === tabyUser?.id
               const isShout = m.msg_type === 'shoutout'
