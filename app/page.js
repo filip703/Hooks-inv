@@ -2348,6 +2348,42 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             ))}
           </div>
 
+          {/* HCP Påminnelse push */}
+          <div style={{ background: 'rgba(232,99,74,0.06)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(232,99,74,0.2)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#E8634A', letterSpacing: 2, marginBottom: 6 }}>📣 HCP-PÅMINNELSE</div>
+            <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.5)', marginBottom: 12, lineHeight: 1.5 }}>Skicka push till spelare vars HCP-uppdatering är äldre än 21 dagar.</div>
+            {(() => {
+              const stale = tabyAllPlayers.filter(p => {
+                if (p.key === 'spectator') return false
+                const d = p.hcp_updated_at ? new Date(p.hcp_updated_at) : null
+                return !d || (new Date() - d) / 86400000 > 21
+              })
+              return stale.length === 0 ? (
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(74,222,128,0.7)' }}>✓ Alla har uppdaterat HCP nyligen</div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.5)', marginBottom: 10 }}>
+                    Föråldrat:&nbsp;<span style={{ color: '#E8634A' }}>{stale.map(p => p.nickname).join(', ')}</span>
+                  </div>
+                  <button onClick={async () => {
+                    for (const p of stale) {
+                      await sendPush({
+                        title: '⛳ Dags att kolla ditt Spelindex!',
+                        body: 'Har ditt HCP ändrats? Uppdatera i appen → Min Profil så att dina stableford-poäng räknas rätt.',
+                        targetPlayerId: p.id,
+                        url: 'https://hooks-inv.vercel.app/?taby_only=1',
+                        type: 'hcp_reminder'
+                      }).catch(() => {})
+                    }
+                    showTabyToast(`HCP-påminnelse skickad till ${stale.length} spelare`, 'birdie')
+                  }} style={{ padding: '10px 16px', background: 'rgba(232,99,74,0.15)', border: '0.5px solid rgba(232,99,74,0.4)', borderRadius: 8, color: '#E8634A', fontSize: 12, fontFamily: 'var(--mono)', cursor: 'pointer', letterSpacing: 1 }}>
+                    Skicka påminnelse →
+                  </button>
+                </>
+              )
+            })()}
+          </div>
+
           {/* Banguide-bilder */}
           <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#4ADE80', letterSpacing: 2, marginBottom: 10 }}>📷 BANGUIDE-BILDER</div>
@@ -2424,7 +2460,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   onBlur={async (e) => {
                     const v = parseFloat(e.target.value)
                     if (!isNaN(v) && v !== parseFloat(p.taby_hcp ?? p.hcp)) {
-                      await supabase.from('inv_players').update({ taby_hcp: v }).eq('id', p.id)
+                      await supabase.from('inv_players').update({ taby_hcp: v, hcp_updated_at: new Date().toISOString() }).eq('id', p.id)
                       fetchTabyPlayers()
                       showTabyToast(`${p.nickname} Täby-HCP → ${v}`, 'birdie')
                     }
@@ -5235,6 +5271,27 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)', marginTop: 4 }}>HCP {user.hcp} · {user.team === 'green' ? '🟢 Jägermeister' : '🔵 Fernet'}</div>
           </div>
 
+          {/* HCP-påminnelse om >21 dagar sedan senaste update */}
+          {(() => {
+            const updatedAt = user.hcp_updated_at ? new Date(user.hcp_updated_at) : null
+            const daysSince = updatedAt ? Math.floor((new Date() - updatedAt) / 86400000) : 999
+            if (daysSince < 21) return null
+            return (
+              <div style={{ background: 'linear-gradient(135deg, rgba(232,99,74,0.12), rgba(212,175,55,0.06))', border: '0.5px solid rgba(232,99,74,0.35)', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>⚠️</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#E8634A', letterSpacing: 1.5, marginBottom: 3 }}>SPELINDEX KAN VARA FÖRÅLDRAT</div>
+                    <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.7)', lineHeight: 1.5 }}>
+                      Senast uppdaterat {updatedAt ? updatedAt.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }) : 'okänt'} — för {daysSince} dagar sedan.
+                      Har ditt HCP ändrats? Uppdatera det nedan så att dina stableford-poäng räknas rätt.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Storyn bakom namnet */}
           {user.nickname_story && (
             <div style={{ background: 'linear-gradient(135deg, rgba(201,168,76,0.08), rgba(27,67,50,0.15))', border: '0.5px solid rgba(212,175,55,0.2)', borderRadius: 12, padding: 16, marginBottom: 14 }}>
@@ -5481,7 +5538,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   onBlur={async (e) => {
                     const v = parseFloat(e.target.value)
                     if (!isNaN(v) && v !== parseFloat(p.hcp)) {
-                      await supabase.from('inv_players').update({ hcp: v }).eq('id', p.id)
+                      await supabase.from('inv_players').update({ hcp: v, hcp_updated_at: new Date().toISOString() }).eq('id', p.id)
                       fetchAll()
                       showToast(`${p.nickname} HCP → ${v}`, 'birdie')
                     }
