@@ -251,6 +251,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [newRound, setNewRound] = useState(null)
   const [roundSetup, setRoundSetup] = useState({ format: 'stableford', eventId: null, opponentId: null, selectedPlayers: null })
   const [scoreInput, setScoreInput] = useState({})
+  const [scoringPlayerId, setScoringPlayerId] = useState(null) // null = registrerar för sig själv
   const [tabyActiveHole, setTabyActiveHole] = useState(null)
   const [tabyCaddieMsg, setTabyCaddieMsg] = useState(null)
   const [tabyCaddieLoading, setTabyCaddieLoading] = useState(false)
@@ -393,7 +394,45 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       }
     }
     loadData()
-    return () => { clearTimeout(t1); clearTimeout(t2) }
+
+    // ── REALTIME SYNC — alla kritiska Täby-tabeller ──
+    if (!supabase) return
+    const channels = [
+      supabase.channel('taby_scores_rt').on('postgres_changes',
+        { event: '*', schema: 'public', table: 'taby_scores' },
+        () => loadData()
+      ).subscribe(),
+      supabase.channel('taby_rounds_rt').on('postgres_changes',
+        { event: '*', schema: 'public', table: 'taby_rounds' },
+        () => loadData()
+      ).subscribe(),
+      supabase.channel('taby_h2h_rt').on('postgres_changes',
+        { event: '*', schema: 'public', table: 'taby_h2h' },
+        () => loadData()
+      ).subscribe(),
+      supabase.channel('taby_bets_rt').on('postgres_changes',
+        { event: '*', schema: 'public', table: 'taby_bets' },
+        () => loadData()
+      ).subscribe(),
+      supabase.channel('taby_expenses_rt').on('postgres_changes',
+        { event: '*', schema: 'public', table: 'taby_expenses' },
+        async () => {
+          const { data } = await supabase.from('taby_expenses').select('*').order('created_at', { ascending: false })
+          if (data) setTabyExpenses(data)
+        }
+      ).subscribe(),
+      supabase.channel('inv_chat_taby_rt').on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'inv_chat' },
+        (payload) => {
+          setChat(prev => [payload.new, ...prev].slice(0, 200))
+          if (payload.new?.player_id !== tabyUser?.id) soundChat?.()
+        }
+      ).subscribe(),
+    ]
+    return () => {
+      clearTimeout(t1); clearTimeout(t2)
+      channels.forEach(c => supabase.removeChannel(c))
+    }
   }, [])
 
   useEffect(() => { if (tabyUser) localStorage.setItem('taby_user', JSON.stringify(tabyUser)) }, [tabyUser])
@@ -630,18 +669,20 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     return { hot: hotRun, cold: coldRun, currentHot, currentCold }
   }
 
-  const saveHoleScore = async (hole, strokes) => {
+  const saveHoleScore = async (hole, strokes, forPlayerId = null) => {
     if (!newRound || !tabyUser || !strokes) return
+    // Registrera för vald spelare (marker-mode) eller sig själv
+    const pid = forPlayerId || scoringPlayerId || tabyUser.id
+    const scoringPlayer = pid === tabyUser.id ? tabyUser : tabyPlayers.find(p => p.id === pid) || tabyUser
     const par = PARS[hole - 1]
     const holeData = holes[hole - 1]
-    const extra = getExtra(holeData.i, tabyUser.taby_hcp || tabyUser.hcp)
+    const extra = getExtra(holeData.i, scoringPlayer.taby_hcp || scoringPlayer.hcp)
     const fmt = newRound.format || 'stableford'
-    // Stableford only for stableford/matchplay/skins (matchplay uses stableford as sub-metric, stroke doesn't)
     const stab = fmt === 'stroke' ? null : calcStab(strokes, par, extra)
 
     const { data } = await supabase.from('taby_scores').upsert({
       round_id: newRound.id,
-      player_id: tabyUser.id,
+      player_id: pid,
       hole,
       strokes,
       stableford: stab
@@ -649,13 +690,14 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
 
     if (data) {
       setTabyScores(prev => {
-        const filtered = prev.filter(s => !(s.round_id === newRound.id && s.player_id === tabyUser.id && s.hole === hole))
+        const filtered = prev.filter(s => !(s.round_id === newRound.id && s.player_id === pid && s.hole === hole))
         return [...filtered, data]
       })
     }
-    setScoreInput(prev => ({ ...prev, [hole]: strokes }))
+    if (pid === tabyUser.id) setScoreInput(prev => ({ ...prev, [hole]: strokes }))
 
-    // Sounds + toasts + chat shoutouts — based on REAL birdie/eagle (strokes vs par), NOT stableford
+    // Shoutouts bara för egna slag
+    if (pid !== tabyUser.id) return
     const diffToPar = strokes - par
     if (strokes === 1) {
       showTabyToast(`⛳✨ HOLE-IN-ONE! ${tabyUser.nickname} på hål ${hole}! LEGENDARY!`, 'eagle')
@@ -1081,7 +1123,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           <button onClick={() => { setTabyUser(null); localStorage.removeItem('taby_user') }} style={{ background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', borderRadius: 8, padding: '6px 10px', color: 'rgba(147,197,253,0.4)', fontSize: 9, fontFamily: 'var(--mono)', cursor: 'pointer' }}>Byt</button>
-          {!tabyOnly && onSwitchMode && (
+          {/* DIO ↔ — alltid synlig för admin, annars bara om !tabyOnly */}
+          {((!tabyOnly || tabyUser?.key === 'filip' || tabyUser?.key === 'marcus') && onSwitchMode) && (
             <button onClick={onSwitchMode} style={{ background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', borderRadius: 8, padding: '6px 10px', color: '#93C5FD', fontSize: 9, fontFamily: 'var(--mono)', cursor: 'pointer', letterSpacing: 1 }}>DIO ↔</button>
           )}
         </div>
@@ -1484,9 +1527,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         const h = holes[tabyActiveHole - 1]
         if (!h) return null
         const fmt = newRound.format || 'stableford'
-        const sc = roundScores.find(s => s.hole === h.h)
+        // Aktiv spelare — den vi registrerar för just nu
+        const activePid = scoringPlayerId || tabyUser?.id
+        const activePlayer = activePid === tabyUser?.id ? tabyUser : tabyPlayers.find(p => p.id === activePid) || tabyUser
+        const sc = tabyScores.find(s => s.round_id === newRound.id && s.player_id === activePid && s.hole === h.h)
         const currentVal = sc?.strokes || h.p
-        const extra = getExtra(h.i, tabyUser?.taby_hcp || tabyUser?.hcp)
+        const extra = getExtra(h.i, activePlayer?.taby_hcp || activePlayer?.hcp)
         const stab = sc?.stableford ?? null
         const prevHole = h.h > 1 ? h.h - 1 : null
         const nextH = h.h < 18 ? h.h + 1 : null
@@ -1752,6 +1798,59 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   </div>
                 )}
               </div>
+
+              {/* SPELARVÄLJARE — registrera score för andra i bollen */}
+              {newRound.player_ids?.length > 1 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.5)', letterSpacing: 1.5, marginBottom: 6 }}>REGISTRERAR FÖR</div>
+                  <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+                    {newRound.player_ids.map(pid => {
+                      const p = tabyPlayers.find(x => x.id === pid)
+                      if (!p) return null
+                      const isActive = (scoringPlayerId || tabyUser?.id) === pid
+                      const isSelf = pid === tabyUser?.id
+                      const pScore = tabyScores.find(s => s.round_id === newRound.id && s.player_id === pid && s.hole === h.h)
+                      return (
+                        <button key={pid} onClick={() => setScoringPlayerId(pid === tabyUser?.id ? null : pid)} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 10, cursor: 'pointer', background: isActive ? (isSelf ? 'rgba(212,160,23,0.15)' : 'rgba(147,197,253,0.12)') : 'rgba(147,197,253,0.04)', border: isActive ? (isSelf ? '1px solid rgba(212,160,23,0.4)' : '1px solid rgba(147,197,253,0.3)') : '0.5px solid rgba(147,197,253,0.08)' }}>
+                          {p.image_url ? <img src={p.image_url} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
+                          <div>
+                            <div style={{ fontSize: 11, color: isActive ? (isSelf ? '#D4A017' : '#93C5FD') : 'rgba(240,244,255,0.5)', fontWeight: isActive ? 600 : 400 }}>{p.nickname}</div>
+                            {pScore?.strokes && <div style={{ fontSize: 9, color: 'rgba(74,222,128,0.7)', fontFamily: 'var(--mono)' }}>{pScore.strokes} slag ✓</div>}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* GPS LAYUP — "230m → 95m kvar" */}
+              {gpsPos && h.approaches && (() => {
+                const teeKey = Object.keys(h.tees || {}).find(t => Math.abs((h.tees[t]) - h.m) < 10) || '60'
+                const totalDist = h.m
+                const distToGreen = distanceToGreen(gpsPos, h.h)
+                if (!distToGreen || distToGreen < 10) return null
+                // Hitta layup-alternativ (inspel-mått)
+                const layupOptions = (h.inspel || []).filter(d => d > 20 && d < distToGreen - 20)
+                if (layupOptions.length === 0) return null
+                return (
+                  <div style={{ marginBottom: 12, padding: 12, background: 'rgba(74,222,128,0.06)', borderRadius: 12, border: '0.5px solid rgba(74,222,128,0.15)' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(74,222,128,0.7)', letterSpacing: 1.5, marginBottom: 8 }}>📐 STRATEGIAVSTÅND</div>
+                    {layupOptions.map(layupDist => {
+                      const remaining = distToGreen - (distToGreen - layupDist)
+                      return (
+                        <div key={layupDist} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: '#4ADE80' }}>{Math.round(distToGreen - layupDist)}m</div>
+                          <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)' }}>till layup</div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(240,244,255,0.3)' }}>→</div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: '#D4A017' }}>{layupDist}m</div>
+                          <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)' }}>kvar till green</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
 
               {/* BIG SCORE INPUT - DIO-style glass card */}
               <div style={{ background: 'linear-gradient(135deg, rgba(147,197,253,0.06), rgba(30,58,95,0.2))', border: '0.5px solid rgba(147,197,253,0.15)', borderRadius: 16, padding: 24, marginBottom: 16, backdropFilter: 'blur(10px)' }}>
