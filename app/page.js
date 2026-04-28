@@ -1220,6 +1220,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               {/* JOIN ACTIVE ROUND BANNER */}
               {tabyRounds.filter(r => {
                 if (!r.player_ids?.includes(tabyUser?.id)) return false
+                if (r.status === 'completed') return false
                 const created = new Date(r.created_at || r.date)
                 const ageHours = (new Date() - created) / 36e5
                 if (ageHours > 24) return false
@@ -1420,30 +1421,75 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>Netto: {totalStrokes > 0 ? totalStrokes - Math.round(phcp * holesPlayed / 18) : '—'}</div>
                 </div>
               </div>
-              {/* Hole list - each row clickable for fullscreen */}
-              {holes.map(h => {
-                const sc = roundScores.find(s => s.hole === h.h)
-                const extra = getExtra(h.i, tabyUser?.taby_hcp || tabyUser?.hcp)
-                return (
-                  <div key={h.h} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', marginBottom: 3, background: sc ? (sc.stableford >= 3 ? 'rgba(74,222,128,0.06)' : sc.stableford === 0 ? 'rgba(232,99,74,0.06)' : 'rgba(147,197,253,0.03)') : 'rgba(147,197,253,0.02)', border: `0.5px solid ${sc ? (sc.stableford >= 3 ? 'rgba(74,222,128,0.15)' : sc.stableford === 0 ? 'rgba(232,99,74,0.15)' : 'rgba(147,197,253,0.08)') : 'rgba(147,197,253,0.06)'}`, borderRadius: 10 }}>
-                    <button onClick={() => { setTabyActiveHole(h.h); setTabyCaddieMsg(null) }} style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(147,197,253,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                      <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: h.p === 3 ? '#E8634A' : h.p === 5 ? '#4ADE80' : '#93C5FD', fontWeight: 600, lineHeight: 1 }}>{h.h}</div>
-                    </button>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 10, color: 'rgba(240,244,255,0.5)', fontFamily: 'var(--mono)' }}>P{h.p} · {h.m}m · idx {h.i}{extra > 0 ? ` · +${extra}` : ''}</div>
-                      {h.w && <span style={{ fontSize: 8, color: '#60A5FA' }}>💧</span>}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <button onClick={(e) => { e.stopPropagation(); const cur = sc?.strokes || h.p; if (cur > 1) saveHoleScore(h.h, cur - 1) }} style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#93C5FD', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                      <div onClick={() => { if (!sc) saveHoleScore(h.h, h.p) }} style={{ width: 40, height: 36, borderRadius: 8, background: sc ? 'rgba(147,197,253,0.06)' : 'rgba(212,175,55,0.08)', border: sc ? '0.5px solid rgba(147,197,253,0.12)' : '1px solid rgba(212,175,55,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: sc ? 'default' : 'pointer' }}>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 600, color: sc ? '#F0F4FF' : '#D4A017' }}>{sc?.strokes || h.p}</div>
+              {/* Hole list — Gamebook-inspirerad, klickbar rad = fullscreen */}
+              <div style={{ borderRadius: 12, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.08)', marginBottom: 8 }}>
+                {/* Header */}
+                <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 32px 48px 32px 36px', gap: 0, padding: '6px 10px', background: 'rgba(147,197,253,0.06)', borderBottom: '0.5px solid rgba(147,197,253,0.08)' }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 1 }}>HÅL</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 1 }}>INFO</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 1, textAlign: 'center' }}>−</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 1, textAlign: 'center' }}>SLAG</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 1, textAlign: 'center' }}>+</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 1, textAlign: 'right' }}>P</div>
+                </div>
+                {holes.map((h, idx) => {
+                  const sc = roundScores.find(s => s.hole === h.h)
+                  const extra = getExtra(h.i, tabyUser?.taby_hcp || tabyUser?.hcp)
+                  const diff = sc ? sc.strokes - h.p : null
+                  const isUT9 = idx === 8
+                  // Score color: eagle+ gold, birdie green, par blue-dim, bogey dim, double+ red
+                  const scoreColor = !sc ? 'rgba(212,175,55,0.5)' :
+                    diff <= -2 ? '#D4A017' : diff === -1 ? '#4ADE80' : diff === 0 ? 'rgba(147,197,253,0.7)' : diff === 1 ? 'rgba(240,244,255,0.6)' : '#E8634A'
+                  const scoreBg = !sc ? 'transparent' :
+                    diff <= -2 ? 'rgba(212,175,55,0.15)' : diff === -1 ? 'rgba(74,222,128,0.12)' : diff === 0 ? 'rgba(147,197,253,0.08)' : diff >= 2 ? 'rgba(232,99,74,0.1)' : 'transparent'
+                  return (
+                    <div key={h.h}>
+                      {isUT9 && (() => {
+                        const utStr = roundScores.filter(s => s.hole <= 9).reduce((sum,s) => sum+(s.strokes||0),0)
+                        const utStab = roundScores.filter(s => s.hole <= 9).reduce((sum,s) => sum+(s.stableford||0),0)
+                        const utDone = roundScores.filter(s => s.hole <= 9).length
+                        return (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 10px', background: 'rgba(212,175,55,0.06)', borderTop: '0.5px solid rgba(212,175,55,0.12)', borderBottom: '0.5px solid rgba(212,175,55,0.12)' }}>
+                            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,175,55,0.6)' }}>UT ({utDone} hål)</div>
+                            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: '#D4A017', fontWeight: 600 }}>{utStr || '—'} slag · {utStab}p</div>
+                          </div>
+                        )
+                      })()}
+                      <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 32px 48px 32px 36px', alignItems: 'center', gap: 0, padding: '0 10px', background: sc ? scoreBg : 'transparent', borderBottom: idx < 17 ? '0.5px solid rgba(147,197,253,0.05)' : 'none', minHeight: 46 }}>
+                        {/* Hålnummer — klicka för fullscreen */}
+                        <button onClick={() => { setTabyActiveHole(h.h); setTabyCaddieMsg(null) }} style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(147,197,253,0.06)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: h.p === 3 ? '#E8634A' : h.p === 5 ? '#4ADE80' : '#93C5FD', fontWeight: 700, lineHeight: 1 }}>{h.h}</div>
+                        </button>
+                        {/* Info */}
+                        <div style={{ paddingLeft: 6 }}>
+                          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(240,244,255,0.4)' }}>P{h.p}</span>
+                            {extra > 0 && <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#4ADE80', background: 'rgba(74,222,128,0.1)', borderRadius: 3, padding: '0 3px' }}>+{extra}</span>}
+                            {h.w && <span style={{ fontSize: 9 }}>💧</span>}
+                            {h.signature && <span style={{ fontSize: 9 }}>⭐</span>}
+                            {h.bell && <span style={{ fontSize: 9 }}>🔔</span>}
+                          </div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.3)' }}>{h.m}m · idx {h.i}</div>
+                        </div>
+                        {/* − */}
+                        <button onPointerDown={(e) => { e.preventDefault(); const cur = sc?.strokes || h.p; if (cur > 1) saveHoleScore(h.h, cur - 1) }} style={{ width: '100%', height: 46, background: 'none', border: 'none', color: 'rgba(147,197,253,0.5)', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation' }}>−</button>
+                        {/* Score display — klicka för par */}
+                        <div onPointerDown={(e) => { e.preventDefault(); if (!sc) saveHoleScore(h.h, h.p) }} style={{ height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: sc ? 'default' : 'pointer' }}>
+                          <div style={{ width: 40, height: 34, borderRadius: 8, background: sc ? scoreBg : 'rgba(212,175,55,0.06)', border: sc ? `1px solid ${scoreColor}40` : '1px solid rgba(212,175,55,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                            <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 700, color: sc ? scoreColor : 'rgba(212,175,55,0.5)', lineHeight: 1 }}>{sc?.strokes || h.p}</div>
+                          </div>
+                        </div>
+                        {/* + */}
+                        <button onPointerDown={(e) => { e.preventDefault(); const cur = sc?.strokes || h.p; if (cur < 15) saveHoleScore(h.h, cur + 1) }} style={{ width: '100%', height: 46, background: 'none', border: 'none', color: 'rgba(147,197,253,0.5)', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'manipulation' }}>+</button>
+                        {/* Stableford */}
+                        <div style={{ textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: sc ? scoreColor : 'rgba(147,197,253,0.15)' }}>
+                          {sc ? `${sc.stableford}p` : ''}
+                        </div>
                       </div>
-                      <button onClick={(e) => { e.stopPropagation(); const cur = sc?.strokes || h.p; if (cur < 12) saveHoleScore(h.h, cur + 1) }} style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#93C5FD', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                     </div>
-                    <div style={{ minWidth: 28, textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600, color: sc ? (sc.stableford >= 3 ? '#4ADE80' : sc.stableford === 0 ? '#E8634A' : 'rgba(147,197,253,0.5)') : 'rgba(147,197,253,0.2)' }}>{sc ? `${sc.stableford}p` : ''}</div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
               {/* UT / IN sub-totals */}
               {(() => {
                 const utStrokes = roundScores.filter(s => s.hole <= 9).reduce((sum, s) => sum + (s.strokes || 0), 0)
@@ -1569,6 +1615,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         const mpRemaining = 18 - mpHoles.filter(r => r !== null).length
         const mpStatusStr = mpScore === 0 ? 'AS' : mpScore > 0 ? `UP ${mpScore}` : `DN ${Math.abs(mpScore)}`
         const mpColor = mpScore > 0 ? '#4ADE80' : mpScore < 0 ? '#E8634A' : '#93C5FD'
+        // Auto-close matchplay: vinnaren matematiskt avgjord (ledning > återstående hål) eller 18 hål spelade
+        const mpWon = Math.abs(mpScore) > mpRemaining
+        const mpFinished = mpRemaining === 0 || mpWon
+        const mpWinnerStr = mpWon
+          ? `${mpScore > 0 ? mpScore : Math.abs(mpScore)}&${mpRemaining}`  // e.g. "3&2"
+          : mpScore !== 0 && mpRemaining === 0 ? `${Math.abs(mpScore)} UP` : null
 
         // Skins: for each played hole, who won? (lowest netto, no tie = carry)
         const skinsResults = fmt === 'skins' ? (() => {
@@ -1892,7 +1944,41 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 )
               })()}
 
-              {/* LIVE LEADERBOARD - alla i rundan, sorterat efter total stableford */}
+              {/* MATCHPLAY AUTO-CLOSE + EVEN STEVEN */}
+              {fmt === 'matchplay' && mpFinished && (() => {
+                const winnerId = mpScore > 0 ? tabyUser?.id : newRound.opponent_id
+                const loserId = mpScore > 0 ? newRound.opponent_id : tabyUser?.id
+                const winnerP = tabyPlayers.find(p => p.id === winnerId)
+                const loserP = tabyPlayers.find(p => p.id === loserId)
+                const alreadyClosed = newRound.status === 'completed'
+                return !alreadyClosed ? (
+                  <div style={{ background: mpScore > 0 ? 'linear-gradient(135deg, rgba(74,222,128,0.12), rgba(74,222,128,0.04))' : 'linear-gradient(135deg, rgba(232,99,74,0.12), rgba(232,99,74,0.04))', border: `0.5px solid ${mpScore > 0 ? 'rgba(74,222,128,0.3)' : 'rgba(232,99,74,0.3)'}`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: mpScore > 0 ? '#4ADE80' : '#E8634A', letterSpacing: 1.5, marginBottom: 6 }}>
+                      {mpScore > 0 ? '🏆 DU VANN MATCHPLAY!' : '💀 DU FÖRLORADE MATCHPLAY'}
+                    </div>
+                    <div style={{ fontSize: 14, color: '#F0F4FF', marginBottom: 10 }}>
+                      {winnerP?.nickname} vann {mpWinnerStr || 'matchen'}
+                    </div>
+                    <button onClick={async () => {
+                      // Stäng rundan
+                      await supabase.from('taby_rounds').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', newRound.id)
+                      // Skapa Even Steven-skuld om det finns en insats
+                      const stake = newRound.stake || 100
+                      if (stake > 0 && winnerP && loserP) {
+                        await supabase.from('taby_expenses').insert({
+                          paid_by: winnerP.key, amount: stake,
+                          description: `Matchplay: ${winnerP.nickname} bet. ${loserP.nickname} (${mpWinnerStr || 'matchen'})`,
+                          tag: 'aktivitet', target_key: loserP.key, source: 'matchplay', source_ref: newRound.id
+                        })
+                      }
+                      setNewRound(null); setScoreInput({}); setScoringPlayerId(null); setTabyView('leaderboard')
+                      showTabyToast(`Match avslutad — ${winnerP?.nickname} vann!`, 'birdie')
+                    }} style={{ width: '100%', padding: '10px', borderRadius: 8, cursor: 'pointer', background: 'rgba(212,175,55,0.15)', border: '0.5px solid rgba(212,175,55,0.4)', color: '#D4A017', fontSize: 12, fontFamily: 'var(--mono)', letterSpacing: 1 }}>
+                      Avsluta match + skapa Even Steven-skuld
+                    </button>
+                  </div>
+                ) : null
+              })()}
               {newRound.player_ids?.length > 1 && (() => {
                 const standings = newRound.player_ids.map(pid => {
                   const p = tabyPlayers.find(x => x.id === pid)
@@ -1969,18 +2055,29 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               )}
             </div>
 
-            {/* Bottom nav - identical to DIO style */}
-            <div style={{ display: 'flex', gap: 8, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0))', background: 'rgba(147,197,253,0.04)', borderTop: '0.5px solid rgba(147,197,253,0.1)' }}>
+              {/* Bottom nav */}
+              <div style={{ display: 'flex', gap: 8, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0))', background: 'rgba(147,197,253,0.04)', borderTop: '0.5px solid rgba(147,197,253,0.1)' }}>
               {holesPlayed === 18 ? (
-                <button onClick={() => { setTabyActiveHole(null); setNewRound(null); setScoreInput({}); setTabyView('leaderboard') }}
-                  style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: 'linear-gradient(135deg, #D4A017, #F5D76E)', border: 'none', color: '#0C1830', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                <button onClick={async () => {
+                  // Markera rundan som completed i DB — globalt för alla
+                  await supabase.from('taby_rounds').update({
+                    status: 'completed',
+                    completed_at: new Date().toISOString()
+                  }).eq('id', newRound.id)
+                  setTabyActiveHole(null)
+                  setNewRound(null)
+                  setScoreInput({})
+                  setScoringPlayerId(null)
+                  setTabyView('leaderboard')
+                  showTabyToast(`Runda sparad! ${totalStab}p 🏆`, 'birdie')
+                }} style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: 'linear-gradient(135deg, #D4A017, #F5D76E)', border: 'none', color: '#0C1830', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
                   🏆 Avsluta runda ({totalStab}p)
                 </button>
               ) : (<>
                 <button onClick={() => prevHole && (setTabyActiveHole(prevHole), setTabyCaddieMsg(null))} disabled={!prevHole}
-                  style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'rgba(147,197,253,0.08)' : 'transparent', border: '1px solid rgba(147,197,253,0.12)', color: prevHole ? '#F0F4FF' : 'rgba(147,197,253,0.2)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← Hål {prevHole || ''}</button>
+                  style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'rgba(147,197,253,0.08)' : 'transparent', border: '1px solid rgba(147,197,253,0.12)', color: prevHole ? '#F0F4FF' : 'rgba(147,197,253,0.2)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← {prevHole || ''}</button>
                 <button onClick={() => nextH ? (setTabyActiveHole(nextH), setTabyCaddieMsg(null)) : setTabyActiveHole(null)}
-                  style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: '#D4A017', border: 'none', color: '#0C1830', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
+                  style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: 'linear-gradient(135deg, rgba(147,197,253,0.15), rgba(147,197,253,0.08))', border: '0.5px solid rgba(147,197,253,0.2)', color: '#F0F4FF', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
               </>)}
             </div>
           </div>
