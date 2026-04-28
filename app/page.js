@@ -1880,30 +1880,23 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 </div>
               )}
 
-              {/* GPS LAYUP — "230m → 95m kvar" */}
-              {gpsPos && h.approaches && (() => {
-                const teeKey = Object.keys(h.tees || {}).find(t => Math.abs((h.tees[t]) - h.m) < 10) || '60'
-                const totalDist = h.m
-                const distToGreen = distanceToGreen(gpsPos, h.h)
-                if (!distToGreen || distToGreen < 10) return null
-                // Hitta layup-alternativ (inspel-mått)
-                const layupOptions = (h.inspel || []).filter(d => d > 20 && d < distToGreen - 20)
+              {/* GPS LAYUP — "230m till layup → 95m kvar till green" */}
+              {tabyUserLoc && h.inspel && h.inspel.length > 0 && (() => {
+                const distToGreen = distanceToGreen(tabyUserLoc.lat, tabyUserLoc.lng, h.h)
+                if (!distToGreen || distToGreen < 30) return null
+                const layupOptions = h.inspel.filter(d => d > 20 && d < distToGreen - 20)
                 if (layupOptions.length === 0) return null
                 return (
                   <div style={{ marginBottom: 12, padding: 12, background: 'rgba(74,222,128,0.06)', borderRadius: 12, border: '0.5px solid rgba(74,222,128,0.15)' }}>
                     <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(74,222,128,0.7)', letterSpacing: 1.5, marginBottom: 8 }}>📐 STRATEGIAVSTÅND</div>
-                    {layupOptions.map(layupDist => {
-                      const remaining = distToGreen - (distToGreen - layupDist)
-                      return (
-                        <div key={layupDist} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                          <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: '#4ADE80' }}>{Math.round(distToGreen - layupDist)}m</div>
-                          <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)' }}>till layup</div>
-                          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(240,244,255,0.3)' }}>→</div>
-                          <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: '#D4A017' }}>{layupDist}m</div>
-                          <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)' }}>kvar till green</div>
-                        </div>
-                      )
-                    })}
+                    {layupOptions.map(layupDist => (
+                      <div key={layupDist} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: '#4ADE80' }}>{Math.round(distToGreen - layupDist)}m</div>
+                        <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)' }}>till layup →</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: '#D4A017' }}>{layupDist}m</div>
+                        <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)' }}>kvar till green</div>
+                      </div>
+                    ))}
                   </div>
                 )
               })()}
