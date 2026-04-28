@@ -249,7 +249,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [tabyRounds, setTabyRounds] = useState([])
   const [tabyScores, setTabyScores] = useState([])
   const [newRound, setNewRound] = useState(null)
-  const [roundSetup, setRoundSetup] = useState({ format: 'stableford', eventId: null, opponentId: null, selectedPlayers: null })
+  const [roundSetup, setRoundSetup] = useState({ format: 'stableford', eventId: null, opponentId: null, selectedPlayers: null, ldHole: null, npHole: null })
   const [scoreInput, setScoreInput] = useState({})
   const [scoringPlayerId, setScoringPlayerId] = useState(null) // null = registrerar för sig själv
   const [tabyActiveHole, setTabyActiveHole] = useState(null)
@@ -522,6 +522,8 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     const format = opts.format || roundSetup.format || 'stableford'
     const eventId = opts.eventId || roundSetup.eventId || null
     const opponentId = opts.opponentId || roundSetup.opponentId || null
+    const ldHole = roundSetup.ldHole || null
+    const npHole = roundSetup.npHole || null
     const { data } = await supabase.from('taby_rounds').insert({
       date: new Date().toISOString().split('T')[0],
       type,
@@ -529,7 +531,8 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       created_by: tabyUser?.id,
       format,
       event_id: eventId || undefined,
-      opponent_id: opponentId || undefined
+      opponent_id: opponentId || undefined,
+      notes: JSON.stringify({ ldHole, npHole })
     }).select().single()
     if (data) {
       setNewRound(data)
@@ -1363,6 +1366,24 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     </div>
                   </div>
                 )}
+
+                {/* LD & NP — välj hål */}
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '0.5px solid rgba(147,197,253,0.08)' }}>
+                  {[
+                    { key: 'ldHole', label: '🏌️ Längst drive (LD)', color: '#D4A017', par: [4,5] },
+                    { key: 'npHole', label: '🎯 Närmast pin (NP)', color: '#4ADE80', par: [3] },
+                  ].map(({ key, label, color, par }) => (
+                    <div key={key} style={{ marginBottom: 10 }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color, letterSpacing: 1.2, marginBottom: 6 }}>{label}</div>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <button onClick={() => setRoundSetup(s => ({...s, [key]: null}))} style={{ padding: '4px 9px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--mono)', background: !roundSetup[key] ? `${color}22` : 'rgba(147,197,253,0.03)', border: !roundSetup[key] ? `1px solid ${color}66` : '0.5px solid rgba(147,197,253,0.1)', color: !roundSetup[key] ? color : 'rgba(240,244,255,0.3)' }}>Ingen</button>
+                        {holes.filter(h => par.includes(h.p)).map(h => (
+                          <button key={h.h} onClick={() => setRoundSetup(s => ({...s, [key]: h.h}))} style={{ padding: '4px 9px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--mono)', background: roundSetup[key] === h.h ? `${color}22` : 'rgba(147,197,253,0.03)', border: roundSetup[key] === h.h ? `1px solid ${color}66` : '0.5px solid rgba(147,197,253,0.1)', color: roundSetup[key] === h.h ? color : 'rgba(240,244,255,0.3)' }}>H{h.h}</button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Mini banguide med avståndsmätning */}
@@ -1432,6 +1453,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           ) : (
             <div>
               {/* Active round header */}
+              {/* Parsa LD/NP */}
+              {(() => { const rn = (() => { try { return JSON.parse(newRound.notes || '{}') } catch { return {} } })(); window.__tabyLdHole = rn.ldHole; window.__tabyNpHole = rn.npHole; return null })()}
               <div style={{ background: 'rgba(212,175,55,0.06)', border: '0.5px solid rgba(212,175,55,0.15)', borderRadius: 12, padding: '10px 14px', marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
@@ -1495,6 +1518,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                             {h.w && <span style={{ fontSize: 9 }}>💧</span>}
                             {h.signature && <span style={{ fontSize: 9 }}>⭐</span>}
                             {h.bell && <span style={{ fontSize: 9 }}>🔔</span>}
+                            {window.__tabyLdHole === h.h && <span style={{ fontFamily: 'var(--mono)', fontSize: 7, color: '#D4A017', background: 'rgba(212,160,23,0.12)', borderRadius: 3, padding: '1px 4px' }}>LD</span>}
+                            {window.__tabyNpHole === h.h && <span style={{ fontFamily: 'var(--mono)', fontSize: 7, color: '#4ADE80', background: 'rgba(74,222,128,0.1)', borderRadius: 3, padding: '1px 4px' }}>NP</span>}
                           </div>
                           <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.3)' }}>{h.m}m · idx {h.i}</div>
                         </div>
@@ -1600,6 +1625,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         const h = holes[tabyActiveHole - 1]
         if (!h) return null
         const fmt = newRound.format || 'stableford'
+        // Parsa LD/NP från notes
+        const roundNotes = (() => { try { return JSON.parse(newRound.notes || '{}') } catch { return {} } })()
+        const ldHole = roundNotes.ldHole || null
+        const npHole = roundNotes.npHole || null
         // Aktiv spelare — den vi registrerar för just nu
         const activePid = scoringPlayerId || tabyUser?.id
         const activePlayer = activePid === tabyUser?.id ? tabyUser : tabyPlayers.find(p => p.id === activePid) || tabyUser
@@ -1739,6 +1768,11 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <div style={{ textAlign: 'center', marginBottom: 16 }}>
                 <div style={{ fontSize: 56, fontFamily: 'var(--serif)', fontWeight: 500, color: h.p === 3 ? '#E8634A' : h.p === 5 ? '#4ADE80' : '#F0F4FF' }}>{h.h}</div>
                 <div style={{ fontSize: 14, color: 'rgba(240,244,255,0.6)', marginTop: -4 }}>Par {h.p} · {h.m}m · Hcp {h.i}</div>
+                {/* LD/NP badges */}
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 6 }}>
+                  {ldHole === h.h && <div style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(212,160,23,0.15)', border: '0.5px solid rgba(212,160,23,0.4)', fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1 }}>🏌️ LÄNGST DRIVE</div>}
+                  {npHole === h.h && <div style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(74,222,128,0.12)', border: '0.5px solid rgba(74,222,128,0.3)', fontFamily: 'var(--mono)', fontSize: 9, color: '#4ADE80', letterSpacing: 1 }}>🎯 NÄRMAST PIN</div>}
+                </div>
                 {/* Extra strokes indicator */}
                 {extra > 0 && (
                   <div style={{ marginTop: 6, display: 'flex', justifyContent: 'center', gap: 4 }}>
