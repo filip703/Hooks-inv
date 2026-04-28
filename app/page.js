@@ -861,7 +861,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
   )
 
   // Current round scores for user
-  const roundScores = newRound ? tabyScores.filter(s => s.round_id === newRound.id && s.player_id === tabyUser.id) : []
+  const roundScores = (newRound && tabyUser) ? tabyScores.filter(s => s.round_id === newRound.id && s.player_id === tabyUser.id) : []
   const totalStab = roundScores.reduce((s, sc) => s + (sc.stableford || 0), 0)
   const totalStrokes = roundScores.reduce((s, sc) => s + (sc.strokes || 0), 0)
   const holesPlayed = roundScores.length
