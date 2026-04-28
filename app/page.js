@@ -1341,10 +1341,26 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <div style={{ marginTop: 14, background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, border: '0.5px solid rgba(147,197,253,0.1)' }}>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.5)', letterSpacing: 1.5, marginBottom: 10 }}>SPELSÄTT</div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                  {[{key:'stableford',label:'⭐ Stableford'},{key:'stroke',label:'✏️ Slagspel'},{key:'matchplay',label:'⚔️ Matchplay'},{key:'skins',label:'🦈 Skins'}].map(({key,label}) => (
+                  {[{key:'stableford',label:'⭐ Stableford'},{key:'stroke',label:'✏️ Slagspel'},{key:'matchplay',label:'⚔️ Matchplay'},{key:'skins',label:'🦈 Skins'},{key:'lag',label:'⚔️ Lagspel'}].map(({key,label}) => (
                     <button key={key} onClick={() => setRoundSetup(s => ({...s,format:key,opponentId:null}))} style={{ padding:'7px 12px', borderRadius:8, fontSize:12, cursor:'pointer', fontFamily:'var(--mono)', background:roundSetup.format===key?'rgba(147,197,253,0.15)':'rgba(147,197,253,0.03)', border:roundSetup.format===key?'1px solid #93C5FD':'0.5px solid rgba(147,197,253,0.1)', color:roundSetup.format===key?'#93C5FD':'rgba(240,244,255,0.4)' }}>{label}</button>
                   ))}
                 </div>
+                {roundSetup.format === 'lag' && (
+                  <div style={{ marginBottom: 12, padding: 12, background: 'rgba(147,197,253,0.06)', borderRadius: 10, border: '0.5px solid rgba(147,197,253,0.15)' }}>
+                    <div style={{ fontSize: 11, color: 'rgba(147,197,253,0.7)', lineHeight: 1.5 }}>
+                      Lagspel spelar stableford — bästa 2 av 3 per hål räknas. Gå till ⚔️ LAG-fliken för att dela upp lag och låta AI generera lagnamnen.
+                    </div>
+                    {tabyTeams.length > 0 && (
+                      <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+                        {tabyTeams.slice(0, 2).map(t => (
+                          <div key={t.id} style={{ flex: 1, padding: '4px 8px', borderRadius: 6, background: t.color === 'blue' ? 'rgba(147,197,253,0.1)' : 'rgba(212,160,23,0.1)', border: `0.5px solid ${t.color === 'blue' ? 'rgba(147,197,253,0.3)' : 'rgba(212,160,23,0.3)'}`, textAlign: 'center' }}>
+                            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: t.color === 'blue' ? '#93C5FD' : '#D4A017' }}>{t.name}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {roundSetup.format === 'matchplay' && (
                   <div style={{ marginBottom:12 }}>
                     <div style={{ fontSize:11, color:'rgba(240,244,255,0.5)', marginBottom:6 }}>Motståndare:</div>
@@ -3308,6 +3324,75 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       })()}
 
       {/* ======================================== */}
+      {/* ======================================== */}
+      {/* MIN PROFIL (Täby)                         */}
+      {/* ======================================== */}
+      {tabyView === 'profile' && tabyUser && (
+        <div style={{ padding: '0 16px 100px' }}>
+          <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#D4A017', marginBottom: 4 }}>👤 Min profil</div>
+          <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 16 }}>Redigera dina uppgifter</div>
+
+          {/* Avatar + info */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 14, padding: 20, marginBottom: 14, textAlign: 'center', border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            {tabyUser.image_url
+              ? <img src={tabyUser.image_url} style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(147,197,253,0.3)' }} />
+              : <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: '#93C5FD', margin: '0 auto' }}>{tabyUser.name?.charAt(0)}</div>
+            }
+            <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#D4A017', marginTop: 10 }}>{tabyUser.nickname}</div>
+            <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.5)' }}>{tabyUser.name}</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(147,197,253,0.6)', marginTop: 4 }}>HCP {tabyUser.taby_hcp || tabyUser.hcp}</div>
+          </div>
+
+          {/* HCP-påminnelse */}
+          {(() => {
+            const upd = tabyUser.hcp_updated_at ? new Date(tabyUser.hcp_updated_at) : null
+            const days = upd ? Math.floor((new Date() - upd) / 86400000) : 999
+            if (days < 21) return null
+            return (
+              <div style={{ background: 'rgba(232,99,74,0.08)', border: '0.5px solid rgba(232,99,74,0.3)', borderRadius: 12, padding: 12, marginBottom: 14, display: 'flex', gap: 10 }}>
+                <div style={{ fontSize: 18 }}>⚠️</div>
+                <div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#E8634A', letterSpacing: 1.5, marginBottom: 3 }}>SPELINDEX KAN VARA FÖRÅLDRAT</div>
+                  <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.6)', lineHeight: 1.5 }}>
+                    Senast uppdaterat {upd?.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }) || 'okänt'} — {days} dagar sedan. Uppdatera HCP nedan.
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Uppdatera HCP */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#93C5FD', letterSpacing: 2, marginBottom: 10 }}>SPELINDEX / HCP</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input type="number" step="0.1" defaultValue={tabyUser.taby_hcp || tabyUser.hcp}
+                id="taby-profile-hcp"
+                style={{ flex: 1, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.2)', borderRadius: 8, color: '#F0F4FF', padding: '10px 12px', fontSize: 16, fontFamily: 'var(--mono)' }} />
+              <button onClick={async () => {
+                const val = parseFloat(document.getElementById('taby-profile-hcp')?.value)
+                if (isNaN(val)) return
+                await supabase.from('inv_players').update({ taby_hcp: val, hcp_updated_at: new Date().toISOString() }).eq('id', tabyUser.id)
+                setTabyUser(prev => ({ ...prev, taby_hcp: val, hcp_updated_at: new Date().toISOString() }))
+                showTabyToast(`HCP uppdaterat till ${val}`, 'birdie')
+              }} style={{ padding: '10px 18px', borderRadius: 8, cursor: 'pointer', background: 'rgba(147,197,253,0.12)', border: '0.5px solid rgba(147,197,253,0.3)', color: '#93C5FD', fontSize: 13, fontFamily: 'var(--mono)' }}>
+                Spara
+              </button>
+            </div>
+          </div>
+
+          {/* Push-notiser */}
+          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#93C5FD', letterSpacing: 2, marginBottom: 10 }}>PUSH-NOTISER</div>
+            <PushSubscribeButton playerId={tabyUser.id} />
+          </div>
+
+          {/* Byt spelare */}
+          <button onClick={() => { setTabyUser(null); localStorage.removeItem('taby_user') }} style={{ width: '100%', padding: '12px', borderRadius: 10, cursor: 'pointer', background: 'rgba(232,99,74,0.06)', border: '0.5px solid rgba(232,99,74,0.2)', color: '#E8634A', fontSize: 13, fontFamily: 'var(--mono)', letterSpacing: 1 }}>
+            Byt spelare / Logga ut
+          </button>
+        </div>
+      )}
+
       {/* HAMBURGER MENU (slide-in from right)     */}
       {/* ======================================== */}
       {showTabyMenu && (
