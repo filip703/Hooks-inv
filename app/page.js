@@ -297,6 +297,9 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [tabyChat, setTabyChat] = useState([])
   // Chat form state
   const [tabyMsg, setTabyMsg] = useState('')
+  const [showTabyMenu, setShowTabyMenu] = useState(false)
+  const [tabyTeams, setTabyTeams] = useState([])
+  const [tabyTeamGenLoading, setTabyTeamGenLoading] = useState(false)
   const [tabyAllPlayers, setTabyAllPlayers] = useState([])
   const [tabyHoleImages, setTabyHoleImages] = useState({}) // { 1: 'url', 2: 'url', ... }
   const [tabyDioConfig, setTabyDioConfig] = useState({ // för admin-redigering av DIO-datum från Täby-appen
@@ -362,6 +365,9 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       if (wagers) setTabyBetWagers(wagers)
       const { data: h2h } = await supabase.from('taby_h2h').select('*').order('created_at', { ascending: false })
       if (h2h) setTabyH2H(h2h)
+      // Teams
+      const { data: teams } = await supabase.from('taby_teams').select('*').order('created_at', { ascending: false }).limit(20)
+      if (teams) setTabyTeams(teams)
       // Chat
       const { data: chatData } = await supabase.from('inv_chat').select('*').order('created_at', { ascending: false }).limit(150)
       if (chatData) setTabyChat(chatData)
@@ -418,6 +424,9 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       supabase.channel('taby_bets_rt').on('postgres_changes',
         { event: '*', schema: 'public', table: 'taby_bets' },
         () => loadData()
+      ).subscribe(),
+      supabase.channel('taby_teams_rt').on('postgres_changes',
+        { event: '*', schema: 'public', table: 'taby_teams' }, () => loadData()
       ).subscribe(),
       supabase.channel('taby_expenses_rt').on('postgres_changes',
         { event: '*', schema: 'public', table: 'taby_expenses' },
@@ -1134,22 +1143,36 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         </div>
       </div>
 
-      {/* Tab nav */}
-      <div style={{ display: 'flex', gap: 4, padding: '0 16px 12px', overflowX: 'auto' }}>
-        {[
-          ['leaderboard','Merit'],['scoring','Spela'],['holes','Banguide'],
-          ['wallet','💰'],['betting','Betting'],['feed','Chat'],['stats','Stats'],
-          ...(tabyUser?.is_admin || tabyUser?.key === 'filip' || tabyUser?.key === 'marcus' ? [['settings','⚙️']] : [])
-        ].map(([key, label]) => (
-          <button key={key} onClick={() => setTabyView(key)} style={{
-            padding: '6px 14px', borderRadius: 8, fontSize: 11, fontFamily: 'var(--mono)',
-            background: tabyView === key ? 'rgba(147,197,253,0.12)' : 'transparent',
-            border: tabyView === key ? '0.5px solid rgba(147,197,253,0.2)' : '0.5px solid transparent',
-            color: tabyView === key ? '#93C5FD' : 'rgba(240,244,255,0.3)',
-            cursor: 'pointer', letterSpacing: 0.5, whiteSpace: 'nowrap'
-          }}>{label}{key === 'scoring' && newRound ? ' ●' : ''}</button>
-        ))}
-      </div>
+      {/* ── BOTTOM NAV ── */}
+      <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200, display: 'flex', flexDirection: 'column', paddingBottom: 'calc(4px + env(safe-area-inset-bottom, 0px))', background: 'linear-gradient(180deg, rgba(30,58,95,0.55) 0%, rgba(12,24,48,0.88) 100%)', backdropFilter: 'blur(40px) saturate(1.8)', WebkitBackdropFilter: 'blur(40px) saturate(1.8)', borderTop: '0.5px solid rgba(147,197,253,0.12)', boxShadow: 'inset 0 0.5px 0 rgba(147,197,253,0.15), 0 -2px 20px rgba(0,0,0,0.4)' }}>
+        {newRound && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '3px 0 2px', borderBottom: '0.5px solid rgba(147,197,253,0.08)' }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017' }}>●</span>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,175,55,0.7)', letterSpacing: 0.5 }}>RUNDA AKTIV · {roundScores.length}/18 HÅL · {totalStab}P</span>
+          </div>
+        )}
+        <div style={{ display: 'flex' }}>
+          {[
+            { key: 'leaderboard', icon: <IconLeaderboard size={14} />, label: 'MERIT' },
+            { key: 'scoring',     icon: <IconScorecard size={14} />,  label: 'SPELA', dot: !!newRound },
+            { key: 'wallet',      icon: <IconWallet size={14} />,     label: '💰' },
+            { key: 'lag',         icon: <IconSwords size={14} />,     label: 'LAG' },
+          ].map(({ key, icon, label, dot }) => {
+            const active = tabyView === key
+            return (
+              <button key={key} onClick={() => setTabyView(key)} style={{ flex: 1, padding: '7px 2px 5px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, WebkitTapHighlightColor: 'transparent', position: 'relative' }}>
+                <LakeBadge size={30} active={active}><span style={{ color: active ? '#0C1830' : '#F0F4FF', display: 'flex' }}>{icon}</span></LakeBadge>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 7, letterSpacing: 0.8, color: active ? '#93C5FD' : 'rgba(240,244,255,0.35)', textTransform: 'uppercase' }}>{label}</span>
+                {dot && !active && <span style={{ position: 'absolute', top: 5, right: '50%', marginRight: -14, width: 6, height: 6, borderRadius: '50%', background: '#D4A017' }} />}
+              </button>
+            )
+          })}
+          <button onClick={() => setShowTabyMenu(true)} style={{ flex: 1, padding: '7px 2px 5px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, WebkitTapHighlightColor: 'transparent' }}>
+            <LakeBadge size={30} active={false}><span style={{ color: '#F0F4FF', display: 'flex' }}><IconMenu size={14} /></span></LakeBadge>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 7, letterSpacing: 0.8, color: 'rgba(240,244,255,0.35)', textTransform: 'uppercase' }}>MENY</span>
+          </button>
+        </div>
+      </nav>
 
       {/* LEADERBOARD */}
       {tabyView === 'leaderboard' && (
@@ -3193,6 +3216,195 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           </div>
         </div>
       )}
+
+      {/* ======================================== */}
+      {/* LAG — AI-genererade lagnamn              */}
+      {/* ======================================== */}
+      {tabyView === 'lag' && (() => {
+        const isAdmin = tabyUser?.is_admin || tabyUser?.key === 'filip' || tabyUser?.key === 'marcus'
+        const latestBlue = tabyTeams.find(t => t.color === 'blue')
+        const latestGold = tabyTeams.find(t => t.color === 'gold')
+        return (
+          <div style={{ padding: '0 16px 100px' }}>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#93C5FD', marginBottom: 4 }}>⚔️ Lagspel</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 16 }}>Dela upp i lag – AI hittar på namnen</div>
+
+            {/* Aktiva lag */}
+            {latestBlue && latestGold && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
+                {[latestBlue, latestGold].map(team => {
+                  const color = team.color === 'blue' ? '#93C5FD' : '#D4A017'
+                  const teamPlayers = tabyPlayers.filter(p => team.player_ids?.includes(p.id))
+                  const teamStab = teamPlayers.reduce((sum, p) => {
+                    const latest = tabyRounds.filter(r => r.player_ids?.includes(p.id)).slice(0, 3)
+                    return sum + latest.reduce((s, r) => s + tabyScores.filter(sc => sc.round_id === r.id && sc.player_id === p.id).reduce((ss, sc) => ss + (sc.stableford || 0), 0), 0)
+                  }, 0)
+                  return (
+                    <div key={team.id} style={{ background: `${color}11`, border: `0.5px solid ${color}33`, borderRadius: 14, padding: 14 }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: `${color}88`, letterSpacing: 1.5, marginBottom: 4 }}>AKTIVA LAG</div>
+                      <div style={{ fontFamily: 'var(--serif)', fontSize: 18, color, marginBottom: 8, lineHeight: 1.2 }}>{team.name}</div>
+                      {teamPlayers.map(p => (
+                        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          {p.image_url ? <img src={p.image_url} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 20, height: 20, borderRadius: '50%', background: `${color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color }}>{p.name?.charAt(0)}</div>}
+                          <span style={{ fontSize: 12, color: '#F0F4FF' }}>{p.nickname}</span>
+                        </div>
+                      ))}
+                      {teamStab > 0 && <div style={{ marginTop: 8, fontFamily: 'var(--mono)', fontSize: 20, color, fontWeight: 700 }}>{teamStab}p</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Lagbyggare (admin only) */}
+            {isAdmin && <LagBuilder tabyPlayers={tabyPlayers} tabyTeamGenLoading={tabyTeamGenLoading} setTabyTeamGenLoading={setTabyTeamGenLoading} supabase={supabase} tabyUser={tabyUser} showTabyToast={showTabyToast} />}
+
+            {/* Radera lag */}
+            {isAdmin && (latestBlue || latestGold) && (
+              <button onClick={async () => {
+                if (!confirm('Radera aktiva lag?')) return
+                await supabase.from('taby_teams').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+                showTabyToast('Lag raderade', 'zero')
+              }} style={{ width: '100%', marginTop: 12, padding: 10, borderRadius: 8, cursor: 'pointer', background: 'rgba(232,99,74,0.06)', border: '0.5px solid rgba(232,99,74,0.2)', color: '#E8634A', fontSize: 12, fontFamily: 'var(--mono)' }}>
+                Radera aktiva lag
+              </button>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* ======================================== */}
+      {/* HAMBURGER MENU (slide-in from right)     */}
+      {/* ======================================== */}
+      {showTabyMenu && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowTabyMenu(false) }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 500, display: 'flex', justifyContent: 'flex-end', animation: 'fadeIn 0.2s ease' }}>
+          <div style={{ width: 300, maxWidth: '85vw', background: 'linear-gradient(180deg, #0C1830 0%, #0A1525 100%)', height: '100%', overflowY: 'auto', paddingTop: 'env(safe-area-inset-top, 0px)', animation: 'slideInRight 0.25s cubic-bezier(0.16,1,0.3,1)', borderLeft: '0.5px solid rgba(147,197,253,0.12)' }}>
+            {/* Header */}
+            <div style={{ padding: '20px 20px 16px', borderBottom: '0.5px solid rgba(147,197,253,0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {tabyUser?.image_url ? <img src={tabyUser.image_url} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(147,197,253,0.2)' }} /> : <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#93C5FD' }}>{tabyUser?.name?.charAt(0)}</div>}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: 18, color: '#D4A017', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tabyUser?.nickname}</div>
+                  <div style={{ fontSize: 11, color: 'rgba(147,197,253,0.5)', fontFamily: 'var(--mono)' }}>HCP {tabyUser?.taby_hcp || tabyUser?.hcp}</div>
+                </div>
+                <button onClick={() => setShowTabyMenu(false)} style={{ background: 'none', border: 'none', color: 'rgba(240,244,255,0.4)', fontSize: 22, cursor: 'pointer', padding: 4 }}>✕</button>
+              </div>
+            </div>
+            {/* Menu items */}
+            <div style={{ padding: 12 }}>
+              {[
+                { key: 'holes',   icon: <IconFlag size={16} />,        label: 'Banguide',  desc: 'Alla 18 hål med GPS' },
+                { key: 'betting', icon: <IconDice size={16} />,        label: 'Betting',   desc: 'H2H, odds & sidospel' },
+                { key: 'feed',    icon: <IconChat size={16} />,        label: 'Chat',      desc: 'Birdies & trash talk' },
+                { key: 'stats',   icon: <IconLeaderboard size={16} />, label: 'Stats',     desc: 'Hålstatistik & historik' },
+                { key: 'profile', icon: <IconUser size={16} />,        label: 'Min profil',desc: 'HCP, notiser, inställningar' },
+                ...(tabyUser?.is_admin || tabyUser?.key === 'filip' || tabyUser?.key === 'marcus' ? [{ key: 'settings', icon: <IconSettings size={16} />, label: 'Admin', desc: 'HCP, rundor, banguide, DIO' }] : []),
+              ].map(t => {
+                const active = tabyView === t.key
+                return (
+                  <button key={t.key} onClick={() => { setTabyView(t.key); setShowTabyMenu(false) }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '13px 12px', background: active ? 'rgba(147,197,253,0.08)' : 'transparent', border: active ? '0.5px solid rgba(147,197,253,0.2)' : '0.5px solid transparent', borderRadius: 12, cursor: 'pointer', textAlign: 'left', marginBottom: 4 }}>
+                    <LakeBadge size={32} active={active}><span style={{ color: active ? '#0C1830' : '#F0F4FF', display: 'flex' }}>{t.icon}</span></LakeBadge>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 500, color: active ? '#93C5FD' : '#F0F4FF' }}>{t.label}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(147,197,253,0.4)', marginTop: 1 }}>{t.desc}</div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            {/* Footer */}
+            <div style={{ padding: '16px 20px', borderTop: '0.5px solid rgba(147,197,253,0.08)', marginTop: 8 }}>
+              {((!tabyOnly || tabyUser?.key === 'filip' || tabyUser?.key === 'marcus') && onSwitchMode) && (
+                <button onClick={() => { setShowTabyMenu(false); onSwitchMode() }} style={{ width: '100%', padding: '10px', borderRadius: 10, cursor: 'pointer', marginBottom: 12, background: 'linear-gradient(135deg, rgba(27,67,50,0.4), rgba(27,67,50,0.15))', border: '0.5px solid rgba(201,168,76,0.2)', color: '#D4A017', fontSize: 11, fontFamily: 'var(--mono)', letterSpacing: 1, textAlign: 'center' }}>↔ BYT TILL DIO</button>
+              )}
+              <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.2)', fontFamily: 'var(--mono)', textAlign: 'center', letterSpacing: 2 }}>TÄBY ORDER OF MERIT · 2026</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// LagBuilder som separat komponent (undviker useState i IIFE)
+function LagBuilder({ tabyPlayers, tabyTeamGenLoading, setTabyTeamGenLoading, supabase, tabyUser, showTabyToast }) {
+  const [selA, setSelA] = useState([])
+  const [selB, setSelB] = useState([])
+  const [genTeams, setGenTeams] = useState(null)
+
+  const generateTeamNames = async () => {
+    if (selA.length === 0 || selB.length === 0) return
+    setTabyTeamGenLoading(true); setGenTeams(null)
+    try {
+      const desc = (ids) => ids.map(id => {
+        const p = tabyPlayers.find(x => x.id === id)
+        return `${p?.nickname} (${p?.name?.split(' ')[0]}, HCP ${p?.taby_hcp || p?.hcp}${p?.nickname_story ? ', bakgrund: ' + p.nickname_story.substring(0, 60) : ''})`
+      }).join(', ')
+      const prompt = `Du är en skarp och varm kommentator för The Lake Club – ett gäng golfare på Täby GK.
+Lag A: ${desc(selA)}
+Lag B: ${desc(selB)}
+
+Hitta på ett minnesvärt lagnamn för varje lag. Regler:
+- Svenska, max 3 ord
+- Inspirerat av spelarnas nicknames, personligheter och golf
+- Varm men snarky humor – gänget håller koll på varandra
+- Tänk: filmreferens, golfterm, absurdt smeknamn
+
+Svara ONLY med valid JSON (inga backticks, inga kommentarer):
+{"a":{"name":"Lagnamn A","taunt":"Kort skämtsam mening om lag A (max 12 ord)"},"b":{"name":"Lagnamn B","taunt":"Kort skämtsam mening om lag B (max 12 ord)"}}`
+      const res = await fetch('/api/caddie', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: prompt, holeData: null, playerHcp: 0, roundContext: '' }) })
+      const { reply } = await res.json()
+      setGenTeams(JSON.parse(reply.replace(/```json|```/g, '').trim()))
+    } catch (e) { console.error(e) }
+    setTabyTeamGenLoading(false)
+  }
+
+  const saveTeams = async () => {
+    if (!genTeams) return
+    await supabase.from('taby_teams').insert([
+      { name: genTeams.a.name, color: 'blue', player_ids: selA, created_by: tabyUser?.id },
+      { name: genTeams.b.name, color: 'gold', player_ids: selB, created_by: tabyUser?.id }
+    ])
+    showTabyToast('Lag sparade! 🏆', 'birdie')
+    setSelA([]); setSelB([]); setGenTeams(null)
+  }
+
+  return (
+    <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 14, padding: 16, border: '0.5px solid rgba(147,197,253,0.08)', marginBottom: 12 }}>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D4A017', letterSpacing: 2, marginBottom: 12 }}>SKAPA NYA LAG</div>
+      {[{label: 'LAG A', sel: selA, setSel: setSelA, other: selB, color: '#93C5FD'}, {label: 'LAG B', sel: selB, setSel: setSelB, other: selA, color: '#D4A017'}].map(({label, sel, setSel, other, color}) => (
+        <div key={label} style={{ marginBottom: 12 }}>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color, letterSpacing: 1.5, marginBottom: 8 }}>{label}</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {tabyPlayers.filter(p => p.key !== 'spectator' && !other.includes(p.id)).map(p => {
+              const inTeam = sel.includes(p.id)
+              return (
+                <button key={p.id} onClick={() => setSel(prev => inTeam ? prev.filter(id => id !== p.id) : [...prev, p.id])} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 10, cursor: 'pointer', background: inTeam ? `${color}22` : 'rgba(147,197,253,0.04)', border: inTeam ? `1px solid ${color}66` : '0.5px solid rgba(147,197,253,0.08)' }}>
+                  {p.image_url && <img src={p.image_url} style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} />}
+                  <span style={{ fontSize: 12, color: inTeam ? color : 'rgba(240,244,255,0.6)' }}>{p.nickname}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      <button onClick={generateTeamNames} disabled={selA.length === 0 || selB.length === 0 || tabyTeamGenLoading} style={{ width: '100%', padding: '12px', borderRadius: 10, cursor: 'pointer', background: 'linear-gradient(135deg, rgba(147,197,253,0.15), rgba(147,197,253,0.05))', border: '0.5px solid rgba(147,197,253,0.3)', color: '#93C5FD', fontSize: 14, fontFamily: 'var(--serif)', fontStyle: 'italic', marginBottom: genTeams ? 12 : 0, opacity: selA.length === 0 || selB.length === 0 ? 0.4 : 1 }}>
+        {tabyTeamGenLoading ? '✨ Tänker...' : '✨ Generera lagnamn med AI'}
+      </button>
+      {genTeams && (<>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+          {[{data: genTeams.a, color: '#93C5FD'}, {data: genTeams.b, color: '#D4A017'}].map(({data, color}, i) => (
+            <div key={i} style={{ background: `${color}11`, border: `0.5px solid ${color}33`, borderRadius: 12, padding: 12 }}>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 18, color, marginBottom: 4 }}>{data.name}</div>
+              <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.5)', fontStyle: 'italic', lineHeight: 1.4 }}>{data.taunt}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={generateTeamNames} style={{ flex: 1, padding: '9px', borderRadius: 8, cursor: 'pointer', background: 'transparent', border: '0.5px solid rgba(147,197,253,0.2)', color: '#93C5FD', fontSize: 12 }}>🔄 Nytt</button>
+          <button onClick={saveTeams} style={{ flex: 2, padding: '9px', borderRadius: 8, cursor: 'pointer', background: 'linear-gradient(135deg, rgba(212,160,23,0.2), rgba(212,160,23,0.08))', border: '0.5px solid rgba(212,160,23,0.4)', color: '#D4A017', fontSize: 13, fontWeight: 600 }}>Spara lag ✓</button>
+        </div>
+      </>)}
     </div>
   )
 }
