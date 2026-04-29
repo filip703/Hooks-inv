@@ -2004,12 +2004,11 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               {/* ── BEKRÄFTA — sparar ALLA spelares pending för hålet, navigerar ── */}
               {(() => {
                 // Kolla alla spelare i rundan — har alla pending eller sparat?
-                const allPlayersDone = roundPlayers.every(rp => {
-                  const pk = `${rp.id}_${h.h}`
-                  return pendingScore[pk] !== undefined || tabyScores.some(s => s.round_id === newRound.id && s.player_id === rp.id && s.hole === h.h && s.strokes)
-                })
+                // Kan gå vidare om DU har score (pending eller sparat)
+                const myPending = pendingScore[`${activePid}_${h.h}`] !== undefined
+                const mySaved = tabyScores.some(s => s.round_id === newRound.id && s.player_id === activePid && s.hole === h.h && s.strokes)
+                const canProceed = myPending || mySaved
                 const anyPending = roundPlayers.some(rp => pendingScore[`${rp.id}_${h.h}`] !== undefined)
-                const canProceed = allPlayersDone
 
                 // Visa status per spelare om fler än 1
                 const multiPlayer = roundPlayers.length > 1
@@ -2069,11 +2068,11 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                       boxShadow: canProceed ? '0 4px 16px rgba(22,163,74,0.35)' : 'none',
                       WebkitTapHighlightColor: 'transparent', letterSpacing: 0.3, userSelect: 'none'
                     }}>
-                      {!canProceed
-                        ? `← Fyll i alla ${roundPlayers.length} spelare`
-                        : h.h < 18
-                          ? (anyPending ? `✓ Spara alla & Hål ${nextH}` : `→ Hål ${nextH}`)
-                          : (anyPending ? '✓ Spara & avsluta' : '→ Avsluta')}
+                    {!canProceed
+                      ? '← Välj antal slag ovan'
+                      : h.h < 18
+                        ? (anyPending ? `✓ Spara & gå till Hål ${nextH}` : `→ Hål ${nextH}`)
+                        : (anyPending ? '✓ Spara & avsluta' : '→ Avsluta')}
                     </button>
                   </div>
                 )
