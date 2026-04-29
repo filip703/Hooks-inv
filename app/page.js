@@ -1942,10 +1942,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 </div>
               )}
 
-              {/* GPS LAYUP — "230m till layup → 95m kvar till green" */}
+              {/* GPS LAYUP — bara om man faktiskt är på banan (<400m från green) */}
               {tabyUserLoc && h.inspel && h.inspel.length > 0 && (() => {
                 const distToGreen = distanceToGreen(tabyUserLoc.lat, tabyUserLoc.lng, h.h)
-                if (!distToGreen || distToGreen < 30) return null
+                if (!distToGreen || distToGreen < 30 || distToGreen > 400) return null
                 const layupOptions = h.inspel.filter(d => d > 20 && d < distToGreen - 20)
                 if (layupOptions.length === 0) return null
                 return (
@@ -1963,42 +1963,83 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 )
               })()}
 
-              {/* BIG SCORE INPUT - DIO-style glass card */}
-              <div style={{ background: 'linear-gradient(135deg, rgba(147,197,253,0.06), rgba(30,58,95,0.2))', border: '0.5px solid rgba(147,197,253,0.15)', borderRadius: 16, padding: 24, marginBottom: 16, backdropFilter: 'blur(10px)' }}>
-                <div style={{ textAlign: 'center', marginBottom: 8 }}>
-                  <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'rgba(240,244,255,0.5)', letterSpacing: 1 }}>SLAG</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-                  <button onClick={() => { if (currentVal > 1) saveHoleScore(h.h, currentVal - 1) }}
-                    style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', color: '#F0F4FF', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                  <div onClick={() => { if (!sc) saveHoleScore(h.h, h.p) }}
-                    style={{ width: 80, height: 80, borderRadius: 20, background: sc ? 'rgba(147,197,253,0.08)' : 'rgba(212,160,23,0.12)', border: sc ? '2px solid rgba(147,197,253,0.2)' : '2px solid #D4A017', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: sc ? 'default' : 'pointer' }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 36, fontWeight: 500, color: sc ? '#F0F4FF' : '#D4A017' }}>{sc?.strokes || h.p}</div>
-                    {!sc && <div style={{ fontSize: 9, color: '#D4A017', marginTop: -4 }}>TRYCK</div>}
+              {/* ── SCORE INPUT — vit Gamebook-stil ── */}
+              <div style={{ background: '#FFFFFF', borderRadius: 20, padding: '20px 16px 16px', marginBottom: 12, boxShadow: '0 2px 20px rgba(0,0,0,0.15)' }}>
+
+                {/* Hål-info rad */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: '#888', fontFamily: 'var(--mono)', letterSpacing: 1 }}>HÅL</div>
+                    <div style={{ fontSize: 32, fontWeight: 800, color: '#111', lineHeight: 1 }}>{h.h}</div>
                   </div>
-                  <button onClick={() => { if (currentVal < 15) saveHoleScore(h.h, currentVal + 1) }}
-                    style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', color: '#F0F4FF', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                </div>
-                {stab !== null && (
-                  <div style={{ textAlign: 'center', marginTop: 16 }}>
-                    <span style={{ fontSize: 32, fontFamily: 'var(--mono)', fontWeight: 500, color: stab === 0 ? '#E8634A' : stab >= 4 ? '#D4A017' : stab >= 3 ? '#4ADE80' : 'rgba(240,244,255,0.7)' }}>
-                      {stab}p
-                    </span>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: '#888', fontFamily: 'var(--mono)', letterSpacing: 1 }}>PAR</div>
+                    <div style={{ fontSize: 32, fontWeight: 800, color: '#111', lineHeight: 1 }}>{h.p}</div>
                   </div>
-                )}
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: '#888', fontFamily: 'var(--mono)', letterSpacing: 1 }}>IDX</div>
+                    <div style={{ fontSize: 32, fontWeight: 800, color: '#111', lineHeight: 1 }}>{h.i}</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: '#888', fontFamily: 'var(--mono)', letterSpacing: 1 }}>EXTRA</div>
+                    <div style={{ fontSize: 32, fontWeight: 800, color: extra > 0 ? '#16A34A' : '#111', lineHeight: 1 }}>+{extra}</div>
+                  </div>
+                  {stab !== null && (
+                    <div style={{ textAlign: 'center', padding: '6px 12px', borderRadius: 10, background: stab === 0 ? '#FEE2E2' : stab >= 3 ? '#DCFCE7' : '#EFF6FF' }}>
+                      <div style={{ fontSize: 11, color: '#888', fontFamily: 'var(--mono)', letterSpacing: 1 }}>POÄNG</div>
+                      <div style={{ fontSize: 28, fontWeight: 800, color: stab === 0 ? '#DC2626' : stab >= 3 ? '#16A34A' : '#2563EB', lineHeight: 1 }}>{stab}p</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Resultat-indikator under score */}
+                {sc && (() => {
+                  const diff = sc.strokes - h.p
+                  const label = sc.strokes === 1 ? '🏆 HÅL I ETT!' : diff <= -3 ? '🦅 ALBATROSS!' : diff === -2 ? '🦅 EAGLE' : diff === -1 ? '🐦 BIRDIE' : diff === 0 ? '— PAR' : diff === 1 ? 'BOGEY' : diff === 2 ? 'DBL BOGEY' : `+${diff}`
+                  const bg = diff <= -1 ? '#DCFCE7' : diff === 0 ? '#EFF6FF' : '#FEE2E2'
+                  const col = diff <= -1 ? '#16A34A' : diff === 0 ? '#2563EB' : '#DC2626'
+                  return <div style={{ textAlign: 'center', marginBottom: 10, padding: '4px 12px', borderRadius: 8, background: bg, display: 'inline-block', width: '100%' }}>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: col }}>{label}</span>
+                  </div>
+                })()}
+
+                {/* Stor siffra + knappar */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 8 }}>
+                  {/* MINUS — stor, vänster, tumvänlig */}
+                  <button
+                    onPointerDown={e => { e.preventDefault(); if (currentVal > 1) saveHoleScore(h.h, currentVal - 1) }}
+                    style={{ width: 80, height: 80, borderRadius: 20, background: '#F3F4F6', border: '2px solid #E5E7EB', color: '#111', fontSize: 40, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', WebkitUserSelect: 'none', WebkitTapHighlightColor: 'transparent', flexShrink: 0 }}>−</button>
+
+                  {/* Score-nummer — tryck för par */}
+                  <div
+                    onPointerDown={e => { e.preventDefault(); if (!sc) saveHoleScore(h.h, h.p) }}
+                    style={{ flex: 1, height: 100, borderRadius: 20, background: sc ? (stab === 0 ? '#FEE2E2' : stab >= 3 ? '#DCFCE7' : '#EFF6FF') : '#FFF9E6', border: sc ? `3px solid ${stab === 0 ? '#FCA5A5' : stab >= 3 ? '#86EFAC' : '#93C5FD'}` : '3px dashed #D4A017', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: sc ? 'default' : 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent' }}>
+                    <div style={{ fontSize: 64, fontWeight: 800, color: '#111', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{sc?.strokes || h.p}</div>
+                    {!sc && <div style={{ fontSize: 11, color: '#D4A017', fontFamily: 'var(--mono)', letterSpacing: 1, marginTop: -4 }}>TRYCK FÖR PAR</div>}
+                  </div>
+
+                  {/* PLUS — stor, höger, tumvänlig */}
+                  <button
+                    onPointerDown={e => { e.preventDefault(); if (currentVal < 15) saveHoleScore(h.h, currentVal + 1) }}
+                    style={{ width: 80, height: 80, borderRadius: 20, background: '#F3F4F6', border: '2px solid #E5E7EB', color: '#111', fontSize: 40, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', WebkitUserSelect: 'none', WebkitTapHighlightColor: 'transparent', flexShrink: 0 }}>+</button>
+                </div>
               </div>
 
-              {/* Min historik på detta hål */}
+              {/* ── BEKRÄFTA HÅL — stor grön knapp ── */}
+              <button
+                onPointerDown={e => { e.preventDefault(); setTabyHole(prev => Math.min(prev + 1, 18)) }}
+                style={{ width: '100%', padding: '18px', borderRadius: 16, border: 'none', cursor: 'pointer', marginBottom: 12, background: sc ? 'linear-gradient(135deg, #16A34A, #15803D)' : '#E5E7EB', color: sc ? '#FFFFFF' : '#9CA3AF', fontSize: 18, fontWeight: 800, letterSpacing: 0.3, boxShadow: sc ? '0 4px 16px rgba(22,163,74,0.4)' : 'none', transition: 'all 0.2s', WebkitTapHighlightColor: 'transparent' }}>
+                {h.h < 18 ? `✓  Bekräfta hål ${h.h}  →  Hål ${h.h + 1}` : `✓  Bekräfta hål 18  —  Klar!`}
+              </button>
+
+              {/* Historik — kompakt under bekräfta-knappen */}
               {(() => {
                 const history = getTabyHoleHistory(tabyUser?.id, h.h)
                 if (!history) return null
                 return (
-                  <div style={{ marginBottom: 12, padding: 12, background: 'rgba(147,197,253,0.04)', borderRadius: 12, border: '0.5px solid rgba(147,197,253,0.08)' }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)', letterSpacing: 1, marginBottom: 4 }}>📜 MIN HISTORIK PÅ HÅLET</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.65)' }}>Förra: <span style={{ fontFamily: 'var(--mono)', fontWeight: 500, color: '#F0F4FF' }}>{history.last.strokes} slag ({history.last.stableford}p)</span></div>
-                      <div style={{ fontSize: 10, color: 'rgba(240,244,255,0.4)', fontFamily: 'var(--mono)' }}>Bäst: {history.bestStab}p · {history.count}x spelat</div>
-                    </div>
+                  <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(147,197,253,0.04)', borderRadius: 10, border: '0.5px solid rgba(147,197,253,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.5)' }}>Förra: <span style={{ color: '#F0F4FF', fontWeight: 600 }}>{history.last.strokes} slag</span></div>
+                    <div style={{ fontSize: 11, color: 'rgba(147,197,253,0.5)', fontFamily: 'var(--mono)' }}>Bäst: {history.bestStab}p</div>
                   </div>
                 )
               })()}
