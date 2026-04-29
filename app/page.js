@@ -3875,10 +3875,102 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     <BigBtn active={fmt==='skins'} color='#4ADE80' onClick={() => setRoundSetup(s=>({...s,format:'skins'}))}>
                       🦈 Skins<br/><span style={{ fontSize: 10, opacity: 0.7 }}>Vinn hål, bygg pott</span>
                     </BigBtn>
-                    {n >= 2 && tabyTeams.length >= 2 && <BigBtn active={fmt==='lag'} color='#D4A017' onClick={() => setRoundSetup(s=>({...s,format:'lag'}))}>
-                      🛡️ Lagspel<br/><span style={{ fontSize: 10, opacity: 0.7 }}>{tabyTeams.find(t=>t.color==='blue')?.name} vs {tabyTeams.find(t=>t.color==='gold')?.name}</span>
+                    {n >= 2 && <BigBtn active={fmt==='lag'} color='#D4A017' onClick={() => setRoundSetup(s=>({...s,format:'lag',lagSetupOpen:true}))}>
+                      🛡️ Lagspel<br/><span style={{ fontSize: 10, opacity: 0.7 }}>{tabyTeams.length >= 2 ? `${tabyTeams.find(t=>t.color==='blue')?.name} vs ${tabyTeams.find(t=>t.color==='gold')?.name}` : 'Dela upp lag här'}</span>
                     </BigBtn>}
                   </div>
+
+                  {/* Inline lagbyggare — visas när Lagspel är valt */}
+                  {fmt === 'lag' && (() => {
+                    const blueTeam = tabyTeams.find(t => t.color === 'blue')
+                    const goldTeam = tabyTeams.find(t => t.color === 'gold')
+                    const lagA = roundSetup.lagTempA || []
+                    const lagB = roundSetup.lagTempB || []
+                    const allAssigned = selectedPlayers.every(p => lagA.includes(p.id) || lagB.includes(p.id))
+
+                    if (blueTeam && goldTeam) {
+                      // Lag finns redan — visa dem
+                      return (
+                        <div style={{ marginTop: 10, padding: 12, borderRadius: 12, background: 'rgba(212,160,23,0.06)', border: '0.5px solid rgba(212,160,23,0.2)' }}>
+                          <div style={{ fontSize: 12, color: 'rgba(212,160,23,0.7)', marginBottom: 6 }}>✓ Aktiva lag används</div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            {[{t:blueTeam,c:'#93C5FD'},{t:goldTeam,c:'#D4A017'}].map(({t,c}) => (
+                              <div key={t.id} style={{ flex: 1, padding: '8px 10px', borderRadius: 8, background: `${c}11`, border: `0.5px solid ${c}33` }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: c, marginBottom: 4 }}>{t.name}</div>
+                                {tabyPlayers.filter(p => t.player_ids?.includes(p.id)).map(p => <div key={p.id} style={{ fontSize: 11, color: 'rgba(240,244,255,0.7)' }}>{p.nickname}</div>)}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    // Inga lag — bygg dem direkt här
+                    return (
+                      <div style={{ marginTop: 10, padding: 14, borderRadius: 14, background: 'rgba(212,160,23,0.06)', border: '1px solid rgba(212,160,23,0.2)' }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#D4A017', marginBottom: 4 }}>Dela upp spelarna i lag</div>
+                        <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.5)', marginBottom: 12, lineHeight: 1.5 }}>Tryck på varje spelare för att tilldela till Lag A eller Lag B. AI hittar på namnen.</div>
+
+                        {/* Spelar-knappar med toggle A/B */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                          {selectedPlayers.map(p => {
+                            const inA = lagA.includes(p.id)
+                            const inB = lagB.includes(p.id)
+                            return (
+                              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                {p.image_url ? <img src={p.image_url} style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#93C5FD', fontSize: 11, flexShrink: 0 }}>{p.name?.charAt(0)}</div>}
+                                <div style={{ flex: 1, fontSize: 14, color: '#F0F4FF' }}>{p.nickname}</div>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <button onClick={() => setRoundSetup(s => ({
+                                    ...s,
+                                    lagTempA: inA ? (s.lagTempA||[]).filter(id=>id!==p.id) : [...(s.lagTempA||[]), p.id],
+                                    lagTempB: (s.lagTempB||[]).filter(id=>id!==p.id)
+                                  }))} style={{ width: 44, height: 36, borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: inA ? 800 : 400, background: inA ? 'rgba(147,197,253,0.25)' : 'rgba(147,197,253,0.06)', border: inA ? '2px solid #93C5FD' : '1px solid rgba(147,197,253,0.15)', color: inA ? '#93C5FD' : 'rgba(240,244,255,0.4)' }}>A</button>
+                                  <button onClick={() => setRoundSetup(s => ({
+                                    ...s,
+                                    lagTempB: inB ? (s.lagTempB||[]).filter(id=>id!==p.id) : [...(s.lagTempB||[]), p.id],
+                                    lagTempA: (s.lagTempA||[]).filter(id=>id!==p.id)
+                                  }))} style={{ width: 44, height: 36, borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: inB ? 800 : 400, background: inB ? 'rgba(212,160,23,0.25)' : 'rgba(212,160,23,0.06)', border: inB ? '2px solid #D4A017' : '1px solid rgba(212,160,23,0.15)', color: inB ? '#D4A017' : 'rgba(240,244,255,0.4)' }}>B</button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        {/* Generera lag-namn med AI */}
+                        {lagA.length > 0 && lagB.length > 0 && (
+                          <button onClick={async () => {
+                            setTabyTeamGenLoading(true)
+                            try {
+                              const desc = (ids) => ids.map(id => {
+                                const p = tabyPlayers.find(x => x.id === id)
+                                return `${p?.nickname} (HCP ${p?.taby_hcp || p?.hcp})`
+                              }).join(', ')
+                              const prompt = `Hitta på ett lagnamn för varje lag i ett golfsällskap. Lag A: ${desc(lagA)}. Lag B: ${desc(lagB)}. Svenska, max 3 ord, lite humor. Svara ONLY med JSON: {"a":{"name":"...","taunt":"..."},"b":{"name":"...","taunt":"..."}}`
+                              const res = await fetch('/api/caddie', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ message: prompt, holeData: null, playerHcp: 0, roundContext: '' }) })
+                              const { reply } = await res.json()
+                              const gen = JSON.parse(reply.replace(/```json|```/g,'').trim())
+
+                              // Spara lag i DB
+                              const { data: teams } = await supabase.from('taby_teams').insert([
+                                { name: gen.a.name, color: 'blue', player_ids: lagA, created_by: tabyUser?.id },
+                                { name: gen.b.name, color: 'gold', player_ids: lagB, created_by: tabyUser?.id }
+                              ]).select()
+                              if (teams) setTabyTeams(prev => [...teams, ...prev])
+                              setRoundSetup(s => ({ ...s, lagTempA: [], lagTempB: [] }))
+                              showTabyToast(`${gen.a.name} vs ${gen.b.name} — kör!`, 'birdie')
+                            } catch(e) { console.error(e) }
+                            setTabyTeamGenLoading(false)
+                          }} disabled={tabyTeamGenLoading} style={{ width: '100%', padding: '13px', borderRadius: 12, cursor: 'pointer', background: 'linear-gradient(135deg, rgba(212,160,23,0.2), rgba(212,160,23,0.06))', border: '1px solid rgba(212,160,23,0.4)', color: '#D4A017', fontSize: 14, fontWeight: 700 }}>
+                            {tabyTeamGenLoading ? '✨ Tänker...' : `✨ Generera lagnamn (${lagA.length} vs ${lagB.length})`}
+                          </button>
+                        )}
+                        {!(lagA.length > 0 && lagB.length > 0) && (
+                          <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(240,244,255,0.3)', padding: '8px 0' }}>Tilldela alla spelare till A eller B</div>
+                        )}
+                      </div>
+                    )
+                  })()}
                   {/* Matchplay: välj motståndare */}
                   {fmt === 'matchplay' && n > 2 && (
                     <div style={{ padding: 12, borderRadius: 10, background: 'rgba(232,99,74,0.06)', border: '0.5px solid rgba(232,99,74,0.2)', marginTop: 8 }}>
@@ -3914,12 +4006,26 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                       Sätt på en duell mellan vilka som helst i bollen. Räknas hål för hål — bäst stableford vinner.
                     </div>
 
-                    {/* Lag-duell — visas om lag finns */}
-                    {tabyTeams.length >= 2 && (() => {
+                    {/* Lag-duell — alltid synlig om >= 2 spelare */}
+                    {(() => {
                       const blueTeam = tabyTeams.find(t => t.color === 'blue')
                       const goldTeam = tabyTeams.find(t => t.color === 'gold')
                       const lagPairKey = 'lag_duell'
                       const hasLagDuell = (roundSetup.h2hPairs || []).includes(lagPairKey)
+
+                      if (!blueTeam || !goldTeam) {
+                        // Ingen lag skapade — visa kort info-knapp
+                        return (
+                          <div style={{ padding: '10px 14px', marginBottom: 10, borderRadius: 12, background: 'rgba(212,160,23,0.04)', border: '1px dashed rgba(212,160,23,0.2)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontSize: 18 }}>🛡️</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.5)' }}>Lag-duell</div>
+                              <div style={{ fontSize: 11, color: 'rgba(212,160,23,0.5)', marginTop: 1 }}>Välj Lagspel ovan för att skapa lag</div>
+                            </div>
+                          </div>
+                        )
+                      }
+
                       return (
                         <button onClick={() => setRoundSetup(s => {
                           const pairs = s.h2hPairs || []
@@ -3928,9 +4034,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                           <div style={{ width: 28, height: 28, borderRadius: 8, background: hasLagDuell ? '#D4A017' : 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: hasLagDuell ? '#0C1830' : '#93C5FD', flexShrink: 0, fontWeight: 700 }}>{hasLagDuell ? '✓' : '🛡️'}</div>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontSize: 15, color: '#F0F4FF', fontWeight: hasLagDuell ? 700 : 400 }}>Lag-duell</div>
-                            <div style={{ fontSize: 11, color: 'rgba(212,160,23,0.6)', marginTop: 2 }}>
-                              {blueTeam?.name} <span style={{ color: 'rgba(240,244,255,0.3)' }}>vs</span> {goldTeam?.name}
-                            </div>
+                            <div style={{ fontSize: 11, color: 'rgba(212,160,23,0.6)', marginTop: 2 }}>{blueTeam.name} <span style={{ color: 'rgba(240,244,255,0.3)' }}>vs</span> {goldTeam.name}</div>
                           </div>
                           <div style={{ fontSize: 12, color: hasLagDuell ? '#D4A017' : 'rgba(147,197,253,0.3)', fontWeight: hasLagDuell ? 700 : 400 }}>{hasLagDuell ? 'PÅ' : 'AV'}</div>
                         </button>
