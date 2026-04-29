@@ -298,9 +298,10 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   // Chat form state
   const [tabyMsg, setTabyMsg] = useState('')
   const [showTabyMenu, setShowTabyMenu] = useState(false)
-  const [showEventResultModal, setShowEventResultModal] = useState(null) // event object
-  const [eventResultDraft, setEventResultDraft] = useState({}) // {playerId: position}
+  const [showEventResultModal, setShowEventResultModal] = useState(null)
+  const [eventResultDraft, setEventResultDraft] = useState({})
   const [showEndRoundModal, setShowEndRoundModal] = useState(false)
+  const [tabyTeams, setTabyTeams] = useState([])
   const [selectedEventModal, setSelectedEventModal] = useState(null) // taby_event obj
   const [tabyTeamGenLoading, setTabyTeamGenLoading] = useState(false)
   const [tabyAllPlayers, setTabyAllPlayers] = useState([])
