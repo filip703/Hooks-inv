@@ -302,6 +302,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [showEventResultModal, setShowEventResultModal] = useState(null)
   const [eventResultDraft, setEventResultDraft] = useState({})
   const [showEndRoundModal, setShowEndRoundModal] = useState(false)
+  const [ldNpModal, setLdNpModal] = useState(null) // { type: 'ld'|'np', hole: number }
   const [pendingScore, setPendingScore] = useState({}) // { [playerId_hole]: strokes }
   const [tabyTeams, setTabyTeams] = useState([])
   const [selectedEventModal, setSelectedEventModal] = useState(null) // taby_event obj
@@ -2056,9 +2057,15 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                         roundPlayers.forEach(rp => delete n[`${rp.id}_${h.h}`])
                         return n
                       })
-                      // Navigera
-                      if (nextH) { setTabyActiveHole(nextH); setTabyCaddieMsg(null) }
-                      else { setTabyActiveHole(null) }
+                      // Trigga LD/NP-modal om detta är ett LD eller NP-hål
+                      if (ldHole === h.h) {
+                        setLdNpModal({ type: 'ld', hole: h.h, nextH, roundPlayers })
+                      } else if (npHole === h.h) {
+                        setLdNpModal({ type: 'np', hole: h.h, nextH, roundPlayers })
+                      } else {
+                        if (nextH) { setTabyActiveHole(nextH); setTabyCaddieMsg(null) }
+                        else { setTabyActiveHole(null) }
+                      }
                     }} style={{
                       width: '100%', padding: '18px', borderRadius: 16, border: 'none',
                       cursor: canProceed ? 'pointer' : 'not-allowed',
@@ -4071,6 +4078,86 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   }
                 }} style={{ width: '100%', padding: '18px', borderRadius: 16, cursor: 'pointer', margin: '8px 0 24px', background: 'linear-gradient(135deg, #D4A017, #F5D76E)', border: 'none', color: '#0C1830', fontSize: 18, fontWeight: 800, letterSpacing: 0.3 }}>
                   🏌️ Kör igång!
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ======================================== */}
+      {/* LD / NP VINNARE MODAL                     */}
+      {/* ======================================== */}
+      {ldNpModal && (() => {
+        const { type, hole, nextH: modalNextH, roundPlayers: modalPlayers } = ldNpModal
+        const isLD = type === 'ld'
+        const color = isLD ? '#D4A017' : '#16a34a'
+        const bgColor = isLD ? '#FEF3C7' : '#DCFCE7'
+        const borderColor = isLD ? '#FDE68A' : '#86EFAC'
+        const emoji = isLD ? '🏌️' : '🎯'
+        const title = isLD ? 'Längst Drive' : 'Närmast Pin'
+        const skins = isLD ? 50 : 50 // fast belopp — kan göras konfigurerbart
+
+        const handleWinner = async (winnerId) => {
+          const winner = modalPlayers?.find(p => p.id === winnerId)
+          if (!winner) return
+          // Skapa expense: alla andra betalar vinnaren
+          const losers = (modalPlayers || []).filter(p => p.id !== winnerId && p.key !== 'spectator')
+          const perPerson = skins
+          for (const loser of losers) {
+            await supabase.from('taby_expenses').insert({
+              paid_by: loser.key,
+              amount: perPerson,
+              description: `${emoji} ${title} hål ${hole} → ${winner.nickname}`,
+              tag: 'bet',
+              target_key: winner.key,
+              source: 'ldnp'
+            })
+          }
+          setLdNpModal(null)
+          showTabyToast(`${winner.nickname} vann ${title}! 💰`, 'birdie')
+          // Navigera till nästa hål
+          if (modalNextH) { setTabyActiveHole(modalNextH); setTabyCaddieMsg(null) }
+          else { setTabyActiveHole(null) }
+        }
+
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)', zIndex: 700, display: 'flex', alignItems: 'flex-end', animation: 'fadeIn 0.15s ease' }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'white', borderRadius: '24px 24px 0 0', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', animation: 'slideUp 0.25s cubic-bezier(0.16,1,0.3,1)' }}>
+              {/* Handle */}
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: '#E5E7EB', margin: '12px auto 0' }} />
+
+              {/* Header */}
+              <div style={{ padding: '16px 20px 12px', background: bgColor, borderRadius: '20px 20px 0 0', margin: '8px 16px 0', border: `1px solid ${borderColor}` }}>
+                <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 4 }}>{emoji}</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color, textAlign: 'center' }}>{title} — Hål {hole}</div>
+                <div style={{ fontSize: 13, color: '#555', textAlign: 'center', marginTop: 4 }}>Vem vann? {skins}kr från varje förlorare.</div>
+              </div>
+
+              {/* Spelare-knappar */}
+              <div style={{ padding: '16px 16px 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {(modalPlayers || []).filter(p => p.key !== 'spectator').map(p => (
+                  <button key={p.id} onClick={() => handleWinner(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 14, cursor: 'pointer', background: 'white', border: '2px solid #E5E7EB', textAlign: 'left', transition: 'all 0.1s' }}
+                    onPointerDown={e => e.currentTarget.style.background = bgColor}
+                    onPointerUp={e => e.currentTarget.style.background = 'white'}>
+                    {p.image_url ? <img src={p.image_url} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#555', fontWeight: 700, flexShrink: 0 }}>{p.name?.charAt(0)}</div>}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: '#111' }}>{p.nickname}</div>
+                      <div style={{ fontSize: 12, color: '#888' }}>HCP {p.taby_hcp || p.hcp}</div>
+                    </div>
+                    <div style={{ fontSize: 13, color, fontWeight: 700 }}>+{skins * ((modalPlayers?.filter(x => x.key !== 'spectator').length || 1) - 1)}kr</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Hoppa över */}
+              <div style={{ padding: '0 16px' }}>
+                <button onClick={() => {
+                  setLdNpModal(null)
+                  if (modalNextH) { setTabyActiveHole(modalNextH); setTabyCaddieMsg(null) }
+                  else { setTabyActiveHole(null) }
+                }} style={{ width: '100%', padding: '13px', borderRadius: 12, background: '#F3F4F6', border: 'none', color: '#888', fontSize: 14, cursor: 'pointer' }}>
+                  Ingen vinnare / Hoppa över
                 </button>
               </div>
             </div>
