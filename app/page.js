@@ -299,6 +299,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [tabyMsg, setTabyMsg] = useState('')
   const [showTabyMenu, setShowTabyMenu] = useState(false)
   const [showEndRoundModal, setShowEndRoundModal] = useState(false)
+  const [selectedEventModal, setSelectedEventModal] = useState(null) // taby_event obj
   const [tabyTeamGenLoading, setTabyTeamGenLoading] = useState(false)
   const [tabyAllPlayers, setTabyAllPlayers] = useState([])
   const [tabyHoleImages, setTabyHoleImages] = useState({}) // { 1: 'url', 2: 'url', ... }
@@ -1188,15 +1189,22 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 {tabyEvents.map(ev => {
                   const evDate = new Date(ev.date)
                   const now = new Date()
-                  const status = ev.status === 'completed' ? 'Avslutad' : evDate < now ? 'Aktiv' : 'Upcoming'
-                  const emoji = ev.event_name?.includes('Opener') ? '🌱' : ev.event_name?.includes('Midsommar') ? '☀️' : ev.event_name?.includes('Sommar') ? '🏖️' : '🏁'
+                  const today = now.toISOString().split('T')[0]
+                  const isPast = ev.date < today
+                  const isToday = ev.date === today
+                  const status = ev.status === 'completed' ? 'Avslutad' : isToday ? 'Idag' : isPast ? 'Passerat' : 'Upcoming'
+                  const statusColor = status === 'Avslutad' ? 'rgba(212,175,55,0.7)' : status === 'Idag' ? '#4ADE80' : isPast ? 'rgba(232,99,74,0.6)' : '#93C5FD'
+                  const emoji = ev.name?.includes('Opener') ? '🌱' : ev.name?.includes('Midsommar') ? '☀️' : ev.name?.includes('Sommar') ? '🏖️' : ev.name?.includes('Final') ? '🏆' : '🏁'
+                  // Hämta resultat om completed
+                  const eventRounds = tabyRounds.filter(r => r.event_id === ev.id)
                   return (
-                    <div key={ev.id} style={{ flexShrink: 0, minWidth: 140, background: 'rgba(212,175,55,0.04)', border: '0.5px solid rgba(212,175,55,0.12)', borderRadius: 12, padding: '10px 12px' }}>
+                    <div key={ev.id} onClick={() => setSelectedEventModal(ev)} style={{ flexShrink: 0, minWidth: 140, background: isPast ? 'rgba(147,197,253,0.03)' : 'rgba(212,175,55,0.04)', border: `0.5px solid ${isPast ? 'rgba(147,197,253,0.1)' : 'rgba(212,175,55,0.12)'}`, borderRadius: 12, padding: '10px 12px', cursor: 'pointer', transition: 'all 0.15s', opacity: isPast && status !== 'Idag' ? 0.75 : 1 }}>
                       <div style={{ fontSize: 16, marginBottom: 4 }}>{emoji}</div>
-                      <div style={{ fontSize: 11, color: '#D4A017', fontWeight: 600, marginBottom: 2 }}>{ev.event_name}</div>
+                      <div style={{ fontSize: 11, color: isPast ? 'rgba(240,244,255,0.6)' : '#D4A017', fontWeight: 600, marginBottom: 2 }}>{ev.name}</div>
                       <div style={{ fontSize: 9, color: 'rgba(240,244,255,0.4)', fontFamily: 'var(--mono)' }}>{ev.date} · {ev.format || 'stableford'}</div>
-                      <div style={{ fontSize: 8, color: status === 'Upcoming' ? '#93C5FD' : status === 'Aktiv' ? '#4ADE80' : 'rgba(240,244,255,0.3)', fontFamily: 'var(--mono)', marginTop: 4, letterSpacing: 1 }}>{status.toUpperCase()}</div>
+                      <div style={{ fontSize: 8, color: statusColor, fontFamily: 'var(--mono)', marginTop: 4, letterSpacing: 1 }}>{status.toUpperCase()}</div>
                       {ev.winner_id && (() => { const w = tabyPlayers.find(p => p.id === ev.winner_id); return w ? <div style={{ fontSize: 9, color: '#D4A017', marginTop: 2 }}>🏆 {w.nickname}</div> : null })()}
+                      {eventRounds.length > 0 && <div style={{ fontSize: 8, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)', marginTop: 2 }}>{eventRounds.length} runda{eventRounds.length > 1 ? 'r' : ''}</div>}
                     </div>
                   )
                 })}
@@ -3579,6 +3587,103 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           <button onClick={() => { setTabyUser(null); localStorage.removeItem('taby_user') }} style={{ width: '100%', padding: '12px', borderRadius: 10, cursor: 'pointer', background: 'rgba(232,99,74,0.06)', border: '0.5px solid rgba(232,99,74,0.2)', color: '#E8634A', fontSize: 13, fontFamily: 'var(--mono)', letterSpacing: 1 }}>
             Byt spelare / Logga ut
           </button>
+        </div>
+      )}
+
+      {/* ======================================== */}
+      {/* EVENT INFO MODAL                          */}
+      {/* ======================================== */}
+      {selectedEventModal && (
+        <div onClick={() => setSelectedEventModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(12px)', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', animation: 'fadeIn 0.15s ease' }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg, #0C1830 0%, #0A1525 100%)', borderRadius: '20px 20px 0 0', padding: '8px 0 calc(28px + env(safe-area-inset-bottom, 0px))', border: '0.5px solid rgba(147,197,253,0.12)', borderBottom: 'none', animation: 'slideUp 0.25s cubic-bezier(0.16,1,0.3,1)' }}>
+            {/* Drag handle */}
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(147,197,253,0.2)', margin: '0 auto 20px' }} />
+            {(() => {
+              const ev = selectedEventModal
+              const today = new Date().toISOString().split('T')[0]
+              const isPast = ev.date < today
+              const isCompleted = ev.status === 'completed'
+              const emoji = ev.name?.includes('Opener') ? '🌱' : ev.name?.includes('Midsommar') ? '☀️' : ev.name?.includes('Sommar') ? '🏖️' : ev.name?.includes('Final') ? '🏆' : '🏁'
+              const fmtLabel = { stableford: 'Stableford', stroke: 'Slagspel', matchplay: 'Matchplay', '36_holes': 'Slagspel · 18 hål' }[ev.format] || ev.format
+              const eventRounds = tabyRounds.filter(r => r.event_id === ev.id)
+              // Beräkna resultat per spelare om det finns rundor
+              const playerResults = tabyPlayers.filter(p => p.key !== 'spectator').map(p => {
+                const pRounds = eventRounds.filter(r => r.player_ids?.includes(p.id))
+                const totalStab = pRounds.reduce((sum, r) => sum + tabyScores.filter(s => s.round_id === r.id && s.player_id === p.id).reduce((s, sc) => s + (sc.stableford || 0), 0), 0)
+                const totalStrokes = pRounds.reduce((sum, r) => sum + tabyScores.filter(s => s.round_id === r.id && s.player_id === p.id).reduce((s, sc) => s + (sc.strokes || 0), 0), 0)
+                return { p, totalStab, totalStrokes, rounds: pRounds.length }
+              }).filter(x => x.rounds > 0).sort((a, b) => b.totalStab - a.totalStab)
+              return (
+                <div style={{ padding: '0 20px' }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 20, paddingBottom: 16, borderBottom: '0.5px solid rgba(147,197,253,0.08)' }}>
+                    <div style={{ fontSize: 36 }}>{emoji}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: isCompleted ? '#D4A017' : isPast ? 'rgba(240,244,255,0.7)' : '#F0F4FF', marginBottom: 4 }}>{ev.name}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(147,197,253,0.5)' }}>{ev.date} · {fmtLabel}</div>
+                      {ev.name?.includes('Final') && <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', marginTop: 4 }}>★ DUBBLA POÄNG</div>}
+                    </div>
+                    <div style={{ padding: '3px 8px', borderRadius: 6, background: isCompleted ? 'rgba(212,175,55,0.12)' : isPast ? 'rgba(147,197,253,0.06)' : 'rgba(74,222,128,0.08)', fontFamily: 'var(--mono)', fontSize: 9, color: isCompleted ? '#D4A017' : isPast ? 'rgba(147,197,253,0.5)' : '#4ADE80', letterSpacing: 1 }}>
+                      {isCompleted ? 'AVSLUTAD' : isPast ? 'PASSERAT' : 'UPCOMING'}
+                    </div>
+                  </div>
+
+                  {/* Vinnare */}
+                  {ev.winner_id && (() => {
+                    const w = tabyPlayers.find(p => p.id === ev.winner_id)
+                    return w ? (
+                      <div style={{ background: 'rgba(212,175,55,0.08)', border: '0.5px solid rgba(212,175,55,0.2)', borderRadius: 12, padding: '12px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ fontSize: 22 }}>🏆</div>
+                        <div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,175,55,0.6)', letterSpacing: 1.5 }}>VINNARE</div>
+                          <div style={{ fontFamily: 'var(--serif)', fontSize: 18, color: '#D4A017' }}>{w.nickname}</div>
+                        </div>
+                        {w.image_url && <img src={w.image_url} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', marginLeft: 'auto', border: '1.5px solid rgba(212,175,55,0.4)' }} />}
+                      </div>
+                    ) : null
+                  })()}
+
+                  {/* Resultat om det finns rundor */}
+                  {playerResults.length > 0 ? (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 2, marginBottom: 8 }}>RESULTAT</div>
+                      {playerResults.map((res, idx) => (
+                        <div key={res.p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: idx < playerResults.length-1 ? '0.5px solid rgba(147,197,253,0.06)' : 'none' }}>
+                          <div style={{ width: 22, fontFamily: 'var(--mono)', fontSize: 14, color: idx === 0 ? '#D4A017' : 'rgba(240,244,255,0.3)', textAlign: 'center', fontWeight: idx === 0 ? 700 : 400 }}>{idx+1}</div>
+                          {res.p.image_url ? <img src={res.p.image_url} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD' }}>{res.p.name?.charAt(0)}</div>}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, color: '#F0F4FF' }}>{res.p.nickname}</div>
+                            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.4)' }}>{res.rounds} runda{res.rounds > 1 ? 'r' : ''} · {res.totalStrokes} slag</div>
+                          </div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 700, color: idx === 0 ? '#D4A017' : '#93C5FD' }}>{res.totalStab}p</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '16px 0', textAlign: 'center', color: 'rgba(147,197,253,0.3)', fontSize: 13 }}>
+                      {isPast ? 'Inga registrerade rundor' : 'Inga rundor ännu — snart!'}
+                    </div>
+                  )}
+
+                  {/* Admin: avsluta event */}
+                  {!isCompleted && isPast && (tabyUser?.key === 'filip' || tabyUser?.key === 'marcus') && (
+                    <button onClick={async () => {
+                      await supabase.from('taby_events').update({ status: 'completed' }).eq('id', ev.id)
+                      setTabyEvents(prev => prev.map(e => e.id === ev.id ? { ...e, status: 'completed' } : e))
+                      setSelectedEventModal({ ...ev, status: 'completed' })
+                      showTabyToast('Event markerat som avslutat', 'birdie')
+                    }} style={{ width: '100%', padding: '10px', borderRadius: 10, cursor: 'pointer', background: 'rgba(212,175,55,0.08)', border: '0.5px solid rgba(212,175,55,0.2)', color: '#D4A017', fontSize: 12, fontFamily: 'var(--mono)', marginBottom: 8 }}>
+                      Markera som avslutad
+                    </button>
+                  )}
+
+                  <button onClick={() => setSelectedEventModal(null)} style={{ width: '100%', padding: '12px', borderRadius: 12, cursor: 'pointer', background: 'transparent', border: '0.5px solid rgba(147,197,253,0.1)', color: 'rgba(147,197,253,0.5)', fontSize: 14, fontFamily: 'var(--mono)' }}>
+                    Stäng
+                  </button>
+                </div>
+              )
+            })()}
+          </div>
         </div>
       )}
 
