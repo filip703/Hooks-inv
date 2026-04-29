@@ -1625,16 +1625,14 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         </div>
       )}
 
-      {/* FULLSCREEN HOLE SCORING */}
+      {/* FULLSCREEN HOLE SCORING — Card Stack */}
       {tabyActiveHole && newRound && (() => {
         const h = holes[tabyActiveHole - 1]
         if (!h) return null
         const fmt = newRound.format || 'stableford'
-        // Parsa LD/NP från notes
         const roundNotes = (() => { try { return JSON.parse(newRound.notes || '{}') } catch { return {} } })()
         const ldHole = roundNotes.ldHole || null
         const npHole = roundNotes.npHole || null
-        // Aktiv spelare — den vi registrerar för just nu
         const activePid = scoringPlayerId || tabyUser?.id
         const activePlayer = activePid === tabyUser?.id ? tabyUser : tabyPlayers.find(p => p.id === activePid) || tabyUser
         const sc = tabyScores.find(s => s.round_id === newRound.id && s.player_id === activePid && s.hole === h.h)
@@ -1643,597 +1641,358 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         const stab = sc?.stableford ?? null
         const prevHole = h.h > 1 ? h.h - 1 : null
         const nextH = h.h < 18 ? h.h + 1 : null
+        const fmtLabel = { stableford: '⭐ Stableford', stroke: '✏️ Slagspel', matchplay: '⚔️ Matchplay', skins: '🦈 Skins', lag: '🛡️ Lagspel' }[fmt] || fmt
 
-        // Format label for top bar
-        const fmtLabel = { stableford: '⭐ Stableford', stroke: '✏️ Slagspel', matchplay: '⚔️ Matchplay', skins: '🦈 Skins' }[fmt] || fmt
-
-        // Ghost match (only for stableford)
+        // Ghost
         const prevRound = fmt === 'stableford' ? tabyRounds.find(r => r.id !== newRound.id && r.player_ids?.includes(tabyUser?.id) && tabyScores.filter(s => s.round_id === r.id && s.player_id === tabyUser?.id).length >= 18) : null
         const ghostScore = prevRound ? tabyScores.find(s => s.round_id === prevRound.id && s.player_id === tabyUser?.id && s.hole === h.h) : null
-        const ghostCum = prevRound ? tabyScores.filter(s => s.round_id === prevRound.id && s.player_id === tabyUser?.id && s.hole <= h.h).reduce((sum, s) => sum + (s.stableford || 0), 0) : 0
         const currCum = roundScores.filter(s => s.hole <= h.h).reduce((sum, s) => sum + (s.stableford || 0), 0)
+        const ghostCum = prevRound ? tabyScores.filter(s => s.round_id === prevRound.id && s.player_id === tabyUser?.id && s.hole <= h.h).reduce((sum, s) => sum + (s.stableford || 0), 0) : 0
         const cumDiff = prevRound ? currCum - ghostCum : 0
 
-        // Matchplay: compute hole-by-hole result vs opponent
+        // Matchplay
         const opponent = fmt === 'matchplay' && newRound.opponent_id ? tabyPlayers.find(p => p.id === newRound.opponent_id) : null
         const opponentScores = opponent ? tabyScores.filter(s => s.round_id === newRound.id && s.player_id === opponent.id) : []
         const mpHoles = fmt === 'matchplay' ? holes.map(hs => {
           const myS = roundScores.find(s => s.hole === hs.h)
           const oppS = opponentScores.find(s => s.hole === hs.h)
-          const myExtra = getExtra(hs.i, tabyUser?.taby_hcp || tabyUser?.hcp)
-          const oppExtra = getExtra(hs.i, opponent?.taby_hcp || opponent?.hcp || 0)
-          if (!myS?.strokes || !oppS?.strokes) return null
-          const myNetto = myS.strokes - myExtra
-          const oppNetto = oppS.strokes - oppExtra
-          return myNetto < oppNetto ? 'win' : myNetto > oppNetto ? 'loss' : 'half'
+          if (!myS || !oppS) return null
+          return myS.stableford > oppS.stableford ? 'win' : myS.stableford < oppS.stableford ? 'loss' : 'draw'
         }) : []
-        // Running matchplay score: holes up/down
-        const mpScore = mpHoles.reduce((acc, r) => {
-          if (r === 'win') return acc + 1
-          if (r === 'loss') return acc - 1
-          return acc
-        }, 0)
-        const mpRemaining = 18 - mpHoles.filter(r => r !== null).length
-        const mpStatusStr = mpScore === 0 ? 'AS' : mpScore > 0 ? `UP ${mpScore}` : `DN ${Math.abs(mpScore)}`
-        const mpColor = mpScore > 0 ? '#4ADE80' : mpScore < 0 ? '#E8634A' : '#93C5FD'
-        // Auto-close matchplay: vinnaren matematiskt avgjord (ledning > återstående hål) eller 18 hål spelade
-        const mpWon = Math.abs(mpScore) > mpRemaining
-        const mpFinished = mpRemaining === 0 || mpWon
-        const mpWinnerStr = mpWon
-          ? `${mpScore > 0 ? mpScore : Math.abs(mpScore)}&${mpRemaining}`  // e.g. "3&2"
-          : mpScore !== 0 && mpRemaining === 0 ? `${Math.abs(mpScore)} UP` : null
+        const mpScore = mpHoles.reduce((acc, r) => r === 'win' ? acc + 1 : r === 'loss' ? acc - 1 : acc, 0)
+        const mpPlayed = mpHoles.filter(r => r !== null).length
+        const mpRemaining = 18 - mpPlayed
+        const mpFinished = Math.abs(mpScore) > mpRemaining
+        const mpStatusStr = mpScore === 0 ? 'AS' : mpScore > 0 ? `${mpScore} UP` : `${Math.abs(mpScore)} DOWN`
+        const mpColor = mpScore > 0 ? '#16a34a' : mpScore < 0 ? '#dc2626' : '#2563EB'
+        const mpWinnerStr = mpFinished ? (Math.abs(mpScore) === mpRemaining + Math.abs(mpScore) - mpRemaining ? `${Math.abs(mpScore)}&${mpRemaining}` : `${Math.abs(mpScore)} UP`) : null
 
-        // Skins: for each played hole, who won? (lowest netto, no tie = carry)
-        const skinsResults = fmt === 'skins' ? (() => {
-          let carry = 0
-          return holes.map(hs => {
-            const allScores = newRound.player_ids?.map(pid => {
-              const s = tabyScores.find(x => x.round_id === newRound.id && x.player_id === pid && x.hole === hs.h)
-              const pl = tabyPlayers.find(x => x.id === pid)
-              const ex = getExtra(hs.i, pl?.taby_hcp || pl?.hcp || 0)
-              return s?.strokes ? { pid, netto: s.strokes - ex } : null
-            }).filter(Boolean) || []
-            if (allScores.length < (newRound.player_ids?.length || 1)) { carry++; return { hole: hs.h, winner: null, carry } }
-            const min = Math.min(...allScores.map(x => x.netto))
-            const winners = allScores.filter(x => x.netto === min)
-            if (winners.length > 1) { carry++; return { hole: hs.h, winner: null, carry } }
-            const result = { hole: hs.h, winner: winners[0].pid, skins: 1 + carry }
-            carry = 0
-            return result
-          })
-        })() : []
-        const mySkins = skinsResults.filter(s => s?.winner === tabyUser?.id).reduce((sum, s) => sum + (s.skins || 0), 0)
-        const pendingSkins = skinsResults.filter(s => s && !s.winner).reduce((sum, s) => sum + (s.carry || 0), 0) + (skinsResults.some(s => s && !s.winner) ? 1 : 0)
+        // Skins
+        const skinsStake = newRound.skins_stake || 50
+        const skinsResults = fmt === 'skins' ? holes.map(hs => {
+          const holeScores = roundPlayers.map(rp => ({ pid: rp.id, stab: tabyScores.find(s => s.round_id === newRound.id && s.player_id === rp.id && s.hole === hs.h)?.stableford ?? null })).filter(x => x.stab !== null)
+          if (holeScores.length < 2) return null
+          const maxStab = Math.max(...holeScores.map(x => x.stab))
+          const winners = holeScores.filter(x => x.stab === maxStab)
+          return winners.length === 1 ? { winner: winners[0].pid, skins: 1 } : { winner: null, carry: 1 }
+        }) : []
+        const mySkins = skinsResults.filter(r => r?.winner === tabyUser?.id).length
+        const pendingSkins = skinsResults.filter(r => r?.winner === null).length
 
-        // Others on this hole
-        const othersOnHole = newRound.player_ids?.filter(pid => pid !== tabyUser?.id).map(pid => {
-          const p = tabyPlayers.find(x => x.id === pid)
-          const s = tabyScores.find(x => x.round_id === newRound.id && x.player_id === pid && x.hole === h.h)
-          return { player: p, score: s }
-        }).filter(x => x.player) || []
+        // Lag-ställning
+        const blueTeam = fmt === 'lag' ? tabyTeams.find(t => t.color === 'blue') : null
+        const goldTeam = fmt === 'lag' ? tabyTeams.find(t => t.color === 'gold') : null
+        const lagStab = (team) => team ? (team.player_ids || []).reduce((sum, pid) => sum + roundScores.filter(s => s.player_id === pid).reduce((s, sc) => s + (sc.stableford || 0), 0), 0) : 0
+        const blueStab = lagStab(blueTeam)
+        const goldStab = lagStab(goldTeam)
+
+        // Score-färg
+        const scoreColor = !sc ? '#92400E' : stab === 0 ? '#dc2626' : stab >= 3 ? '#16a34a' : stab === 2 ? '#16a34a' : '#2563EB'
+        const scoreBg = !sc ? '#FFF9E6' : stab === 0 ? '#FEF2F2' : stab >= 3 ? '#DCFCE7' : stab === 2 ? '#F0FDF4' : '#EFF6FF'
+        const scoreBorder = !sc ? '#FDE68A' : stab === 0 ? '#FCA5A5' : stab >= 3 ? '#86EFAC' : stab === 2 ? '#86EFAC' : '#93C5FD'
+        const stabLabel = !sc ? null : stab === 0 ? 'NOLLA · 0p' : stab === 1 ? `BOGEY · 1p` : stab === 2 ? `PAR · 2p` : stab === 3 ? `BIRDIE 🐦 · 3p` : stab === 4 ? `EAGLE 🦅 · 4p` : `HIO 🎯 · ${stab}p`
+
+        const CS = { card: { background: 'white', borderRadius: 14, padding: '10px 12px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', marginBottom: 8 } }
+
         return (
-          <div style={{ position: 'fixed', inset: 0, background: '#0C1830', zIndex: 400, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {/* Top bar */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', background: 'rgba(147,197,253,0.04)', borderBottom: '0.5px solid rgba(147,197,253,0.1)' }}>
-              <button onClick={() => setTabyActiveHole(null)} style={{ background: 'none', border: 'none', color: '#F0F4FF', fontSize: 16, cursor: 'pointer' }}>← Alla hål</button>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.5)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(147,197,253,0.08)', border: '0.5px solid rgba(147,197,253,0.15)', fontSize: 10, color: '#93C5FD' }}>{fmtLabel}</span>
-                <span>{newRound?.date || 'Runda'}</span>
+          <div style={{ position: 'fixed', inset: 0, background: '#F0F4F8', zIndex: 400, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+
+            {/* ── TOP BAR ── */}
+            <div style={{ background: '#1B4332', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))' }}>
+              <button onClick={() => { setTabyActiveHole(null); setTabyCaddieMsg(null) }} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', borderRadius: 8, padding: '5px 10px', fontSize: 14, cursor: 'pointer' }}>←</button>
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: '#4ADE80', fontWeight: 800, fontFamily: 'var(--mono)', letterSpacing: 1 }}>{fmtLabel}</div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontFamily: 'var(--mono)' }}>
+                  {holesPlayed}/18 hål &nbsp;·&nbsp;
+                  {fmt === 'stableford' && <span style={{ color: '#D4A017' }}>{totalStab}p</span>}
+                  {fmt === 'stroke' && <span style={{ color: '#4ADE80' }}>{totalStrokes > 0 ? `${totalStrokes} slag` : '—'}</span>}
+                  {fmt === 'matchplay' && <span style={{ color: mpColor, fontWeight: 700 }}>{mpStatusStr}</span>}
+                  {fmt === 'skins' && <span style={{ color: '#D4A017' }}>{mySkins} skins</span>}
+                  {fmt === 'lag' && <span style={{ color: '#D4A017' }}>{blueTeam?.name} {blueStab} – {goldStab} {goldTeam?.name}</span>}
+                </div>
               </div>
+              <button onClick={() => setShowEndRoundModal(true)} style={{ background: 'rgba(232,99,74,0.2)', border: 'none', color: '#FCA5A5', borderRadius: 8, padding: '5px 8px', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--mono)' }}>Avsluta</button>
             </div>
 
-            {/* HOLE STRIP - jump to any hole, color-coded by score */}
-            <div style={{ display: 'flex', gap: 2, padding: '8px 12px', background: 'rgba(147,197,253,0.02)', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+            {/* ── HOLE STRIP ── */}
+            <div style={{ background: '#1B4332', paddingBottom: 8, paddingLeft: 8, paddingRight: 8, overflowX: 'auto', display: 'flex', gap: 4, flexShrink: 0, scrollbarWidth: 'none' }}>
               {holes.map(hs => {
-                const hsc = roundScores.find(s => s.hole === hs.h)
+                const hsc = tabyScores.find(s => s.round_id === newRound.id && s.player_id === activePid && s.hole === hs.h)
                 const isActive = hs.h === h.h
-                // Color: slagspel uses vs-par, stableford/matchplay/skins use stableford scale
-                let bg, color
-                if (hsc?.strokes) {
-                  if (fmt === 'stroke') {
-                    const diff = hsc.strokes - PARS[hs.h - 1]
-                    bg = diff <= -2 ? '#D4A017' : diff === -1 ? '#4ADE80' : diff === 0 ? 'rgba(147,197,253,0.2)' : diff === 1 ? '#F97316' : '#E8634A'
-                    color = diff <= -1 ? '#0C1830' : '#F0F4FF'
-                  } else if (fmt === 'matchplay') {
-                    const r = mpHoles[hs.h - 1]
-                    bg = r === 'win' ? '#4ADE80' : r === 'loss' ? '#E8634A' : r === 'half' ? 'rgba(147,197,253,0.2)' : 'rgba(147,197,253,0.06)'
-                    color = (r === 'win' || r === 'half') ? '#0C1830' : '#F0F4FF'
-                  } else if (fmt === 'skins') {
-                    const sk = skinsResults[hs.h - 1]
-                    bg = sk?.winner === tabyUser?.id ? '#D4A017' : sk?.winner ? 'rgba(232,99,74,0.3)' : sk ? 'rgba(147,197,253,0.12)' : 'rgba(147,197,253,0.06)'
-                    color = sk?.winner === tabyUser?.id ? '#0C1830' : '#F0F4FF'
-                  } else {
-                    bg = hsc.stableford >= 4 ? '#D4A017' : hsc.stableford >= 3 ? '#4ADE80' : hsc.stableford >= 1 ? 'rgba(147,197,253,0.2)' : '#E8634A'
-                    color = hsc.stableford === 0 ? '#fff' : hsc.stableford >= 3 ? '#0C1830' : '#F0F4FF'
-                  }
-                } else {
-                  bg = 'rgba(147,197,253,0.06)'
-                  color = isActive ? '#D4A017' : 'rgba(147,197,253,0.5)'
-                }
                 return (
-                  <button key={hs.h} onClick={() => { setTabyActiveHole(hs.h); setTabyCaddieMsg(null) }}
-                    style={{ minWidth: 28, height: 28, borderRadius: 6, background: bg, color, border: isActive ? '1.5px solid #D4A017' : '0.5px solid rgba(147,197,253,0.1)', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <button key={hs.h} onClick={() => { setTabyActiveHole(hs.h); setTabyCaddieMsg(null) }} style={{ minWidth: 28, height: 28, borderRadius: 6, border: isActive ? '2px solid #4ADE80' : hsc ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.1)', background: isActive ? '#4ADE80' : hsc ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)', color: isActive ? '#1B4332' : 'white', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
                     {hs.h}
                   </button>
                 )
               })}
             </div>
 
-            {/* Running totals - format-aware */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 16px', fontSize: 11, fontFamily: 'var(--mono)', color: 'rgba(240,244,255,0.5)', borderBottom: '0.5px solid rgba(147,197,253,0.08)' }}>
-              <span>{holesPlayed}/18 hål</span>
-              {fmt === 'stroke' && <span style={{ color: vsParStr < 0 ? '#4ADE80' : vsParStr > 0 ? '#E8634A' : '#93C5FD', fontWeight: 600 }}>{totalStrokes > 0 ? `${totalStrokes} slag (${vsParStr > 0 ? '+' : ''}${vsParStr || 'E'})` : '—'}</span>}
-              {fmt === 'stableford' && <span style={{ color: '#D4A017', fontWeight: 600 }}>{totalStab}p stableford</span>}
-              {fmt === 'matchplay' && <span style={{ color: mpColor, fontWeight: 700 }}>{mpStatusStr}{mpRemaining > 0 ? ` (${mpRemaining} kvar)` : ''}{opponent ? ` vs ${opponent.nickname}` : ''}</span>}
-              {fmt === 'skins' && <span style={{ color: '#D4A017', fontWeight: 600 }}>🦈 {mySkins} skins {pendingSkins > 0 ? `· ${pendingSkins} på spel` : ''}</span>}
-            </div>
+            {/* ── CARDS ── */}
+            <div style={{ padding: '10px 12px', paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))', flex: 1 }}>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-              {/* Hole number & info */}
-              <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                <div style={{ fontSize: 56, fontFamily: 'var(--serif)', fontWeight: 500, color: h.p === 3 ? '#E8634A' : h.p === 5 ? '#4ADE80' : '#F0F4FF' }}>{h.h}</div>
-                <div style={{ fontSize: 14, color: 'rgba(240,244,255,0.6)', marginTop: -4 }}>Par {h.p} · {h.m}m · Hcp {h.i}</div>
-                {/* LD/NP badges */}
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 6 }}>
-                  {ldHole === h.h && <div style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(212,160,23,0.15)', border: '0.5px solid rgba(212,160,23,0.4)', fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1 }}>🏌️ LÄNGST DRIVE</div>}
-                  {npHole === h.h && <div style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(74,222,128,0.12)', border: '0.5px solid rgba(74,222,128,0.3)', fontFamily: 'var(--mono)', fontSize: 9, color: '#4ADE80', letterSpacing: 1 }}>🎯 NÄRMAST PIN</div>}
-                </div>
-                {/* Extra strokes indicator */}
-                {extra > 0 && (
-                  <div style={{ marginTop: 6, display: 'flex', justifyContent: 'center', gap: 4 }}>
-                    {Array.from({length: extra}).map((_, i) => <span key={i} style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: '#4ADE80' }} />)}
-                    <span style={{ fontSize: 12, color: '#4ADE80', marginLeft: 4, fontWeight: 500 }}>+{extra} slag</span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 8 }}>
-                  {h.w && <div style={{ padding: '3px 10px', borderRadius: 8, background: 'rgba(96,165,250,0.15)', border: '0.5px solid rgba(96,165,250,0.3)', color: '#60A5FA', fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: 1 }}>💧 VATTEN I SPEL</div>}
-                  {h.i <= 3 && <div style={{ padding: '3px 10px', borderRadius: 8, background: 'rgba(232,99,74,0.1)', border: '0.5px solid rgba(232,99,74,0.2)', color: '#E8634A', fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: 1 }}>🔥 SVÅRASTE</div>}
-                  {h.i >= 16 && <div style={{ padding: '3px 10px', borderRadius: 8, background: 'rgba(74,222,128,0.1)', border: '0.5px solid rgba(74,222,128,0.2)', color: '#4ADE80', fontSize: 10, fontFamily: 'var(--mono)', letterSpacing: 1 }}>🎯 ENKLASTE</div>}
-                </div>
-                <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.65)', fontStyle: 'italic', marginTop: 8, lineHeight: 1.5 }}>{h.t}</div>
-
-                {/* Matchplay: live hole status */}
-                {fmt === 'matchplay' && opponent && (() => {
-                  const myS = roundScores.find(s => s.hole === h.h)
-                  const oppS = opponentScores.find(s => s.hole === h.h)
-                  const holeResult = mpHoles[h.h - 1]
-                  return (
-                    <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(30,58,95,0.3)', border: `0.5px solid ${mpColor}30` }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.4)', letterSpacing: 1.5, marginBottom: 6 }}>MATCHPLAY vs {opponent.nickname?.toUpperCase()}</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 22, fontWeight: 700, color: '#F0F4FF', fontFamily: 'var(--mono)' }}>{myS?.strokes || '—'}</div>
-                          <div style={{ fontSize: 9, color: 'rgba(240,244,255,0.4)', fontFamily: 'var(--mono)' }}>{tabyUser?.nickname}</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 20, fontWeight: 700, color: mpColor, fontFamily: 'var(--mono)' }}>{mpStatusStr}</div>
-                          {holeResult && <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: holeResult === 'win' ? '#4ADE80' : holeResult === 'loss' ? '#E8634A' : '#93C5FD' }}>
-                            {holeResult === 'win' ? '▲ hål vunnet' : holeResult === 'loss' ? '▼ hål förlorat' : '= halvt hål'}
-                          </div>}
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 22, fontWeight: 700, color: 'rgba(240,244,255,0.5)', fontFamily: 'var(--mono)' }}>{oppS?.strokes || '—'}</div>
-                          <div style={{ fontSize: 9, color: 'rgba(240,244,255,0.4)', fontFamily: 'var(--mono)' }}>{opponent.nickname}</div>
-                        </div>
-                      </div>
+              {/* ── CARD 1: HÅL-INFO ── */}
+              <div style={{ ...CS.card }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ fontSize: 56, fontWeight: 900, color: '#111', lineHeight: 1, flexShrink: 0, width: 56 }}>{h.h}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>Par {h.p} · {h.m}m</div>
+                    <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>Hcp-index {h.i} · HCP {activePlayer?.taby_hcp || activePlayer?.hcp}</div>
+                    {extra > 0 && <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 800, marginTop: 3 }}>{'● '.repeat(extra).trim()}  +{extra} extra slag</div>}
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
+                      {ldHole === h.h && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: '#FEF3C7', color: '#92400E', fontWeight: 700 }}>🏌️ LD</span>}
+                      {npHole === h.h && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: '#DCFCE7', color: '#14532D', fontWeight: 700 }}>🎯 NP</span>}
+                      {h.w && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: '#EFF6FF', color: '#1D4ED8', fontWeight: 700 }}>💧 Vatten</span>}
+                      {h.i <= 3 && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: '#FEF2F2', color: '#DC2626', fontWeight: 700 }}>🔥 Svåraste</span>}
+                      {h.i >= 16 && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: '#F0FDF4', color: '#16A34A', fontWeight: 700 }}>✅ Enklaste</span>}
                     </div>
-                  )
-                })()}
-
-                {/* Skins: who has what on this hole */}
-                {fmt === 'skins' && (() => {
-                  const sk = skinsResults[h.h - 1]
-                  if (!sk) return null
-                  const winner = sk.winner ? tabyPlayers.find(p => p.id === sk.winner) : null
+                  </div>
+                </div>
+                {/* GPS */}
+                {(() => {
+                  const distToGreen = tabyUserLoc ? distanceToGreen(tabyUserLoc.lat, tabyUserLoc.lng, h.h) : null
+                  const distToTee = tabyUserLoc ? distanceToTee(tabyUserLoc.lat, tabyUserLoc.lng, h.h) : null
+                  const onCourse = distToGreen != null && distToGreen < 1500
+                  if (!onCourse) return null
                   return (
-                    <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(30,58,95,0.3)', border: '0.5px solid rgba(212,160,23,0.2)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 16 }}>🦈</span>
-                      {winner
-                        ? <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: winner.id === tabyUser?.id ? '#D4A017' : '#93C5FD' }}>{winner.nickname} vann {sk.skins} skin{sk.skins > 1 ? 's' : ''}!</span>
-                        : <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'rgba(240,244,255,0.5)' }}>Oavgjort – {sk.carry || 1} skin{(sk.carry || 1) > 1 ? 's' : ''} på spel</span>
-                      }
+                    <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: 9, color: '#16a34a', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'var(--mono)' }}>📍 Till green</div>
+                        <div style={{ fontSize: 28, fontWeight: 900, color: '#16a34a', lineHeight: 1 }}>{distToGreen}m</div>
+                      </div>
+                      {distToTee != null && <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 9, color: '#888', fontFamily: 'var(--mono)' }}>Från tee</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: '#555' }}>{distToTee}m</div>
+                      </div>}
                     </div>
                   )
                 })()}
               </div>
 
-              {/* GPS distance-to-green widget */}
-              {(() => {
-                const distToGreen = tabyUserLoc ? distanceToGreen(tabyUserLoc.lat, tabyUserLoc.lng, h.h) : null
-                const distToTee = tabyUserLoc ? distanceToTee(tabyUserLoc.lat, tabyUserLoc.lng, h.h) : null
-                const accuracy = tabyUserLoc?.accuracy
-                // If distance is huge (>1km), user is not on course - hide
-                const onCourse = distToGreen != null && distToGreen < 1500
-                return (
-                  <div style={{ marginBottom: 16, padding: '12px 14px', background: 'linear-gradient(135deg, rgba(74,222,128,0.08), rgba(30,58,95,0.15))', borderRadius: 12, border: '0.5px solid rgba(74,222,128,0.2)' }}>
-                    {tabyUserLoc && onCourse ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ fontSize: 28 }}>📍</div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(74,222,128,0.7)', letterSpacing: 1.5 }}>TILL GREEN</div>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                            <div style={{ fontSize: 28, fontFamily: 'var(--mono)', fontWeight: 600, color: '#4ADE80' }}>{distToGreen}m</div>
-                            {accuracy > 20 && <div style={{ fontSize: 9, color: 'rgba(240,244,255,0.3)', fontFamily: 'var(--mono)' }}>±{Math.round(accuracy)}m</div>}
-                          </div>
-                        </div>
-                        {distToTee != null && (
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(240,244,255,0.4)', letterSpacing: 1 }}>FRÅN TEE</div>
-                            <div style={{ fontSize: 16, fontFamily: 'var(--mono)', color: '#F0F4FF' }}>{distToTee}m</div>
-                          </div>
-                        )}
-                      </div>
-                    ) : tabyUserLoc && !onCourse ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(240,244,255,0.5)' }}>
-                        <span>📍</span>
-                        <span>Du är långt från banan ({distToGreen >= 1000 ? (distToGreen/1000).toFixed(1) + 'km' : distToGreen + 'm'} till green)</span>
-                      </div>
-                    ) : tabyGpsError ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(232,99,74,0.8)' }}>
-                        <span>⚠️</span>
-                        <span>GPS ej tillgänglig – aktivera platstjänster för Safari</span>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(240,244,255,0.5)', fontFamily: 'var(--mono)' }}>
-                        <span style={{ animation: 'pulse 1.5s infinite' }}>📍</span>
-                        <span>Hämtar GPS-position...</span>
-                      </div>
-                    )}
+              {/* ── CARD 2: BANGUIDE + CADDIE ── */}
+              <div style={{ ...CS.card, padding: 0, overflow: 'hidden' }}>
+                <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => { setTabyBanguideOpen(true); setTapPoint(null) }}>
+                  <img src={holeImageUrl(h.h)} alt={`Hål ${h.h}`} style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.6) 100%)', display: 'flex', alignItems: 'flex-end', padding: '8px 12px', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 10, color: 'white', fontWeight: 700, letterSpacing: 1 }}>BANGUIDE · HÅL {h.h}</span>
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)' }}>📏 Tryck för avstånd</span>
                   </div>
-                )
-              })()}
-
-              {/* Banguide image - tap opens full measure modal */}
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ borderRadius: 12, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.15)', position: 'relative', cursor: 'pointer' }}
-                  onClick={() => { setTabyBanguideOpen(true); setTapPoint(null) }}>
-                  <img src={holeImageUrl(h.h)} alt={`Hål ${h.h}`} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 180, objectFit: 'cover' }} />
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 12px', background: 'linear-gradient(180deg, transparent, rgba(12,24,48,0.9))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: '#93C5FD', fontSize: 9, fontFamily: 'var(--mono)', letterSpacing: 1.5 }}>BANGUIDE · HÅL {h.h}</span>
-                    <span style={{ color: 'rgba(147,197,253,0.6)', fontSize: 10, fontFamily: 'var(--mono)' }}>📏 Tryck för avstånd</span>
-                  </div>
+                </div>
+                {h.t && <div style={{ padding: '8px 12px', fontSize: 11, color: '#555', fontStyle: 'italic', lineHeight: 1.5, borderTop: '1px solid #F3F4F6' }}>{h.t}</div>}
+                {/* Caddie AI */}
+                <div style={{ padding: '0 12px 10px' }}>
+                  {!tabyCaddieMsg && !tabyCaddieLoading && (
+                    <button onClick={() => fetchCaddieAdvice(h.h)} style={{ width: '100%', padding: '8px', borderRadius: 8, background: '#F3F4F6', border: '1px solid #E5E7EB', color: '#555', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <span>🎙️</span> Caddie AI-tips
+                    </button>
+                  )}
+                  {tabyCaddieLoading && <div style={{ textAlign: 'center', padding: '6px 0', color: '#888', fontSize: 12 }}>🎙️ Tänker...</div>}
+                  {tabyCaddieMsg && (
+                    <div style={{ background: '#F0FDF4', borderRadius: 8, padding: '8px 10px', border: '1px solid #BBF7D0' }}>
+                      <div style={{ fontSize: 11, color: '#166534', lineHeight: 1.5 }}>{tabyCaddieMsg}</div>
+                      <button onClick={() => setTabyCaddieMsg(null)} style={{ fontSize: 9, color: '#888', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4 }}>Stäng</button>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* CADDIE AI - identical style to DIO */}
-              <div style={{ marginBottom: 16 }}>
-                {!tabyCaddieMsg && !tabyCaddieLoading && (
-                  <button onClick={() => askTabyCaddie(h.h, h)} style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(30,58,95,0.45), rgba(212,160,23,0.1))', border: '1px solid rgba(212,160,23,0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#D4A017', fontSize: 13, fontWeight: 500, fontFamily: 'var(--sans)' }}>
-                    <LakeBadge size={24}><IconFlag size={12} color="#F0F4FF" /></LakeBadge>
-                    Fråga Caddien
-                  </button>
-                )}
-                {tabyCaddieLoading && (
-                  <div style={{ textAlign: 'center', padding: '16px', color: '#D4A017', fontSize: 13, fontFamily: 'var(--mono)' }}>
-                    <span style={{ animation: 'pulse 1s infinite' }}>Caddien analyserar...</span>
+              {/* ── CARD 3: FORMAT-SPECIFIK STATUS ── */}
+              {fmt === 'matchplay' && opponent && (
+                <div style={{ ...CS.card }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: '#888', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>⚔️ MATCHPLAY vs {opponent.nickname?.toUpperCase()}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ textAlign: 'center', flex: 1 }}>
+                      {activePlayer?.image_url ? <img src={activePlayer.image_url} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 4px', display: 'block' }} /> : <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#E5E7EB', margin: '0 auto 4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#555' }}>{activePlayer?.name?.charAt(0)}</div>}
+                      <div style={{ fontSize: 20, fontWeight: 900, color: '#111' }}>{roundScores.find(s => s.hole === h.h)?.strokes || '—'}</div>
+                      <div style={{ fontSize: 9, color: '#888' }}>{activePlayer?.nickname}</div>
+                    </div>
+                    <div style={{ textAlign: 'center', flex: 1 }}>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: mpColor }}>{mpStatusStr}</div>
+                      <div style={{ fontSize: 9, color: '#888', marginTop: 2 }}>{mpRemaining > 0 ? `${mpRemaining} hål kvar` : 'KLAR'}</div>
+                      {mpFinished && <div style={{ fontSize: 11, fontWeight: 800, color: mpColor, marginTop: 4 }}>{mpScore > 0 ? '🏆 DU VANN!' : '💀 DU FÖRLORADE'}</div>}
+                    </div>
+                    <div style={{ textAlign: 'center', flex: 1 }}>
+                      {opponent?.image_url ? <img src={opponent.image_url} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 4px', display: 'block' }} /> : <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#E5E7EB', margin: '0 auto 4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#555' }}>{opponent?.name?.charAt(0)}</div>}
+                      <div style={{ fontSize: 20, fontWeight: 900, color: '#111' }}>{opponentScores.find(s => s.hole === h.h)?.strokes || '—'}</div>
+                      <div style={{ fontSize: 9, color: '#888' }}>{opponent?.nickname}</div>
+                    </div>
                   </div>
-                )}
-                {tabyCaddieMsg && (
-                  <div style={{ padding: '14px 16px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(30,58,95,0.4), rgba(147,197,253,0.08))', border: '1px solid rgba(147,197,253,0.15)' }}>
-                    <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: '#D4A017', letterSpacing: 1.5, marginBottom: 6 }}>CADDIE AI</div>
-                    <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.8)', lineHeight: 1.5 }}>{tabyCaddieMsg}</div>
-                    <button onClick={() => setTabyCaddieMsg(null)} style={{ background: 'none', border: 'none', color: 'rgba(240,244,255,0.4)', fontSize: 10, cursor: 'pointer', marginTop: 6, padding: 0 }}>Stäng</button>
+                  {/* Hål-by-hål rad */}
+                  <div style={{ display: 'flex', gap: 3, marginTop: 10, flexWrap: 'wrap' }}>
+                    {mpHoles.slice(0, h.h).map((res, i) => res !== null && (
+                      <div key={i} style={{ width: 20, height: 20, borderRadius: 4, background: res === 'win' ? '#DCFCE7' : res === 'loss' ? '#FEE2E2' : '#F3F4F6', border: `1px solid ${res === 'win' ? '#86EFAC' : res === 'loss' ? '#FCA5A5' : '#E5E7EB'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: res === 'win' ? '#16a34a' : res === 'loss' ? '#dc2626' : '#888' }}>
+                        {res === 'win' ? '+' : res === 'loss' ? '−' : '='}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {fmt === 'skins' && (
+                <div style={{ ...CS.card }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: '#888', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>🦈 SKINS · {skinsStake}kr/hål</div>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <div style={{ flex: 1, textAlign: 'center', padding: '8px', borderRadius: 8, background: '#DCFCE7', border: '1px solid #86EFAC' }}>
+                      <div style={{ fontSize: 24, fontWeight: 900, color: '#16a34a' }}>{mySkins}</div>
+                      <div style={{ fontSize: 9, color: '#16a34a', fontWeight: 700 }}>DINA SKINS</div>
+                      <div style={{ fontSize: 10, color: '#16a34a' }}>{mySkins * skinsStake}kr</div>
+                    </div>
+                    {pendingSkins > 0 && <div style={{ flex: 1, textAlign: 'center', padding: '8px', borderRadius: 8, background: '#FEF9C3', border: '1px solid #FDE047' }}>
+                      <div style={{ fontSize: 24, fontWeight: 900, color: '#A16207' }}>{pendingSkins}</div>
+                      <div style={{ fontSize: 9, color: '#A16207', fontWeight: 700 }}>PÅ SPEL</div>
+                      <div style={{ fontSize: 10, color: '#A16207' }}>{pendingSkins * skinsStake}kr</div>
+                    </div>}
+                  </div>
+                  {(() => {
+                    const thisSkin = skinsResults[h.h - 1]
+                    if (!thisSkin) return null
+                    const winner = thisSkin.winner ? tabyPlayers.find(p => p.id === thisSkin.winner) : null
+                    return <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 8, background: winner ? '#F0FDF4' : '#FFFBEB', fontSize: 11, color: winner ? '#16a34a' : '#92400E', fontWeight: 600 }}>
+                      {winner ? `🏆 ${winner.nickname} vann hål ${h.h}!` : `⚡ Oavgjort — carry over`}
+                    </div>
+                  })()}
+                </div>
+              )}
+
+              {fmt === 'lag' && blueTeam && goldTeam && (
+                <div style={{ ...CS.card }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: '#888', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>🛡️ LAGSPEL</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8 }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#2563EB', marginBottom: 2 }}>{blueTeam.name}</div>
+                      <div style={{ fontSize: 32, fontWeight: 900, color: blueStab >= goldStab ? '#2563EB' : '#999' }}>{blueStab}</div>
+                      {tabyPlayers.filter(p => blueTeam.player_ids?.includes(p.id)).map(p => <div key={p.id} style={{ fontSize: 9, color: '#888' }}>{p.nickname}</div>)}
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      {blueStab === goldStab ? <div style={{ fontSize: 14, fontWeight: 800, color: '#888' }}>AS</div>
+                        : <div style={{ fontSize: 11, fontWeight: 700, color: blueStab > goldStab ? '#2563EB' : '#D97706' }}>
+                          {blueStab > goldStab ? blueTeam.name : goldTeam.name}<br/>leder +{Math.abs(blueStab - goldStab)}
+                        </div>}
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#D97706', marginBottom: 2 }}>{goldTeam.name}</div>
+                      <div style={{ fontSize: 32, fontWeight: 900, color: goldStab >= blueStab ? '#D97706' : '#999' }}>{goldStab}</div>
+                      {tabyPlayers.filter(p => goldTeam.player_ids?.includes(p.id)).map(p => <div key={p.id} style={{ fontSize: 9, color: '#888' }}>{p.nickname}</div>)}
+                    </div>
+                  </div>
+                  <div style={{ height: 6, borderRadius: 3, background: '#F3F4F6', marginTop: 10, overflow: 'hidden', display: 'flex' }}>
+                    <div style={{ width: `${blueStab + goldStab > 0 ? (blueStab / (blueStab + goldStab)) * 100 : 50}%`, background: '#2563EB', transition: 'width 0.5s' }} />
+                    <div style={{ flex: 1, background: '#D97706' }} />
+                  </div>
+                </div>
+              )}
+
+              {/* ── CARD 4: LIVE LEADERBOARD ── */}
+              <div style={{ ...CS.card }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: '#888', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>🏆 LIVE LEADERBOARD</div>
+                {playerStats.slice(0, 4).map((pl, idx) => {
+                  const isMe = pl.id === tabyUser?.id
+                  const plStab = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === pl.id).reduce((sum, s) => sum + (s.stableford || 0), 0)
+                  const plHoles = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === pl.id && s.strokes > 0).length
+                  if (!newRound.player_ids?.includes(pl.id)) return null
+                  return (
+                    <div key={pl.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: idx < 3 ? '1px solid #F3F4F6' : 'none', background: isMe ? '#F0FDF4' : 'transparent', borderRadius: isMe ? 6 : 0, paddingLeft: isMe ? 6 : 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#bbb', width: 16 }}>{idx + 1}</div>
+                      {pl.image_url ? <img src={pl.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#555', fontWeight: 700, flexShrink: 0 }}>{pl.name?.charAt(0)}</div>}
+                      <div style={{ flex: 1, fontSize: 12, color: '#111', fontWeight: isMe ? 700 : 400 }}>{isMe ? 'Du' : pl.nickname}</div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: isMe ? '#16a34a' : '#111' }}>{plStab}p</div>
+                        <div style={{ fontSize: 9, color: '#aaa', fontFamily: 'var(--mono)' }}>{plHoles}/18</div>
+                      </div>
+                    </div>
+                  )
+                }).filter(Boolean)}
+                {/* Ghost match */}
+                {prevRound && (
+                  <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888' }}>
+                    <span>👻 Förra rundan</span>
+                    <span style={{ fontWeight: 700, color: cumDiff > 0 ? '#16a34a' : cumDiff < 0 ? '#dc2626' : '#888' }}>{cumDiff > 0 ? '+' : ''}{cumDiff}p</span>
                   </div>
                 )}
               </div>
 
-              {/* SPELARVÄLJARE — registrera score för andra i bollen */}
-              {newRound.player_ids?.length > 1 && (
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.5)', letterSpacing: 1.5, marginBottom: 6 }}>REGISTRERAR FÖR</div>
-                  <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
-                    {newRound.player_ids.map(pid => {
-                      const p = tabyPlayers.find(x => x.id === pid)
-                      if (!p) return null
-                      const isActive = (scoringPlayerId || tabyUser?.id) === pid
-                      const isSelf = pid === tabyUser?.id
-                      const pScore = tabyScores.find(s => s.round_id === newRound.id && s.player_id === pid && s.hole === h.h)
+              {/* ── CARD 5: SCORE INPUT ── */}
+              <div style={{ background: scoreBg, borderRadius: 14, padding: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: `2px solid ${scoreBorder}`, marginBottom: 8 }}>
+                {/* Spelare-väljare om flera */}
+                {newRound.player_ids?.length > 1 && (
+                  <div style={{ display: 'flex', gap: 5, marginBottom: 10, flexWrap: 'wrap' }}>
+                    {roundPlayers.map(rp => {
+                      const isActive2 = rp.id === activePid
                       return (
-                        <button key={pid} onClick={() => setScoringPlayerId(pid === tabyUser?.id ? null : pid)} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 10, cursor: 'pointer', background: isActive ? (isSelf ? 'rgba(212,160,23,0.15)' : 'rgba(147,197,253,0.12)') : 'rgba(147,197,253,0.04)', border: isActive ? (isSelf ? '1px solid rgba(212,160,23,0.4)' : '1px solid rgba(147,197,253,0.3)') : '0.5px solid rgba(147,197,253,0.08)' }}>
-                          {p.image_url ? <img src={p.image_url} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
-                          <div>
-                            <div style={{ fontSize: 11, color: isActive ? (isSelf ? '#D4A017' : '#93C5FD') : 'rgba(240,244,255,0.5)', fontWeight: isActive ? 600 : 400 }}>{p.nickname}</div>
-                            {pScore?.strokes && <div style={{ fontSize: 9, color: 'rgba(74,222,128,0.7)', fontFamily: 'var(--mono)' }}>{pScore.strokes} slag ✓</div>}
-                          </div>
+                        <button key={rp.id} onClick={() => setScoringPlayerId(rp.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 8, cursor: 'pointer', background: isActive2 ? '#DCFCE7' : 'white', border: isActive2 ? '2px solid #16a34a' : '1px solid #E5E7EB', fontSize: 11, fontWeight: isActive2 ? 700 : 400, color: isActive2 ? '#16a34a' : '#555' }}>
+                          {rp.image_url && <img src={rp.image_url} style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover' }} />}
+                          {rp.id === tabyUser?.id ? 'Du' : rp.nickname}
                         </button>
                       )
                     })}
                   </div>
+                )}
+                {/* Score display */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button onPointerDown={e => { e.preventDefault(); if (currentVal > 1) saveHoleScore(h.h, currentVal - 1) }}
+                    style={{ width: 72, height: 72, borderRadius: 18, background: 'white', border: '2px solid #E5E7EB', color: '#111', fontSize: 36, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, WebkitTapHighlightColor: 'transparent' }}>−</button>
+                  <div onPointerDown={e => { e.preventDefault(); if (!sc) saveHoleScore(h.h, h.p) }}
+                    style={{ flex: 1, height: 88, borderRadius: 16, background: 'white', border: `2px solid ${scoreBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: sc ? 'default' : 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+                    <div style={{ fontSize: 64, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{sc?.strokes || h.p}</div>
+                    {!sc && <div style={{ fontSize: 10, color: '#D97706', fontFamily: 'var(--mono)', letterSpacing: 1 }}>TRYCK FÖR PAR</div>}
+                  </div>
+                  <button onPointerDown={e => { e.preventDefault(); if (currentVal < 15) saveHoleScore(h.h, currentVal + 1) }}
+                    style={{ width: 72, height: 72, borderRadius: 18, background: 'white', border: '2px solid #E5E7EB', color: '#111', fontSize: 36, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, WebkitTapHighlightColor: 'transparent' }}>+</button>
                 </div>
-              )}
-
-              {/* GPS LAYUP — bara om man faktiskt är på banan (<400m från green) */}
-              {tabyUserLoc && h.inspel && h.inspel.length > 0 && (() => {
-                const distToGreen = distanceToGreen(tabyUserLoc.lat, tabyUserLoc.lng, h.h)
-                if (!distToGreen || distToGreen < 30 || distToGreen > 400) return null
-                const layupOptions = h.inspel.filter(d => d > 20 && d < distToGreen - 20)
-                if (layupOptions.length === 0) return null
-                return (
-                  <div style={{ marginBottom: 12, padding: 12, background: 'rgba(74,222,128,0.06)', borderRadius: 12, border: '0.5px solid rgba(74,222,128,0.15)' }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(74,222,128,0.7)', letterSpacing: 1.5, marginBottom: 8 }}>📐 STRATEGIAVSTÅND</div>
-                    {layupOptions.map(layupDist => (
-                      <div key={layupDist} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: '#4ADE80' }}>{Math.round(distToGreen - layupDist)}m</div>
-                        <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)' }}>till layup →</div>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: '#D4A017' }}>{layupDist}m</div>
-                        <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)' }}>kvar till green</div>
-                      </div>
-                    ))}
+                {/* Stableford label */}
+                {sc && stabLabel && (
+                  <div style={{ textAlign: 'center', marginTop: 8, padding: '4px 0' }}>
+                    <span style={{ background: scoreBorder, color: scoreColor, fontSize: 12, fontWeight: 900, padding: '4px 16px', borderRadius: 10 }}>{stabLabel}</span>
                   </div>
-                )
-              })()}
-
-              {/* ── SCORE INPUT — vit Gamebook-stil ── */}
-              <div style={{ background: '#FFFFFF', borderRadius: 20, padding: '20px 16px 16px', marginBottom: 12, boxShadow: '0 2px 20px rgba(0,0,0,0.15)' }}>
-
-                {/* Hål-info rad */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 11, color: '#888', fontFamily: 'var(--mono)', letterSpacing: 1 }}>HÅL</div>
-                    <div style={{ fontSize: 32, fontWeight: 800, color: '#111', lineHeight: 1 }}>{h.h}</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 11, color: '#888', fontFamily: 'var(--mono)', letterSpacing: 1 }}>PAR</div>
-                    <div style={{ fontSize: 32, fontWeight: 800, color: '#111', lineHeight: 1 }}>{h.p}</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 11, color: '#888', fontFamily: 'var(--mono)', letterSpacing: 1 }}>IDX</div>
-                    <div style={{ fontSize: 32, fontWeight: 800, color: '#111', lineHeight: 1 }}>{h.i}</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 11, color: '#888', fontFamily: 'var(--mono)', letterSpacing: 1 }}>EXTRA</div>
-                    <div style={{ fontSize: 32, fontWeight: 800, color: extra > 0 ? '#16A34A' : '#111', lineHeight: 1 }}>+{extra}</div>
-                  </div>
-                  {stab !== null && (
-                    <div style={{ textAlign: 'center', padding: '6px 12px', borderRadius: 10, background: stab === 0 ? '#FEE2E2' : stab >= 3 ? '#DCFCE7' : '#EFF6FF' }}>
-                      <div style={{ fontSize: 11, color: '#888', fontFamily: 'var(--mono)', letterSpacing: 1 }}>POÄNG</div>
-                      <div style={{ fontSize: 28, fontWeight: 800, color: stab === 0 ? '#DC2626' : stab >= 3 ? '#16A34A' : '#2563EB', lineHeight: 1 }}>{stab}p</div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Resultat-indikator under score */}
-                {sc && (() => {
-                  const diff = sc.strokes - h.p
-                  const label = sc.strokes === 1 ? '🏆 HÅL I ETT!' : diff <= -3 ? '🦅 ALBATROSS!' : diff === -2 ? '🦅 EAGLE' : diff === -1 ? '🐦 BIRDIE' : diff === 0 ? '— PAR' : diff === 1 ? 'BOGEY' : diff === 2 ? 'DBL BOGEY' : `+${diff}`
-                  const bg = diff <= -1 ? '#DCFCE7' : diff === 0 ? '#EFF6FF' : '#FEE2E2'
-                  const col = diff <= -1 ? '#16A34A' : diff === 0 ? '#2563EB' : '#DC2626'
-                  return <div style={{ textAlign: 'center', marginBottom: 10, padding: '4px 12px', borderRadius: 8, background: bg, display: 'inline-block', width: '100%' }}>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: col }}>{label}</span>
+                )}
+                {/* Hålhistorik */}
+                {(() => {
+                  const history = getTabyHoleHistory(tabyUser?.id, h.h)
+                  if (!history) return null
+                  return <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(0,0,0,0.06)', fontSize: 10, color: '#888' }}>
+                    <span>Förra: <strong style={{ color: '#555' }}>{history.last.strokes} slag</strong></span>
+                    <span>Bäst: <strong style={{ color: '#555' }}>{history.bestStab}p</strong></span>
                   </div>
                 })()}
-
-                {/* Stor siffra + knappar */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 8 }}>
-                  {/* MINUS — stor, vänster, tumvänlig */}
-                  <button
-                    onPointerDown={e => { e.preventDefault(); if (currentVal > 1) saveHoleScore(h.h, currentVal - 1) }}
-                    style={{ width: 80, height: 80, borderRadius: 20, background: '#F3F4F6', border: '2px solid #E5E7EB', color: '#111', fontSize: 40, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', WebkitUserSelect: 'none', WebkitTapHighlightColor: 'transparent', flexShrink: 0 }}>−</button>
-
-                  {/* Score-nummer — tryck för par */}
-                  <div
-                    onPointerDown={e => { e.preventDefault(); if (!sc) saveHoleScore(h.h, h.p) }}
-                    style={{ flex: 1, height: 100, borderRadius: 20, background: sc ? (stab === 0 ? '#FEE2E2' : stab >= 3 ? '#DCFCE7' : '#EFF6FF') : '#FFF9E6', border: sc ? `3px solid ${stab === 0 ? '#FCA5A5' : stab >= 3 ? '#86EFAC' : '#93C5FD'}` : '3px dashed #D4A017', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: sc ? 'default' : 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent' }}>
-                    <div style={{ fontSize: 64, fontWeight: 800, color: '#111', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{sc?.strokes || h.p}</div>
-                    {!sc && <div style={{ fontSize: 11, color: '#D4A017', fontFamily: 'var(--mono)', letterSpacing: 1, marginTop: -4 }}>TRYCK FÖR PAR</div>}
-                  </div>
-
-                  {/* PLUS — stor, höger, tumvänlig */}
-                  <button
-                    onPointerDown={e => { e.preventDefault(); if (currentVal < 15) saveHoleScore(h.h, currentVal + 1) }}
-                    style={{ width: 80, height: 80, borderRadius: 20, background: '#F3F4F6', border: '2px solid #E5E7EB', color: '#111', fontSize: 40, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', WebkitUserSelect: 'none', WebkitTapHighlightColor: 'transparent', flexShrink: 0 }}>+</button>
-                </div>
               </div>
 
-              {/* ── BEKRÄFTA HÅL — stor grön knapp ── */}
-              <button
-                onPointerDown={e => { e.preventDefault(); setTabyHole(prev => Math.min(prev + 1, 18)) }}
-                style={{ width: '100%', padding: '18px', borderRadius: 16, border: 'none', cursor: 'pointer', marginBottom: 12, background: sc ? 'linear-gradient(135deg, #16A34A, #15803D)' : '#E5E7EB', color: sc ? '#FFFFFF' : '#9CA3AF', fontSize: 18, fontWeight: 800, letterSpacing: 0.3, boxShadow: sc ? '0 4px 16px rgba(22,163,74,0.4)' : 'none', transition: 'all 0.2s', WebkitTapHighlightColor: 'transparent' }}>
+              {/* ── BEKRÄFTA — stor grön ── */}
+              <button onPointerDown={e => { e.preventDefault(); setTabyHole(prev => Math.min(prev + 1, 18)) }}
+                style={{ width: '100%', padding: '18px', borderRadius: 16, border: 'none', cursor: 'pointer', marginBottom: 10, background: sc ? 'linear-gradient(135deg, #16A34A, #15803D)' : '#E5E7EB', color: sc ? 'white' : '#9CA3AF', fontSize: 18, fontWeight: 900, boxShadow: sc ? '0 4px 16px rgba(22,163,74,0.35)' : 'none', WebkitTapHighlightColor: 'transparent', letterSpacing: 0.3 }}>
                 {h.h < 18 ? `✓  Bekräfta hål ${h.h}  →  Hål ${h.h + 1}` : `✓  Bekräfta hål 18  —  Klar!`}
               </button>
 
-              {/* Historik — kompakt under bekräfta-knappen */}
-              {(() => {
-                const history = getTabyHoleHistory(tabyUser?.id, h.h)
-                if (!history) return null
-                return (
-                  <div style={{ marginBottom: 8, padding: '8px 12px', background: 'rgba(147,197,253,0.04)', borderRadius: 10, border: '0.5px solid rgba(147,197,253,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.5)' }}>Förra: <span style={{ color: '#F0F4FF', fontWeight: 600 }}>{history.last.strokes} slag</span></div>
-                    <div style={{ fontSize: 11, color: 'rgba(147,197,253,0.5)', fontFamily: 'var(--mono)' }}>Bäst: {history.bestStab}p</div>
-                  </div>
-                )
-              })()}
+              {/* ── NAV: föregående / nästa ── */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <button onClick={() => prevHole && (setTabyActiveHole(prevHole), setTabyCaddieMsg(null))} disabled={!prevHole}
+                  style={{ flex: 1, padding: '12px', borderRadius: 12, background: 'white', border: '1.5px solid #E5E7EB', color: prevHole ? '#111' : '#ccc', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', fontWeight: 500 }}>← {prevHole || ''}</button>
+                <button onClick={() => nextH ? (setTabyActiveHole(nextH), setTabyCaddieMsg(null)) : setTabyActiveHole(null)}
+                  style={{ flex: 1, padding: '12px', borderRadius: 12, background: '#EFF6FF', border: '1.5px solid #BFDBFE', color: '#2563EB', fontSize: 14, cursor: 'pointer', fontWeight: 700 }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
+              </div>
 
-              {/* MATCHPLAY AUTO-CLOSE + EVEN STEVEN */}
-              {fmt === 'matchplay' && mpFinished && (() => {
+              {/* Matchplay auto-close */}
+              {fmt === 'matchplay' && mpFinished && newRound.status !== 'completed' && (() => {
                 const winnerId = mpScore > 0 ? tabyUser?.id : newRound.opponent_id
-                const loserId = mpScore > 0 ? newRound.opponent_id : tabyUser?.id
                 const winnerP = tabyPlayers.find(p => p.id === winnerId)
-                const loserP = tabyPlayers.find(p => p.id === loserId)
-                const alreadyClosed = newRound.status === 'completed'
-                return !alreadyClosed ? (
-                  <div style={{ background: mpScore > 0 ? 'linear-gradient(135deg, rgba(74,222,128,0.12), rgba(74,222,128,0.04))' : 'linear-gradient(135deg, rgba(232,99,74,0.12), rgba(232,99,74,0.04))', border: `0.5px solid ${mpScore > 0 ? 'rgba(74,222,128,0.3)' : 'rgba(232,99,74,0.3)'}`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: mpScore > 0 ? '#4ADE80' : '#E8634A', letterSpacing: 1.5, marginBottom: 6 }}>
-                      {mpScore > 0 ? '🏆 DU VANN MATCHPLAY!' : '💀 DU FÖRLORADE MATCHPLAY'}
-                    </div>
-                    <div style={{ fontSize: 14, color: '#F0F4FF', marginBottom: 10 }}>
-                      {winnerP?.nickname} vann {mpWinnerStr || 'matchen'}
+                return (
+                  <div style={{ background: mpScore > 0 ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${mpScore > 0 ? '#86EFAC' : '#FCA5A5'}`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: mpScore > 0 ? '#16a34a' : '#dc2626', marginBottom: 8 }}>
+                      {mpScore > 0 ? `🏆 ${winnerP?.nickname} vann matchen!` : `💀 ${winnerP?.nickname} vann matchen`}
                     </div>
                     <button onClick={async () => {
-                      // Stäng rundan
                       await supabase.from('taby_rounds').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', newRound.id)
-                      // Skapa Even Steven-skuld om det finns en insats
-                      const stake = newRound.stake || 100
-                      if (stake > 0 && winnerP && loserP) {
-                        await supabase.from('taby_expenses').insert({
-                          paid_by: winnerP.key, amount: stake,
-                          description: `Matchplay: ${winnerP.nickname} bet. ${loserP.nickname} (${mpWinnerStr || 'matchen'})`,
-                          tag: 'aktivitet', target_key: loserP.key, source: 'matchplay', source_ref: newRound.id
-                        })
-                      }
-                      setNewRound(null); setScoreInput({}); setScoringPlayerId(null); setTabyView('leaderboard')
-                      showTabyToast(`Match avslutad — ${winnerP?.nickname} vann!`, 'birdie')
-                    }} style={{ width: '100%', padding: '10px', borderRadius: 8, cursor: 'pointer', background: 'rgba(212,175,55,0.15)', border: '0.5px solid rgba(212,175,55,0.4)', color: '#D4A017', fontSize: 12, fontFamily: 'var(--mono)', letterSpacing: 1 }}>
-                      Avsluta match + skapa Even Steven-skuld
+                      await supabase.from('taby_h2h').update({ winner_id: winnerId }).eq('round_id', newRound.id).is('winner_id', null)
+                      setTabyActiveHole(null); setNewRound(null)
+                      showTabyToast(`${winnerP?.nickname} vann!`, 'birdie')
+                    }} style={{ width: '100%', padding: '10px', borderRadius: 10, background: mpScore > 0 ? '#16a34a' : '#dc2626', border: 'none', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                      Avsluta match
                     </button>
                   </div>
-                ) : null
-              })()}
-              {newRound.player_ids?.length > 1 && (() => {
-                const standings = newRound.player_ids.map(pid => {
-                  const p = tabyPlayers.find(x => x.id === pid)
-                  if (!p) return null
-                  const allScores = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === pid)
-                  const totalStab = allScores.reduce((sum, s) => sum + (s.stableford || 0), 0)
-                  const totalStrokes = allScores.reduce((sum, s) => sum + (s.strokes || 0), 0)
-                  const holesPlayedHere = allScores.length
-                  const parPlayed = allScores.reduce((sum, s) => sum + PARS[s.hole - 1], 0)
-                  const vsPar = totalStrokes - parPlayed
-                  const thisHoleScore = allScores.find(s => s.hole === h.h)
-                  return { player: p, totalStab, totalStrokes, holesPlayed: holesPlayedHere, vsPar, thisHoleScore, isMe: pid === tabyUser?.id }
-                }).filter(Boolean).sort((a, b) => b.totalStab - a.totalStab || a.holesPlayed - b.holesPlayed)
-                const myPos = standings.findIndex(s => s.isMe) + 1
-
-                return (
-                  <div style={{ background: 'linear-gradient(135deg, rgba(212,160,23,0.06), rgba(147,197,253,0.04))', borderRadius: 12, padding: 12, marginBottom: 12, border: '0.5px solid rgba(212,160,23,0.15)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1.5 }}>🏆 LIVE LEADERBOARD</div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,160,23,0.6)' }}>HÅL {h.h}/18</div>
-                    </div>
-                    {standings.map((s, idx) => {
-                      const pos = idx + 1
-                      const onThisHole = s.thisHoleScore
-                      return (
-                        <div key={s.player.id} style={{
-                          display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px',
-                          marginBottom: idx < standings.length - 1 ? 3 : 0,
-                          background: s.isMe ? 'rgba(212,160,23,0.1)' : 'rgba(147,197,253,0.03)',
-                          borderRadius: 8,
-                          border: s.isMe ? '0.5px solid rgba(212,160,23,0.3)' : '0.5px solid transparent'
-                        }}>
-                          <div style={{ width: 18, fontFamily: 'var(--serif)', fontSize: pos === 1 ? 16 : 13, color: pos === 1 ? '#D4A017' : 'rgba(240,244,255,0.4)', textAlign: 'center', fontWeight: pos === 1 ? 600 : 400 }}>{pos}</div>
-                          {s.player.image_url ? <img src={s.player.image_url} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#93C5FD' }}>{s.player.name?.charAt(0)}</div>}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12, color: '#F0F4FF', fontWeight: s.isMe ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {s.player.nickname}{s.isMe && <span style={{ fontSize: 9, color: '#D4A017', marginLeft: 4 }}>(du)</span>}
-                            </div>
-                            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.5)' }}>
-                              {s.holesPlayed > 0 ? `${s.holesPlayed} hål · ${s.totalStrokes} slag${s.holesPlayed > 0 ? ` (${s.vsPar > 0 ? '+' : ''}${s.vsPar})` : ''}` : 'Ej startad'}
-                            </div>
-                          </div>
-                          {/* Hål-score */}
-                          <div style={{ width: 40, textAlign: 'center' }}>
-                            {onThisHole?.strokes ? (
-                              <>
-                                <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: '#F0F4FF', fontWeight: 500, lineHeight: 1 }}>{onThisHole.strokes}</div>
-                                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: (onThisHole.stableford || 0) >= 3 ? '#4ADE80' : onThisHole.stableford === 0 ? '#E8634A' : 'rgba(147,197,253,0.5)', marginTop: 1 }}>{onThisHole.stableford}p</div>
-                              </>
-                            ) : (
-                              <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(147,197,253,0.25)' }}>—</div>
-                            )}
-                          </div>
-                          {/* Total */}
-                          <div style={{ minWidth: 36, textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600, color: pos === 1 ? '#D4A017' : '#F0F4FF' }}>{s.totalStab}p</div>
-                        </div>
-                      )
-                    })}
-                  </div>
                 )
               })()}
-
-              {/* LAG-LEADERBOARD — visas om lag finns + format är lag/stableford */}
-              {tabyTeams.length >= 2 && newRound && (() => {
-                const blueTeam = tabyTeams.find(t => t.color === 'blue')
-                const goldTeam = tabyTeams.find(t => t.color === 'gold')
-                if (!blueTeam || !goldTeam) return null
-                const teamStab = (team) => (team.player_ids || []).reduce((sum, pid) => {
-                  return sum + tabyScores.filter(s => s.round_id === newRound.id && s.player_id === pid).reduce((s, sc) => s + (sc.stableford || 0), 0)
-                }, 0)
-                const blueStab = teamStab(blueTeam)
-                const goldStab = teamStab(goldTeam)
-                const diff = goldStab - blueStab
-                return (
-                  <div style={{ background: 'linear-gradient(135deg, rgba(147,197,253,0.06), rgba(212,160,23,0.04))', borderRadius: 12, padding: 12, marginBottom: 12, border: '0.5px solid rgba(147,197,253,0.1)' }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 1.5, marginBottom: 10 }}>⚔️ LAG-STÄLLNING</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8 }}>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontFamily: 'var(--serif)', fontSize: 15, color: '#93C5FD', marginBottom: 2 }}>{blueTeam.name}</div>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 28, fontWeight: 700, color: blueStab >= goldStab ? '#93C5FD' : 'rgba(147,197,253,0.4)' }}>{blueStab}</div>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)' }}>POÄNG</div>
-                      </div>
-                      <div style={{ textAlign: 'center', padding: '0 6px' }}>
-                        {diff === 0
-                          ? <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'rgba(240,244,255,0.3)' }}>AS</div>
-                          : <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: diff > 0 ? '#D4A017' : '#93C5FD' }}>{diff > 0 ? goldTeam.name.split(' ')[0] : blueTeam.name.split(' ')[0]}<br/>leder +{Math.abs(diff)}</div>
-                        }
-                      </div>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontFamily: 'var(--serif)', fontSize: 15, color: '#D4A017', marginBottom: 2 }}>{goldTeam.name}</div>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 28, fontWeight: 700, color: goldStab >= blueStab ? '#D4A017' : 'rgba(212,160,23,0.4)' }}>{goldStab}</div>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,160,23,0.4)' }}>POÄNG</div>
-                      </div>
-                    </div>
-                    {/* Progressbar */}
-                    <div style={{ height: 4, borderRadius: 2, background: 'rgba(147,197,253,0.1)', marginTop: 10, position: 'relative', overflow: 'hidden' }}>
-                      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${blueStab + goldStab > 0 ? (blueStab / (blueStab + goldStab)) * 100 : 50}%`, background: '#93C5FD', transition: 'width 0.5s ease' }} />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
-                      {[blueTeam, goldTeam].map(team => (
-                        <div key={team.id} style={{ display: 'flex', gap: 4 }}>
-                          {tabyPlayers.filter(p => team.player_ids?.includes(p.id)).map(p =>
-                            p.image_url ? <img key={p.id} src={p.image_url} style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', border: `1px solid ${team.color === 'blue' ? '#93C5FD' : '#D4A017'}44` }} />
-                            : <div key={p.id} style={{ width: 16, height: 16, borderRadius: '50%', background: team.color === 'blue' ? 'rgba(147,197,253,0.2)' : 'rgba(212,160,23,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, color: team.color === 'blue' ? '#93C5FD' : '#D4A017' }}>{p.name?.charAt(0)}</div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {/* Ghost Match */}
-              {ghostScore && (
-                <div style={{ background: 'linear-gradient(135deg, rgba(147,197,253,0.06), rgba(30,58,95,0.15))', border: '0.5px solid rgba(147,197,253,0.1)', borderRadius: 12, padding: 12 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)', letterSpacing: 1, marginBottom: 4 }}>👻 GHOST MATCH vs förra rundan</div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.65)' }}>Förra: <span style={{ fontFamily: 'var(--mono)', fontWeight: 500, color: '#F0F4FF' }}>{ghostScore.strokes} slag ({ghostScore.stableford}p)</span></div>
-                    <div style={{ fontSize: 14, fontFamily: 'var(--mono)', fontWeight: 600, color: cumDiff > 0 ? '#4ADE80' : cumDiff < 0 ? '#E8634A' : 'rgba(240,244,255,0.5)' }}>
-                      {cumDiff > 0 ? '+' : ''}{cumDiff}p tot
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-              {/* Bottom nav */}
-              <div style={{ display: 'flex', gap: 8, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0))', background: 'rgba(147,197,253,0.04)', borderTop: '0.5px solid rgba(147,197,253,0.1)' }}>
-              {holesPlayed === 18 ? (
-                <button onClick={async () => {
-                  // Markera rundan som completed i DB — globalt för alla
-                  await supabase.from('taby_rounds').update({
-                    status: 'completed',
-                    completed_at: new Date().toISOString()
-                  }).eq('id', newRound.id)
-                  setTabyActiveHole(null)
-                  setNewRound(null)
-                  setScoreInput({})
-                  setScoringPlayerId(null)
-                  setTabyView('leaderboard')
-                  showTabyToast(`Runda sparad! ${totalStab}p 🏆`, 'birdie')
-                }} style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: 'linear-gradient(135deg, #D4A017, #F5D76E)', border: 'none', color: '#0C1830', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-                  🏆 Avsluta runda ({totalStab}p)
-                </button>
-              ) : (<>
-                <button onClick={() => prevHole && (setTabyActiveHole(prevHole), setTabyCaddieMsg(null))} disabled={!prevHole}
-                  style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'rgba(147,197,253,0.08)' : 'transparent', border: '1px solid rgba(147,197,253,0.12)', color: prevHole ? '#F0F4FF' : 'rgba(147,197,253,0.2)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← {prevHole || ''}</button>
-                <button onClick={() => nextH ? (setTabyActiveHole(nextH), setTabyCaddieMsg(null)) : setTabyActiveHole(null)}
-                  style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: 'linear-gradient(135deg, rgba(147,197,253,0.15), rgba(147,197,253,0.08))', border: '0.5px solid rgba(147,197,253,0.2)', color: '#F0F4FF', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
-              </>)}
             </div>
           </div>
         )
       })()}
-
       {/* HOLE VIEW / BANGUIDE */}
       {tabyView === 'holes' && (
         <div style={{ padding: '0 16px' }}>
