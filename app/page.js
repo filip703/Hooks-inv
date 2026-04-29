@@ -1742,8 +1742,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>Hcp-index {h.i} · HCP {activePlayer?.taby_hcp || activePlayer?.hcp}</div>
                     {extra > 0 && <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 800, marginTop: 3 }}>{'● '.repeat(extra).trim()}  +{extra} extra slag</div>}
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
-                      {ldHole === h.h && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: '#FEF3C7', color: '#92400E', fontWeight: 700 }}>🏌️ LD</span>}
-                      {npHole === h.h && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: '#DCFCE7', color: '#14532D', fontWeight: 700 }}>🎯 NP</span>}
+                      {ldHole === h.h && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: '#FEF3C7', color: '#92400E', fontWeight: 700 }}>🏌️ LD{(() => { const e = tabyExpenses.find(x => x.source==='ldnp' && x.description?.includes(`hål ${h.h}`) && x.description?.includes('Längst')); const w = e ? tabyPlayers.find(p => p.key===e.target_key) : null; return w ? ` ✓ ${w.nickname}` : '' })()} </span>}
+                      {npHole === h.h && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: '#DCFCE7', color: '#14532D', fontWeight: 700 }}>🎯 NP{(() => { const e = tabyExpenses.find(x => x.source==='ldnp' && x.description?.includes(`hål ${h.h}`) && x.description?.includes('Närmast')); const w = e ? tabyPlayers.find(p => p.key===e.target_key) : null; return w ? ` ✓ ${w.nickname}` : '' })()} </span>}
                       {h.w && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: '#EFF6FF', color: '#1D4ED8', fontWeight: 700 }}>💧 Vatten</span>}
                       {h.i <= 3 && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: '#FEF2F2', color: '#DC2626', fontWeight: 700 }}>🔥 Svåraste</span>}
                       {h.i >= 16 && <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: '#F0FDF4', color: '#16A34A', fontWeight: 700 }}>✅ Enklaste</span>}
@@ -2058,9 +2058,13 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                         return n
                       })
                       // Trigga LD/NP-modal om detta är ett LD eller NP-hål
-                      if (ldHole === h.h) {
+                      // — men bara om ingen redan registrerat vinnare (kollar taby_expenses)
+                      const ldAlreadySet = tabyExpenses.some(e => e.source === 'ldnp' && e.description?.includes(`hål ${h.h}`) && e.description?.includes('Längst Drive'))
+                      const npAlreadySet = tabyExpenses.some(e => e.source === 'ldnp' && e.description?.includes(`hål ${h.h}`) && e.description?.includes('Närmast Pin'))
+
+                      if (ldHole === h.h && !ldAlreadySet) {
                         setLdNpModal({ type: 'ld', hole: h.h, nextH, roundPlayers })
-                      } else if (npHole === h.h) {
+                      } else if (npHole === h.h && !npAlreadySet) {
                         setLdNpModal({ type: 'np', hole: h.h, nextH, roundPlayers })
                       } else {
                         if (nextH) { setTabyActiveHole(nextH); setTabyCaddieMsg(null) }
