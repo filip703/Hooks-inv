@@ -1642,6 +1642,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         const prevHole = h.h > 1 ? h.h - 1 : null
         const nextH = h.h < 18 ? h.h + 1 : null
         const fmtLabel = { stableford: '⭐ Stableford', stroke: '✏️ Slagspel', matchplay: '⚔️ Matchplay', skins: '🦈 Skins', lag: '🛡️ Lagspel' }[fmt] || fmt
+        const roundPlayers = tabyPlayers.filter(p => newRound.player_ids?.includes(p.id))
 
         // Ghost
         const prevRound = fmt === 'stableford' ? tabyRounds.find(r => r.id !== newRound.id && r.player_ids?.includes(tabyUser?.id) && tabyScores.filter(s => s.round_id === r.id && s.player_id === tabyUser?.id).length >= 18) : null
