@@ -298,6 +298,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   // Chat form state
   const [tabyMsg, setTabyMsg] = useState('')
   const [showTabyMenu, setShowTabyMenu] = useState(false)
+  const [showBollSetup, setShowBollSetup] = useState(false)
   const [showEventResultModal, setShowEventResultModal] = useState(null)
   const [eventResultDraft, setEventResultDraft] = useState({})
   const [showEndRoundModal, setShowEndRoundModal] = useState(false)
@@ -547,6 +548,9 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     const opponentId = opts.opponentId || roundSetup.opponentId || null
     const ldHole = roundSetup.ldHole || null
     const npHole = roundSetup.npHole || null
+    const countsForOom = roundSetup.countsForOom !== false // default true
+    const skinsStake = roundSetup.skinsStake || 50
+    const h2hPairs = roundSetup.h2hPairs || []
     const { data } = await supabase.from('taby_rounds').insert({
       date: new Date().toISOString().split('T')[0],
       type,
@@ -555,7 +559,10 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       format,
       event_id: eventId || undefined,
       opponent_id: opponentId || undefined,
-      notes: JSON.stringify({ ldHole, npHole })
+      notes: JSON.stringify({ ldHole, npHole }),
+      counts_for_oom: countsForOom,
+      skins_stake: skinsStake,
+      h2h_pairs: h2hPairs
     }).select().single()
     if (data) {
       setNewRound(data)
@@ -1362,88 +1369,25 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 onClick={() => {
                   const sel = roundSetup.selectedPlayers || [tabyUser?.id].filter(Boolean)
                   if (sel.length === 0) return
-                  startRound(tabyPlayers.filter(p => sel.includes(p.id)))
+                  // Öppna Boll Setup-modalen
+                  setRoundSetup(s => ({ ...s, countsForOom: true, skinsStake: 50, h2hPairs: [], format: 'stableford', ldHole: null, npHole: null, opponentId: null, eventId: null }))
+                  setShowBollSetup(true)
                 }}
                 disabled={(roundSetup.selectedPlayers || [tabyUser?.id]).filter(Boolean).length === 0}
                 style={{
-                  width: '100%', marginTop: 12, padding: 14, borderRadius: 12,
+                  width: '100%', marginTop: 12, padding: 16, borderRadius: 14,
                   cursor: 'pointer',
-                  background: 'linear-gradient(135deg, rgba(212,175,55,0.18), rgba(212,175,55,0.06))',
-                  border: '0.5px solid rgba(212,175,55,0.35)',
-                  color: '#D4A017', fontSize: 14, fontWeight: 600
+                  background: 'linear-gradient(135deg, rgba(147,197,253,0.18), rgba(147,197,253,0.08))',
+                  border: '1px solid rgba(147,197,253,0.35)',
+                  color: '#F0F4FF', fontSize: 16, fontWeight: 700, letterSpacing: 0.3
                 }}>
                 {(() => {
                   const n = (roundSetup.selectedPlayers || [tabyUser?.id]).filter(Boolean).length
-                  if (n === 0) return 'Välj minst en spelare'
-                  if (n === 1) return 'Starta solo-runda →'
-                  return `Starta runda med ${n} spelare →`
+                  if (n === 0) return '← Välj minst en spelare'
+                  if (n === 1) return 'Fortsätt →'
+                  return `Fortsätt med ${n} spelare →`
                 })()}
               </button>
-
-              {/* Format & event selector */}
-              <div style={{ marginTop: 14, background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 14, border: '0.5px solid rgba(147,197,253,0.1)' }}>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.5)', letterSpacing: 1.5, marginBottom: 10 }}>SPELSÄTT</div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                  {[{key:'stableford',label:'⭐ Stableford'},{key:'stroke',label:'✏️ Slagspel'},{key:'matchplay',label:'⚔️ Matchplay'},{key:'skins',label:'🦈 Skins'},{key:'lag',label:'⚔️ Lagspel'}].map(({key,label}) => (
-                    <button key={key} onClick={() => setRoundSetup(s => ({...s,format:key,opponentId:null}))} style={{ padding:'7px 12px', borderRadius:8, fontSize:12, cursor:'pointer', fontFamily:'var(--mono)', background:roundSetup.format===key?'rgba(147,197,253,0.15)':'rgba(147,197,253,0.03)', border:roundSetup.format===key?'1px solid #93C5FD':'0.5px solid rgba(147,197,253,0.1)', color:roundSetup.format===key?'#93C5FD':'rgba(240,244,255,0.4)' }}>{label}</button>
-                  ))}
-                </div>
-                {roundSetup.format === 'lag' && (
-                  <div style={{ marginBottom: 12, padding: 12, background: 'rgba(147,197,253,0.06)', borderRadius: 10, border: '0.5px solid rgba(147,197,253,0.15)' }}>
-                    <div style={{ fontSize: 11, color: 'rgba(147,197,253,0.7)', lineHeight: 1.5 }}>
-                      Lagspel spelar stableford — bästa 2 av 3 per hål räknas. Gå till ⚔️ LAG-fliken för att dela upp lag och låta AI generera lagnamnen.
-                    </div>
-                    {tabyTeams.length > 0 && (
-                      <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
-                        {tabyTeams.slice(0, 2).map(t => (
-                          <div key={t.id} style={{ flex: 1, padding: '4px 8px', borderRadius: 6, background: t.color === 'blue' ? 'rgba(147,197,253,0.1)' : 'rgba(212,160,23,0.1)', border: `0.5px solid ${t.color === 'blue' ? 'rgba(147,197,253,0.3)' : 'rgba(212,160,23,0.3)'}`, textAlign: 'center' }}>
-                            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: t.color === 'blue' ? '#93C5FD' : '#D4A017' }}>{t.name}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {roundSetup.format === 'matchplay' && (
-                  <div style={{ marginBottom:12 }}>
-                    <div style={{ fontSize:11, color:'rgba(240,244,255,0.5)', marginBottom:6 }}>Motståndare:</div>
-                    <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                      {tabyPlayers.filter(p => p.id !== tabyUser?.id).map(p => (
-                        <button key={p.id} onClick={() => setRoundSetup(s => ({...s,opponentId:p.id}))} style={{ padding:'5px 10px', borderRadius:7, fontSize:11, cursor:'pointer', fontFamily:'var(--mono)', background:roundSetup.opponentId===p.id?'rgba(232,99,74,0.15)':'rgba(147,197,253,0.03)', border:roundSetup.opponentId===p.id?'1px solid #E8634A':'0.5px solid rgba(147,197,253,0.1)', color:roundSetup.opponentId===p.id?'#E8634A':'rgba(240,244,255,0.4)' }}>{p.nickname}</button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {tabyEvents.filter(e => e.status==='upcoming'||e.status==='active').length > 0 && (
-                  <div>
-                    <div style={{ fontSize:11, color:'rgba(240,244,255,0.5)', marginBottom:6 }}>Koppla till event (valfritt):</div>
-                    <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                      <button onClick={() => setRoundSetup(s => ({...s,eventId:null}))} style={{ padding:'5px 10px', borderRadius:7, fontSize:11, cursor:'pointer', fontFamily:'var(--mono)', background:!roundSetup.eventId?'rgba(147,197,253,0.1)':'rgba(147,197,253,0.03)', border:!roundSetup.eventId?'1px solid #93C5FD':'0.5px solid rgba(147,197,253,0.1)', color:!roundSetup.eventId?'#93C5FD':'rgba(240,244,255,0.3)' }}>Ingen</button>
-                      {tabyEvents.filter(e => e.status==='upcoming'||e.status==='active').map(ev => (
-                        <button key={ev.id} onClick={() => setRoundSetup(s => ({...s,eventId:ev.id,format:ev.format||s.format}))} style={{ padding:'5px 10px', borderRadius:7, fontSize:11, cursor:'pointer', fontFamily:'var(--mono)', background:roundSetup.eventId===ev.id?'rgba(212,160,23,0.15)':'rgba(147,197,253,0.03)', border:roundSetup.eventId===ev.id?'1px solid #D4A017':'0.5px solid rgba(147,197,253,0.1)', color:roundSetup.eventId===ev.id?'#D4A017':'rgba(240,244,255,0.3)' }}>{ev.name||ev.event_name}</button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* LD & NP — välj hål */}
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '0.5px solid rgba(147,197,253,0.08)' }}>
-                  {[
-                    { key: 'ldHole', label: '🏌️ Längst drive (LD)', color: '#D4A017', par: [4,5] },
-                    { key: 'npHole', label: '🎯 Närmast pin (NP)', color: '#4ADE80', par: [3] },
-                  ].map(({ key, label, color, par }) => (
-                    <div key={key} style={{ marginBottom: 10 }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color, letterSpacing: 1.2, marginBottom: 6 }}>{label}</div>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        <button onClick={() => setRoundSetup(s => ({...s, [key]: null}))} style={{ padding: '4px 9px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--mono)', background: !roundSetup[key] ? `${color}22` : 'rgba(147,197,253,0.03)', border: !roundSetup[key] ? `1px solid ${color}66` : '0.5px solid rgba(147,197,253,0.1)', color: !roundSetup[key] ? color : 'rgba(240,244,255,0.3)' }}>Ingen</button>
-                        {holes.filter(h => par.includes(h.p)).map(h => (
-                          <button key={h.h} onClick={() => setRoundSetup(s => ({...s, [key]: h.h}))} style={{ padding: '4px 9px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--mono)', background: roundSetup[key] === h.h ? `${color}22` : 'rgba(147,197,253,0.03)', border: roundSetup[key] === h.h ? `1px solid ${color}66` : '0.5px solid rgba(147,197,253,0.1)', color: roundSetup[key] === h.h ? color : 'rgba(240,244,255,0.3)' }}>H{h.h}</button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
               {/* Mini banguide med avståndsmätning */}
               {(() => {
@@ -3859,6 +3803,205 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     Spara resultat ✓
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ======================================== */}
+      {/* BOLL SETUP MODAL                          */}
+      {/* ======================================== */}
+      {showBollSetup && (() => {
+        const sel = roundSetup.selectedPlayers || [tabyUser?.id].filter(Boolean)
+        const selectedPlayers = tabyPlayers.filter(p => sel.includes(p.id))
+        const n = selectedPlayers.length
+        const fmt = roundSetup.format || 'stableford'
+
+        const Section = ({ icon, title, children }) => (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 20 }}>{icon}</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: '#F0F4FF' }}>{title}</span>
+            </div>
+            {children}
+          </div>
+        )
+
+        const BigBtn = ({ active, color='#93C5FD', onClick, children }) => (
+          <button onClick={onClick} style={{
+            flex: 1, padding: '12px 8px', borderRadius: 12, cursor: 'pointer', textAlign: 'center',
+            background: active ? `${color}22` : 'rgba(147,197,253,0.04)',
+            border: active ? `2px solid ${color}` : '1px solid rgba(147,197,253,0.12)',
+            color: active ? color : 'rgba(240,244,255,0.55)',
+            fontSize: 13, fontWeight: active ? 700 : 400, lineHeight: 1.3
+          }}>{children}</button>
+        )
+
+        return (
+          <div onClick={() => setShowBollSetup(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)', zIndex: 620, display: 'flex', alignItems: 'flex-end', animation: 'fadeIn 0.15s ease' }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'linear-gradient(180deg, #0d1f3a 0%, #0a1525 100%)', borderRadius: '24px 24px 0 0', maxHeight: '92vh', overflowY: 'auto', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', animation: 'slideUp 0.3s cubic-bezier(0.16,1,0.3,1)', border: '0.5px solid rgba(147,197,253,0.15)', borderBottom: 'none' }}>
+
+              {/* Handle */}
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(147,197,253,0.25)', margin: '12px auto 0' }} />
+
+              {/* Header med spelare */}
+              <div style={{ padding: '16px 20px 16px', borderBottom: '0.5px solid rgba(147,197,253,0.08)' }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#F0F4FF', marginBottom: 6 }}>Inställningar för bollen</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {selectedPlayers.map(p => (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 20, background: 'rgba(147,197,253,0.08)', border: '0.5px solid rgba(147,197,253,0.15)' }}>
+                      {p.image_url ? <img src={p.image_url} style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(147,197,253,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
+                      <span style={{ fontSize: 12, color: '#F0F4FF' }}>{p.nickname}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ padding: '20px 20px 0' }}>
+
+                {/* 1. SPELSÄTT */}
+                <Section icon="🏌️" title="Hur spelar ni?">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                    <BigBtn active={fmt==='stableford'} color='#93C5FD' onClick={() => setRoundSetup(s=>({...s,format:'stableford'}))}>
+                      ⭐ Stableford<br/><span style={{ fontSize: 10, opacity: 0.7 }}>Poäng mot HCP</span>
+                    </BigBtn>
+                    <BigBtn active={fmt==='stroke'} color='#93C5FD' onClick={() => setRoundSetup(s=>({...s,format:'stroke'}))}>
+                      ✏️ Slagspel<br/><span style={{ fontSize: 10, opacity: 0.7 }}>Räkna alla slag</span>
+                    </BigBtn>
+                    {n === 2 && <BigBtn active={fmt==='matchplay'} color='#E8634A' onClick={() => setRoundSetup(s=>({...s,format:'matchplay'}))}>
+                      ⚔️ Matchplay<br/><span style={{ fontSize: 10, opacity: 0.7 }}>Hål-för-hål duell</span>
+                    </BigBtn>}
+                    <BigBtn active={fmt==='skins'} color='#4ADE80' onClick={() => setRoundSetup(s=>({...s,format:'skins'}))}>
+                      🦈 Skins<br/><span style={{ fontSize: 10, opacity: 0.7 }}>Vinn hål, bygg pott</span>
+                    </BigBtn>
+                    {n >= 2 && tabyTeams.length >= 2 && <BigBtn active={fmt==='lag'} color='#D4A017' onClick={() => setRoundSetup(s=>({...s,format:'lag'}))}>
+                      🛡️ Lagspel<br/><span style={{ fontSize: 10, opacity: 0.7 }}>{tabyTeams.find(t=>t.color==='blue')?.name} vs {tabyTeams.find(t=>t.color==='gold')?.name}</span>
+                    </BigBtn>}
+                  </div>
+                  {/* Matchplay: välj motståndare */}
+                  {fmt === 'matchplay' && n > 2 && (
+                    <div style={{ padding: 12, borderRadius: 10, background: 'rgba(232,99,74,0.06)', border: '0.5px solid rgba(232,99,74,0.2)', marginTop: 8 }}>
+                      <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.7)', marginBottom: 8 }}>Vem spelar du mot?</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {selectedPlayers.filter(p => p.id !== tabyUser?.id).map(p => (
+                          <button key={p.id} onClick={() => setRoundSetup(s=>({...s,opponentId:p.id}))} style={{ padding: '8px 14px', borderRadius: 8, cursor: 'pointer', background: roundSetup.opponentId===p.id ? 'rgba(232,99,74,0.2)' : 'rgba(147,197,253,0.04)', border: roundSetup.opponentId===p.id ? '2px solid #E8634A' : '1px solid rgba(147,197,253,0.12)', color: roundSetup.opponentId===p.id ? '#E8634A' : 'rgba(240,244,255,0.6)', fontSize: 14, fontWeight: roundSetup.opponentId===p.id ? 700 : 400 }}>
+                            {p.nickname}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Skins: välj insats */}
+                  {fmt === 'skins' && (
+                    <div style={{ padding: 12, borderRadius: 10, background: 'rgba(74,222,128,0.06)', border: '0.5px solid rgba(74,222,128,0.2)', marginTop: 8 }}>
+                      <div style={{ fontSize: 13, color: 'rgba(240,244,255,0.7)', marginBottom: 8 }}>Insats per hål (kr)</div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {[10,25,50,100].map(v => (
+                          <button key={v} onClick={() => setRoundSetup(s=>({...s,skinsStake:v}))} style={{ flex: 1, padding: '10px 4px', borderRadius: 10, cursor: 'pointer', background: roundSetup.skinsStake===v ? 'rgba(74,222,128,0.2)' : 'rgba(74,222,128,0.04)', border: roundSetup.skinsStake===v ? '2px solid #4ADE80' : '1px solid rgba(74,222,128,0.15)', color: roundSetup.skinsStake===v ? '#4ADE80' : 'rgba(240,244,255,0.55)', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: roundSetup.skinsStake===v ? 700 : 400 }}>
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </Section>
+
+                {/* 2. SIDOSPEL (H2H) */}
+                {n >= 2 && (
+                  <Section icon="🤜" title="Direktdueller i bollen?">
+                    <div style={{ fontSize: 13, color: 'rgba(147,197,253,0.6)', marginBottom: 12, lineHeight: 1.5 }}>
+                      Välj om du vill ha ett head-to-head-bet mot någon. Räknas hål för hål — bäst stableford vinner.
+                    </div>
+                    {selectedPlayers.filter(p => p.id !== tabyUser?.id).map(p => {
+                      const pairKey = [tabyUser?.id, p.id].sort().join('_')
+                      const hasH2H = (roundSetup.h2hPairs || []).includes(pairKey)
+                      return (
+                        <button key={p.id} onClick={() => setRoundSetup(s => {
+                          const pairs = s.h2hPairs || []
+                          return { ...s, h2hPairs: hasH2H ? pairs.filter(x => x !== pairKey) : [...pairs, pairKey] }
+                        })} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', marginBottom: 6, borderRadius: 12, cursor: 'pointer', background: hasH2H ? 'rgba(232,99,74,0.1)' : 'rgba(147,197,253,0.04)', border: hasH2H ? '2px solid rgba(232,99,74,0.5)' : '1px solid rgba(147,197,253,0.1)' }}>
+                          <div style={{ width: 24, height: 24, borderRadius: 6, background: hasH2H ? '#E8634A' : 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#fff', flexShrink: 0 }}>{hasH2H ? '✓' : ''}</div>
+                          {p.image_url ? <img src={p.image_url} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#93C5FD', fontSize: 13 }}>{p.name?.charAt(0)}</div>}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 15, color: '#F0F4FF', fontWeight: hasH2H ? 600 : 400 }}>Mot {p.nickname}</div>
+                            <div style={{ fontSize: 11, color: 'rgba(147,197,253,0.5)', marginTop: 1 }}>HCP {p.taby_hcp || p.hcp}</div>
+                          </div>
+                          <div style={{ fontSize: 12, color: hasH2H ? '#E8634A' : 'rgba(147,197,253,0.3)', fontWeight: hasH2H ? 700 : 400 }}>{hasH2H ? 'PÅ' : 'AV'}</div>
+                        </button>
+                      )
+                    })}
+                  </Section>
+                )}
+
+                {/* 3. EVENT */}
+                {tabyEvents.filter(e => e.status==='upcoming').length > 0 && (
+                  <Section icon="🏆" title="Är det ett event?">
+                    <div style={{ fontSize: 13, color: 'rgba(147,197,253,0.6)', marginBottom: 12, lineHeight: 1.5 }}>Om den här rundan är ett av säsongens events — koppla den här.</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button onClick={() => setRoundSetup(s=>({...s,eventId:null}))} style={{ padding: '10px 16px', borderRadius: 10, cursor: 'pointer', background: !roundSetup.eventId ? 'rgba(147,197,253,0.15)' : 'rgba(147,197,253,0.04)', border: !roundSetup.eventId ? '2px solid #93C5FD' : '1px solid rgba(147,197,253,0.12)', color: !roundSetup.eventId ? '#93C5FD' : 'rgba(240,244,255,0.5)', fontSize: 13, fontWeight: !roundSetup.eventId ? 700 : 400 }}>Inget event</button>
+                      {tabyEvents.filter(e => e.status==='upcoming').map(ev => (
+                        <button key={ev.id} onClick={() => setRoundSetup(s=>({...s,eventId:ev.id,format:ev.format||s.format}))} style={{ padding: '10px 16px', borderRadius: 10, cursor: 'pointer', background: roundSetup.eventId===ev.id ? 'rgba(212,160,23,0.18)' : 'rgba(147,197,253,0.04)', border: roundSetup.eventId===ev.id ? '2px solid #D4A017' : '1px solid rgba(147,197,253,0.12)', color: roundSetup.eventId===ev.id ? '#D4A017' : 'rgba(240,244,255,0.5)', fontSize: 13, fontWeight: roundSetup.eventId===ev.id ? 700 : 400 }}>🏁 {ev.name}</button>
+                      ))}
+                    </div>
+                  </Section>
+                )}
+
+                {/* 4. LD & NP */}
+                <Section icon="📍" title="Sidotävlingar">
+                  <div style={{ fontSize: 13, color: 'rgba(147,197,253,0.6)', marginBottom: 12, lineHeight: 1.5 }}>
+                    Välj hål för Längst Drive och Närmast Pin. Visas som märken i scorekortet.
+                  </div>
+                  {[
+                    { key: 'ldHole', emoji: '🏌️', label: 'Längst Drive', color: '#D4A017', parFilter: [4,5], hint: 'par 4 eller 5' },
+                    { key: 'npHole', emoji: '🎯', label: 'Närmast Pin', color: '#4ADE80', parFilter: [3], hint: 'par 3' },
+                  ].map(({ key, emoji, label, color, parFilter, hint }) => (
+                    <div key={key} style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 14, color: '#F0F4FF', fontWeight: 600, marginBottom: 8 }}>{emoji} {label} <span style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', fontWeight: 400 }}>({hint})</span></div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button onClick={() => setRoundSetup(s=>({...s,[key]:null}))} style={{ padding: '8px 14px', borderRadius: 8, cursor: 'pointer', background: !roundSetup[key] ? `${color}22` : 'rgba(147,197,253,0.04)', border: !roundSetup[key] ? `2px solid ${color}88` : '1px solid rgba(147,197,253,0.12)', color: !roundSetup[key] ? color : 'rgba(240,244,255,0.4)', fontSize: 13 }}>Ingen</button>
+                        {holes.filter(h => parFilter.includes(h.p)).map(h => (
+                          <button key={h.h} onClick={() => setRoundSetup(s=>({...s,[key]:h.h}))} style={{ padding: '8px 14px', borderRadius: 8, cursor: 'pointer', background: roundSetup[key]===h.h ? `${color}22` : 'rgba(147,197,253,0.04)', border: roundSetup[key]===h.h ? `2px solid ${color}` : '1px solid rgba(147,197,253,0.12)', color: roundSetup[key]===h.h ? color : 'rgba(240,244,255,0.55)', fontSize: 14, fontWeight: roundSetup[key]===h.h ? 700 : 400 }}>Hål {h.h}</button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </Section>
+
+                {/* 5. ORDER OF MERIT */}
+                <Section icon="📊" title="Ska rundan räknas?">
+                  <div style={{ fontSize: 13, color: 'rgba(147,197,253,0.6)', marginBottom: 12, lineHeight: 1.5 }}>
+                    Välj "Räknas" om det är en ordentlig runda. Välj "Bara för skoj" om ni värmer upp eller testar.
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <button onClick={() => setRoundSetup(s=>({...s,countsForOom:true}))} style={{ padding: '16px 8px', borderRadius: 14, cursor: 'pointer', textAlign: 'center', background: roundSetup.countsForOom!==false ? 'rgba(74,222,128,0.12)' : 'rgba(147,197,253,0.04)', border: roundSetup.countsForOom!==false ? '2px solid #4ADE80' : '1px solid rgba(147,197,253,0.12)' }}>
+                      <div style={{ fontSize: 24, marginBottom: 4 }}>🏆</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: roundSetup.countsForOom!==false ? '#4ADE80' : 'rgba(240,244,255,0.5)' }}>Räknas</div>
+                      <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginTop: 2 }}>Mot Order of Merit</div>
+                    </button>
+                    <button onClick={() => setRoundSetup(s=>({...s,countsForOom:false}))} style={{ padding: '16px 8px', borderRadius: 14, cursor: 'pointer', textAlign: 'center', background: roundSetup.countsForOom===false ? 'rgba(147,197,253,0.12)' : 'rgba(147,197,253,0.04)', border: roundSetup.countsForOom===false ? '2px solid #93C5FD' : '1px solid rgba(147,197,253,0.12)' }}>
+                      <div style={{ fontSize: 24, marginBottom: 4 }}>😎</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: roundSetup.countsForOom===false ? '#93C5FD' : 'rgba(240,244,255,0.5)' }}>Bara för skoj</div>
+                      <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginTop: 2 }}>Räknas inte</div>
+                    </button>
+                  </div>
+                </Section>
+
+                {/* STARTA-KNAPP */}
+                <button onClick={async () => {
+                  setShowBollSetup(false)
+                  const sel = roundSetup.selectedPlayers || [tabyUser?.id].filter(Boolean)
+                  const selPlayers = tabyPlayers.filter(p => sel.includes(p.id))
+                  await startRound(selPlayers)
+                  // Skapa H2H-matcher om valda
+                  const pairs = roundSetup.h2hPairs || []
+                  for (const pairKey of pairs) {
+                    const [id1, id2] = pairKey.split('_')
+                    await supabase.from('taby_h2h').insert({ player1_id: id1, player2_id: id2, stake: 100, round_id: null }).catch(() => {})
+                  }
+                }} style={{ width: '100%', padding: '18px', borderRadius: 16, cursor: 'pointer', margin: '8px 0 24px', background: 'linear-gradient(135deg, #D4A017, #F5D76E)', border: 'none', color: '#0C1830', fontSize: 18, fontWeight: 800, letterSpacing: 0.3 }}>
+                  🏌️ Kör igång!
+                </button>
               </div>
             </div>
           </div>
