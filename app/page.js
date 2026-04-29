@@ -2111,6 +2111,56 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 )
               })()}
 
+              {/* LAG-LEADERBOARD — visas om lag finns + format är lag/stableford */}
+              {tabyTeams.length >= 2 && newRound && (() => {
+                const blueTeam = tabyTeams.find(t => t.color === 'blue')
+                const goldTeam = tabyTeams.find(t => t.color === 'gold')
+                if (!blueTeam || !goldTeam) return null
+                const teamStab = (team) => (team.player_ids || []).reduce((sum, pid) => {
+                  return sum + tabyScores.filter(s => s.round_id === newRound.id && s.player_id === pid).reduce((s, sc) => s + (sc.stableford || 0), 0)
+                }, 0)
+                const blueStab = teamStab(blueTeam)
+                const goldStab = teamStab(goldTeam)
+                const diff = goldStab - blueStab
+                return (
+                  <div style={{ background: 'linear-gradient(135deg, rgba(147,197,253,0.06), rgba(212,160,23,0.04))', borderRadius: 12, padding: 12, marginBottom: 12, border: '0.5px solid rgba(147,197,253,0.1)' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 1.5, marginBottom: 10 }}>⚔️ LAG-STÄLLNING</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8 }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'var(--serif)', fontSize: 15, color: '#93C5FD', marginBottom: 2 }}>{blueTeam.name}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 28, fontWeight: 700, color: blueStab >= goldStab ? '#93C5FD' : 'rgba(147,197,253,0.4)' }}>{blueStab}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)' }}>POÄNG</div>
+                      </div>
+                      <div style={{ textAlign: 'center', padding: '0 6px' }}>
+                        {diff === 0
+                          ? <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'rgba(240,244,255,0.3)' }}>AS</div>
+                          : <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: diff > 0 ? '#D4A017' : '#93C5FD' }}>{diff > 0 ? goldTeam.name.split(' ')[0] : blueTeam.name.split(' ')[0]}<br/>leder +{Math.abs(diff)}</div>
+                        }
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'var(--serif)', fontSize: 15, color: '#D4A017', marginBottom: 2 }}>{goldTeam.name}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 28, fontWeight: 700, color: goldStab >= blueStab ? '#D4A017' : 'rgba(212,160,23,0.4)' }}>{goldStab}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,160,23,0.4)' }}>POÄNG</div>
+                      </div>
+                    </div>
+                    {/* Progressbar */}
+                    <div style={{ height: 4, borderRadius: 2, background: 'rgba(147,197,253,0.1)', marginTop: 10, position: 'relative', overflow: 'hidden' }}>
+                      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${blueStab + goldStab > 0 ? (blueStab / (blueStab + goldStab)) * 100 : 50}%`, background: '#93C5FD', transition: 'width 0.5s ease' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+                      {[blueTeam, goldTeam].map(team => (
+                        <div key={team.id} style={{ display: 'flex', gap: 4 }}>
+                          {tabyPlayers.filter(p => team.player_ids?.includes(p.id)).map(p =>
+                            p.image_url ? <img key={p.id} src={p.image_url} style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover', border: `1px solid ${team.color === 'blue' ? '#93C5FD' : '#D4A017'}44` }} />
+                            : <div key={p.id} style={{ width: 16, height: 16, borderRadius: '50%', background: team.color === 'blue' ? 'rgba(147,197,253,0.2)' : 'rgba(212,160,23,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, color: team.color === 'blue' ? '#93C5FD' : '#D4A017' }}>{p.name?.charAt(0)}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Ghost Match */}
               {ghostScore && (
                 <div style={{ background: 'linear-gradient(135deg, rgba(147,197,253,0.06), rgba(30,58,95,0.15))', border: '0.5px solid rgba(147,197,253,0.1)', borderRadius: 12, padding: 12 }}>
@@ -2208,48 +2258,160 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
       {/* BETTING VIEW */}
       {tabyView === 'betting' && (
-        <div style={{ padding: '0 16px' }}>
-          {/* H2H Matches */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 2, marginBottom: 8 }}>HEAD-TO-HEAD MATCHER</div>
-            {tabyH2H.map(match => {
-              const p1 = tabyPlayers.find(p => p.id === match.player1_id)
-              const p2 = tabyPlayers.find(p => p.id === match.player2_id)
-              const winner = match.winner_id ? tabyPlayers.find(p => p.id === match.winner_id) : null
+        <div style={{ padding: '0 16px 100px' }}>
+
+          {/* H2H GRAFISK MATRIS */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 2, marginBottom: 12 }}>HEAD-TO-HEAD · SÄSONG</div>
+            {(() => {
+              const h2hMatrix = calcH2HMatrix()
+              const activePlayers = tabyPlayers.filter(p => p.key !== 'spectator')
               return (
-                <div key={match.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', marginBottom: 4, background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.08)', borderRadius: 10 }}>
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {p1?.image_url ? <img src={p1.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#93C5FD' }}>{p1?.name?.charAt(0)}</div>}
-                    <span style={{ fontSize: 12, color: match.winner_id === p1?.id ? '#4ADE80' : '#F0F4FF' }}>{p1?.nickname}</span>
-                  </div>
-                  <div style={{ fontSize: 10, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>vs</div>
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                    <span style={{ fontSize: 12, color: match.winner_id === p2?.id ? '#4ADE80' : '#F0F4FF' }}>{p2?.nickname}</span>
-                    {p2?.image_url ? <img src={p2.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#93C5FD' }}>{p2?.name?.charAt(0)}</div>}
-                  </div>
-                  <div style={{ minWidth: 50, textAlign: 'right' }}>
-                    {winner ? <span style={{ fontSize: 10, color: '#D4A017', fontFamily: 'var(--mono)' }}>🏆 {winner.nickname}</span> : <span style={{ fontSize: 9, color: 'rgba(147,197,253,0.3)', fontFamily: 'var(--mono)' }}>Pågår</span>}
-                  </div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(212,175,55,0.5)' }}>{match.stake}kr</div>
+                <div>
+                  {activePlayers.map(p1 => {
+                    const record = Object.entries(h2hMatrix[p1.id] || {}).filter(([pid]) => pid !== p1.id)
+                    const totalW = record.reduce((s, [, r]) => s + (r?.w || 0), 0)
+                    const totalL = record.reduce((s, [, r]) => s + (r?.l || 0), 0)
+                    const totalD = record.reduce((s, [, r]) => s + (r?.d || 0), 0)
+                    const totalGames = totalW + totalL + totalD
+                    const winPct = totalGames > 0 ? Math.round(totalW / totalGames * 100) : null
+                    return (
+                      <div key={p1.id} style={{ background: 'rgba(147,197,253,0.03)', border: '0.5px solid rgba(147,197,253,0.08)', borderRadius: 12, padding: 12, marginBottom: 8 }}>
+                        {/* Player header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                          {p1.image_url ? <img src={p1.image_url} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#93C5FD', fontWeight: 600 }}>{p1.name?.charAt(0)}</div>}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: '#F0F4FF' }}>{p1.nickname}</div>
+                            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.5)' }}>
+                              {totalGames > 0 ? `${totalW}V · ${totalD}D · ${totalL}F` : 'Inga matcher'}
+                              {winPct !== null && <span style={{ color: winPct >= 50 ? '#4ADE80' : '#E8634A', marginLeft: 6 }}>{winPct}%</span>}
+                            </div>
+                          </div>
+                          {/* Win bar */}
+                          {totalGames > 0 && (
+                            <div style={{ width: 80 }}>
+                              <div style={{ height: 6, borderRadius: 3, background: 'rgba(147,197,253,0.1)', overflow: 'hidden', display: 'flex' }}>
+                                <div style={{ width: `${totalW / totalGames * 100}%`, background: '#4ADE80', transition: 'width 0.5s' }} />
+                                <div style={{ width: `${totalD / totalGames * 100}%`, background: 'rgba(147,197,253,0.3)' }} />
+                                <div style={{ width: `${totalL / totalGames * 100}%`, background: '#E8634A' }} />
+                              </div>
+                              <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', marginTop: 2, textAlign: 'right' }}>{totalGames} matcher</div>
+                            </div>
+                          )}
+                        </div>
+                        {/* Mot varje spelare */}
+                        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                          {activePlayers.filter(p2 => p2.id !== p1.id).map(p2 => {
+                            const r = h2hMatrix[p1.id]?.[p2.id]
+                            const hasData = r && r.total > 0
+                            const wins = r?.w || 0
+                            const losses = r?.l || 0
+                            const draws = r?.d || 0
+                            const dominant = hasData && wins > losses
+                            const dominated = hasData && losses > wins
+                            return (
+                              <div key={p2.id} style={{
+                                flex: '1 1 auto', minWidth: 80, padding: '6px 8px', borderRadius: 8, textAlign: 'center',
+                                background: dominant ? 'rgba(74,222,128,0.08)' : dominated ? 'rgba(232,99,74,0.08)' : 'rgba(147,197,253,0.04)',
+                                border: `0.5px solid ${dominant ? 'rgba(74,222,128,0.2)' : dominated ? 'rgba(232,99,74,0.2)' : 'rgba(147,197,253,0.08)'}`
+                              }}>
+                                <div style={{ fontSize: 10, color: 'rgba(240,244,255,0.5)', marginBottom: 3 }}>vs {p2.nickname}</div>
+                                {hasData ? (
+                                  <>
+                                    <div style={{ fontFamily: 'var(--mono)', fontSize: 15, fontWeight: 700, color: dominant ? '#4ADE80' : dominated ? '#E8634A' : '#93C5FD', lineHeight: 1 }}>
+                                      {wins}–{losses}{draws > 0 ? `–${draws}` : ''}
+                                    </div>
+                                    <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: dominant ? 'rgba(74,222,128,0.6)' : dominated ? 'rgba(232,99,74,0.6)' : 'rgba(147,197,253,0.4)', marginTop: 2 }}>
+                                      {dominant ? 'LEDER' : dominated ? 'TAPPAR' : 'JÄMNT'}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(147,197,253,0.2)' }}>—</div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )
-            })}
-            {/* Create H2H */}
-            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-              <select value={h2hPlayer1} onChange={e => setH2hPlayer1(e.target.value)} style={{ flex: 1, padding: '8px', borderRadius: 8, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#F0F4FF', fontSize: 11 }}>
-                <option value="">Spelare 1</option>
-                {tabyPlayers.map(p => <option key={p.id} value={p.id}>{p.nickname}</option>)}
-              </select>
-              <select value={h2hPlayer2} onChange={e => setH2hPlayer2(e.target.value)} style={{ flex: 1, padding: '8px', borderRadius: 8, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#F0F4FF', fontSize: 11 }}>
-                <option value="">Spelare 2</option>
-                {tabyPlayers.map(p => <option key={p.id} value={p.id}>{p.nickname}</option>)}
-              </select>
-              <button onClick={createH2H} style={{ padding: '8px 14px', borderRadius: 8, background: '#93C5FD', border: 'none', color: '#0C1830', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+</button>
-            </div>
+            })()}
           </div>
 
+          {/* Löpande H2H-matcher */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 2, marginBottom: 8 }}>AKTIVA MATCHER</div>
+          {tabyH2H.filter(m => !m.winner_id).map(match => {
+            const p1 = tabyPlayers.find(p => p.id === match.player1_id)
+            const p2 = tabyPlayers.find(p => p.id === match.player2_id)
+            const isMe = match.player1_id === tabyUser?.id || match.player2_id === tabyUser?.id
+            return (
+              <div key={match.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', marginBottom: 4, background: isMe ? 'rgba(212,175,55,0.06)' : 'rgba(147,197,253,0.03)', border: `0.5px solid ${isMe ? 'rgba(212,175,55,0.2)' : 'rgba(147,197,253,0.08)'}`, borderRadius: 10 }}>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {p1?.image_url ? <img src={p1.image_url} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#93C5FD' }}>{p1?.name?.charAt(0)}</div>}
+                  <span style={{ fontSize: 13, color: '#F0F4FF' }}>{p1?.nickname}</span>
+                </div>
+                <div style={{ padding: '2px 8px', borderRadius: 6, background: 'rgba(147,197,253,0.08)', fontFamily: 'var(--mono)', fontSize: 10, color: '#93C5FD' }}>vs</div>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                  <span style={{ fontSize: 13, color: '#F0F4FF' }}>{p2?.nickname}</span>
+                  {p2?.image_url ? <img src={p2.image_url} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#93C5FD' }}>{p2?.name?.charAt(0)}</div>}
+                </div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(212,175,55,0.6)' }}>{match.stake}kr</div>
+                {(tabyUser?.key === 'filip' || tabyUser?.key === 'marcus') && (
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {[p1, p2].map(p => p && (
+                      <button key={p.id} onClick={async () => {
+                        await supabase.from('taby_h2h').update({ winner_id: p.id }).eq('id', match.id)
+                        setTabyH2H(prev => prev.map(m => m.id === match.id ? { ...m, winner_id: p.id } : m))
+                        showTabyToast(`${p.nickname} vann matchen!`, 'birdie')
+                      }} style={{ padding: '3px 7px', borderRadius: 5, cursor: 'pointer', background: 'rgba(74,222,128,0.1)', border: '0.5px solid rgba(74,222,128,0.2)', color: '#4ADE80', fontSize: 9, fontFamily: 'var(--mono)' }}>
+                        {p.nickname?.split(' ')[0]} vann
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          {tabyH2H.filter(m => !m.winner_id).length === 0 && (
+            <div style={{ padding: 16, textAlign: 'center', color: 'rgba(147,197,253,0.2)', fontSize: 12 }}>Inga aktiva matcher</div>
+          )}
+
+          {/* Skapa H2H */}
+          <div style={{ marginTop: 12, display: 'flex', gap: 6 }}>
+            <select value={h2hPlayer1} onChange={e => setH2hPlayer1(e.target.value)} style={{ flex: 1, padding: '8px', borderRadius: 8, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#F0F4FF', fontSize: 11 }}>
+              <option value="">Spelare 1</option>
+              {tabyPlayers.map(p => <option key={p.id} value={p.id}>{p.nickname}</option>)}
+            </select>
+            <select value={h2hPlayer2} onChange={e => setH2hPlayer2(e.target.value)} style={{ flex: 1, padding: '8px', borderRadius: 8, background: 'rgba(147,197,253,0.06)', border: '0.5px solid rgba(147,197,253,0.12)', color: '#F0F4FF', fontSize: 11 }}>
+              <option value="">Spelare 2</option>
+              {tabyPlayers.map(p => <option key={p.id} value={p.id}>{p.nickname}</option>)}
+            </select>
+            <button onClick={createH2H} style={{ padding: '8px 14px', borderRadius: 8, background: '#93C5FD', border: 'none', color: '#0C1830', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+</button>
+          </div>
+
+          {/* Avslutade matcher */}
+          {tabyH2H.filter(m => m.winner_id).length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.3)', letterSpacing: 2, marginBottom: 8 }}>AVSLUTADE MATCHER</div>
+              {tabyH2H.filter(m => m.winner_id).map(match => {
+                const p1 = tabyPlayers.find(p => p.id === match.player1_id)
+                const p2 = tabyPlayers.find(p => p.id === match.player2_id)
+                const winner = tabyPlayers.find(p => p.id === match.winner_id)
+                return (
+                  <div key={match.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', marginBottom: 3, background: 'rgba(147,197,253,0.02)', borderRadius: 8, opacity: 0.7 }}>
+                    <div style={{ fontSize: 12, color: match.winner_id === p1?.id ? '#4ADE80' : 'rgba(240,244,255,0.4)', flex: 1 }}>{p1?.nickname}</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017' }}>🏆 {winner?.nickname}</div>
+                    <div style={{ fontSize: 12, color: match.winner_id === p2?.id ? '#4ADE80' : 'rgba(240,244,255,0.4)', flex: 1, textAlign: 'right' }}>{p2?.nickname}</div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
           {/* Odds Bets */}
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginTop: 20 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 2, marginBottom: 8 }}>ODDS-BETS</div>
             {tabyBets.filter(b => b.status === 'open').map(bet => {
               const opts = tabyBetOptions.filter(o => o.bet_id === bet.id)
@@ -2311,204 +2473,229 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
       {/* STATS VIEW */}
       {tabyView === 'stats' && (() => {
-        // Spelar-väljare för stats — default = inloggad användare
-        const statsPlayerId = (tabyUser?.statsViewPid) || tabyUser?.id
-
-        // Beräkna hålstatistik för vald spelare
+        const statsPlayerId = tabyUser?.statsViewPid || tabyUser?.id
+        const selectedPlayer = tabyPlayers.find(p => p.id === statsPlayerId) || tabyUser
         const playerScores = tabyScores.filter(s => s.player_id === statsPlayerId && s.strokes)
-        const holeStats = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].map(holeNum => {
+
+        // Rundor med totaler
+        const roundIds = [...new Set(playerScores.map(s => s.round_id))]
+        const roundTotals = roundIds.map(rid => {
+          const rs = playerScores.filter(s => s.round_id === rid)
+          const total = rs.reduce((s, sc) => s + (sc.stableford || 0), 0)
+          const strokes = rs.reduce((s, sc) => s + (sc.strokes || 0), 0)
+          const round = tabyRounds.find(r => r.id === rid)
+          return { roundId: rid, total, strokes, holes: rs.length, date: round?.date }
+        }).filter(r => r.holes >= 18).sort((a, b) => new Date(a.date) - new Date(b.date))
+
+        // Hålstatistik
+        const holeStats = Array.from({ length: 18 }, (_, i) => {
+          const holeNum = i + 1
           const scores = playerScores.filter(s => s.hole === holeNum)
           if (scores.length === 0) return { hole: holeNum, count: 0 }
-          const strokes = scores.map(s => s.strokes)
-          const stabs = scores.map(s => s.stableford || 0)
-          const avgStrokes = strokes.reduce((a,b) => a+b, 0) / scores.length
-          const avgStab = stabs.reduce((a,b) => a+b, 0) / scores.length
-          const bestStrokes = Math.min(...strokes)
-          const worstStrokes = Math.max(...strokes)
-          const bestStab = Math.max(...stabs)
-          const par = PARS[holeNum - 1]
-          // Hitta birdies, eagles, blowups
-          const birdies = scores.filter(s => s.strokes === par - 1).length
-          const eagles = scores.filter(s => s.strokes <= par - 2).length
+          const par = PARS[i]
+          const avgStab = scores.reduce((s, sc) => s + (sc.stableford || 0), 0) / scores.length
+          const avgStrokes = scores.reduce((s, sc) => s + sc.strokes, 0) / scores.length
+          const birdies = scores.filter(s => s.strokes <= par - 1).length
           const pars = scores.filter(s => s.strokes === par).length
+          const bogeys = scores.filter(s => s.strokes === par + 1).length
           const blowups = scores.filter(s => (s.stableford || 0) === 0).length
-          return { hole: holeNum, count: scores.length, avgStrokes, avgStab, bestStrokes, worstStrokes, bestStab, par, birdies, eagles, pars, blowups }
+          return { hole: holeNum, par, count: scores.length, avgStab, avgStrokes, birdies, pars, bogeys, blowups }
         })
 
-        const totalRounds = [...new Set(playerScores.map(s => s.round_id))].length
-        const totalBirdies = holeStats.reduce((s, h) => s + (h.birdies || 0), 0)
-        const totalEagles = holeStats.reduce((s, h) => s + (h.eagles || 0), 0)
-        const totalBlowups = holeStats.reduce((s, h) => s + (h.blowups || 0), 0)
-        const playedHoles = holeStats.filter(h => h.count > 0)
-        const bestHole = playedHoles.length > 0 ? playedHoles.reduce((best, cur) => cur.avgStab > (best?.avgStab || -1) ? cur : best, null) : null
-        const worstHole = playedHoles.length > 0 ? playedHoles.reduce((worst, cur) => cur.avgStab < (worst?.avgStab || 99) ? cur : worst, null) : null
+        // H2H mot varje spelare
+        const h2hMatrix = calcH2HMatrix()
 
-        const selectedPlayer = tabyPlayers.find(p => p.id === statsPlayerId) || tabyUser
+        // Formkurva (sparkline points)
+        const sparkVals = roundTotals.slice(-8).map(r => r.total)
+        const sparkMax = Math.max(...sparkVals, 1)
+        const sparkMin = Math.min(...sparkVals, 0)
+        const sparkH = 36
+        const sparkW = 120
+        const sparkPoints = sparkVals.map((v, i) => {
+          const x = sparkVals.length === 1 ? sparkW / 2 : (i / (sparkVals.length - 1)) * sparkW
+          const y = sparkH - ((v - sparkMin) / (sparkMax - sparkMin || 1)) * sparkH
+          return `${x},${y}`
+        }).join(' ')
+
+        const totalBirdies = holeStats.reduce((s, h) => s + (h.birdies || 0), 0)
+        const playedHoles = holeStats.filter(h => h.count > 0)
+        const bestHole = playedHoles.sort((a, b) => b.avgStab - a.avgStab)[0]
+        const worstHole = playedHoles.sort((a, b) => a.avgStab - b.avgStab)[0]
 
         return (
-        <div style={{ padding: '0 16px' }}>
-          {/* Spelar-väljare */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 12, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
-            {tabyPlayers.map(p => {
-              const isActive = statsPlayerId === p.id
-              return (
-                <button key={p.id}
-                  onClick={() => setTabyUser(prev => ({ ...prev, statsViewPid: p.id }))}
-                  style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 8, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--mono)',
-                    background: isActive ? 'rgba(212,160,23,0.15)' : 'rgba(147,197,253,0.04)',
-                    border: isActive ? '0.5px solid rgba(212,160,23,0.4)' : '0.5px solid rgba(147,197,253,0.08)',
-                    color: isActive ? '#D4A017' : 'rgba(240,244,255,0.6)',
-                    display: 'flex', alignItems: 'center', gap: 6
-                  }}>
-                  {p.image_url ? <img src={p.image_url} style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
-                  {p.nickname}
-                </button>
-              )
-            })}
-          </div>
+          <div style={{ padding: '0 16px 100px' }}>
+            {/* Spelarväljare */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
+              {tabyPlayers.filter(p => p.key !== 'spectator').map(p => {
+                const isActive = statsPlayerId === p.id
+                return (
+                  <button key={p.id} onClick={() => setTabyUser(prev => ({ ...prev, statsViewPid: p.id }))} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 10, cursor: 'pointer', background: isActive ? 'rgba(212,160,23,0.12)' : 'rgba(147,197,253,0.04)', border: isActive ? '1px solid rgba(212,160,23,0.4)' : '0.5px solid rgba(147,197,253,0.08)' }}>
+                    {p.image_url ? <img src={p.image_url} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
+                    <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: isActive ? '#D4A017' : 'rgba(240,244,255,0.5)' }}>{p.nickname}</span>
+                  </button>
+                )
+              })}
+            </div>
 
-          {/* Översikt */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 14 }}>
-            <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 10, padding: '10px 4px', textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: '#93C5FD' }}>{totalRounds}</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(147,197,253,0.4)', letterSpacing: 1, marginTop: 2 }}>RUNDOR</div>
-            </div>
-            <div style={{ background: 'rgba(74,222,128,0.04)', borderRadius: 10, padding: '10px 4px', textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: '#4ADE80' }}>{totalBirdies}</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(74,222,128,0.6)', letterSpacing: 1, marginTop: 2 }}>BIRDIES</div>
-            </div>
-            <div style={{ background: 'rgba(212,160,23,0.06)', borderRadius: 10, padding: '10px 4px', textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: '#D4A017' }}>{totalEagles}</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(212,160,23,0.6)', letterSpacing: 1, marginTop: 2 }}>EAGLES</div>
-            </div>
-            <div style={{ background: 'rgba(232,99,74,0.04)', borderRadius: 10, padding: '10px 4px', textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: '#E8634A' }}>{totalBlowups}</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(232,99,74,0.6)', letterSpacing: 1, marginTop: 2 }}>BLOWUPS</div>
-            </div>
-          </div>
-
-          {/* Bästa & sämsta hål */}
-          {(bestHole || worstHole) && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 14 }}>
-              {bestHole && (
-                <div style={{ background: 'linear-gradient(135deg, rgba(74,222,128,0.08), rgba(74,222,128,0.02))', border: '0.5px solid rgba(74,222,128,0.2)', borderRadius: 10, padding: 10 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(74,222,128,0.7)', letterSpacing: 1.5 }}>FAVORITHÅLET</div>
-                  <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#4ADE80', marginTop: 2 }}>Hål {bestHole.hole}</div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)' }}>Snitt {bestHole.avgStab.toFixed(1)}p · Bäst {bestHole.bestStab}p</div>
-                </div>
-              )}
-              {worstHole && (
-                <div style={{ background: 'linear-gradient(135deg, rgba(232,99,74,0.08), rgba(232,99,74,0.02))', border: '0.5px solid rgba(232,99,74,0.2)', borderRadius: 10, padding: 10 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(232,99,74,0.7)', letterSpacing: 1.5 }}>SKRÄCKHÅLET</div>
-                  <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#E8634A', marginTop: 2 }}>Hål {worstHole.hole}</div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)' }}>Snitt {worstHole.avgStab.toFixed(1)}p · {worstHole.blowups} blowups</div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Hålstatistik per hål */}
-          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 10, border: '0.5px solid rgba(147,197,253,0.08)', marginBottom: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px 8px' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 1.5 }}>HÅLSTATISTIK</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)' }}>{selectedPlayer?.nickname}</div>
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: 'var(--mono)' }}>
-              <thead>
-                <tr style={{ borderBottom: '0.5px solid rgba(147,197,253,0.1)' }}>
-                  <th style={{ padding: '5px 4px', color: 'rgba(147,197,253,0.5)', textAlign: 'left', fontSize: 8, letterSpacing: 1 }}>HÅL</th>
-                  <th style={{ padding: '5px 4px', color: 'rgba(147,197,253,0.5)', textAlign: 'center', fontSize: 8, letterSpacing: 1 }}>PAR</th>
-                  <th style={{ padding: '5px 4px', color: 'rgba(147,197,253,0.5)', textAlign: 'center', fontSize: 8, letterSpacing: 1 }}>SPELAT</th>
-                  <th style={{ padding: '5px 4px', color: 'rgba(147,197,253,0.5)', textAlign: 'center', fontSize: 8, letterSpacing: 1 }}>SNITT</th>
-                  <th style={{ padding: '5px 4px', color: 'rgba(74,222,128,0.5)', textAlign: 'center', fontSize: 8, letterSpacing: 1 }}>BÄST</th>
-                  <th style={{ padding: '5px 4px', color: 'rgba(232,99,74,0.5)', textAlign: 'center', fontSize: 8, letterSpacing: 1 }}>SÄMST</th>
-                  <th style={{ padding: '5px 4px', color: 'rgba(212,160,23,0.5)', textAlign: 'right', fontSize: 8, letterSpacing: 1 }}>SNITT P</th>
-                </tr>
-              </thead>
-              <tbody>
-                {holeStats.map(s => {
-                  const par = PARS[s.hole - 1]
-                  const isPar5 = par === 5
-                  const isPar3 = par === 3
-                  return (
-                    <tr key={s.hole} style={{ borderBottom: '0.5px solid rgba(147,197,253,0.04)' }}>
-                      <td style={{ padding: '5px 4px', color: '#F0F4FF', fontWeight: 500 }}>{s.hole}{s.eagles > 0 ? ' 🦅' : s.birdies > 0 ? ' 🐦' : ''}</td>
-                      <td style={{ padding: '5px 4px', textAlign: 'center', color: isPar5 ? '#D4A017' : isPar3 ? '#93C5FD' : 'rgba(240,244,255,0.5)' }}>{par}</td>
-                      <td style={{ padding: '5px 4px', textAlign: 'center', color: 'rgba(240,244,255,0.4)' }}>{s.count || '—'}</td>
-                      <td style={{ padding: '5px 4px', textAlign: 'center', color: '#F0F4FF' }}>{s.count > 0 ? s.avgStrokes.toFixed(1) : '—'}</td>
-                      <td style={{ padding: '5px 4px', textAlign: 'center', color: s.count > 0 ? '#4ADE80' : 'rgba(74,222,128,0.2)' }}>{s.count > 0 ? s.bestStrokes : '—'}</td>
-                      <td style={{ padding: '5px 4px', textAlign: 'center', color: s.count > 0 ? '#E8634A' : 'rgba(232,99,74,0.2)' }}>{s.count > 0 ? s.worstStrokes : '—'}</td>
-                      <td style={{ padding: '5px 4px', textAlign: 'right', color: s.count > 0 ? (s.avgStab >= 2 ? '#4ADE80' : s.avgStab >= 1.5 ? '#D4A017' : '#E8634A') : 'rgba(240,244,255,0.2)', fontWeight: 600 }}>{s.count > 0 ? s.avgStab.toFixed(1) : '—'}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,175,55,0.5)', letterSpacing: 1.5, marginBottom: 12 }}>{statsPlayerId === tabyUser?.id ? 'DINA RUNDOR' : `${selectedPlayer?.nickname?.toUpperCase()}S RUNDOR`}</div>
-          {tabyRounds.filter(r => r.player_ids?.includes(statsPlayerId)).length === 0 ? (
-            <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 30, textAlign: 'center', color: 'rgba(240,244,255,0.3)' }}>Inga rundor ännu.</div>
-          ) : (
-            tabyRounds.filter(r => r.player_ids?.includes(statsPlayerId)).map(round => {
-              const rs = tabyScores.filter(s => s.round_id === round.id && s.player_id === statsPlayerId)
-              const stab = rs.reduce((s, sc) => s + sc.stableford, 0)
-              const strokes = rs.reduce((s, sc) => s + sc.strokes, 0)
-              const par = rs.reduce((s, sc) => s + PARS[sc.hole - 1], 0)
-              return (
-                <div key={round.id} style={{ background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.08)', borderRadius: 12, padding: '12px 14px', marginBottom: 6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: 13, color: '#F0F4FF', fontWeight: 500 }}>{round.date}</div>
-                      <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>{round.type} · {rs.length} hål</div>
+            {/* PLAYER CARD */}
+            <div style={{ background: 'linear-gradient(135deg, rgba(147,197,253,0.06), rgba(30,58,95,0.3))', borderRadius: 16, padding: 16, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.15)', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                {selectedPlayer?.image_url ? <img src={selectedPlayer.image_url} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(147,197,253,0.25)' }} /> : <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: '#93C5FD' }}>{selectedPlayer?.name?.charAt(0)}</div>}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#D4A017', lineHeight: 1 }}>{selectedPlayer?.nickname}</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(147,197,253,0.5)', marginTop: 3 }}>HCP {selectedPlayer?.taby_hcp || selectedPlayer?.hcp} · {roundTotals.length} rundor</div>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 700, color: '#93C5FD' }}>{roundTotals.length > 0 ? Math.round(roundTotals.reduce((s,r) => s+r.total, 0) / roundTotals.length) : '—'}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(147,197,253,0.4)', letterSpacing: 1 }}>SNITT</div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 18, color: '#D4A017', fontWeight: 600 }}>{stab}p</div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.4)' }}>{strokes} slag ({strokes - par > 0 ? '+' : ''}{strokes - par} vs par)</div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 700, color: '#4ADE80' }}>{roundTotals.length > 0 ? Math.max(...roundTotals.map(r => r.total)) : '—'}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(74,222,128,0.5)', letterSpacing: 1 }}>BÄST</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 700, color: '#4ADE80' }}>{totalBirdies}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(74,222,128,0.5)', letterSpacing: 1 }}>BIRDIES</div>
                     </div>
                   </div>
                 </div>
-              )
-            })
-          )}
+                {/* Sparkline */}
+                {sparkVals.length > 0 && (
+                  <div>
+                    <svg width={sparkW} height={sparkH} viewBox={`0 0 ${sparkW} ${sparkH}`} style={{ overflow: 'visible' }}>
+                      <polyline points={sparkPoints} fill="none" stroke="#93C5FD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
+                      {sparkVals.map((v, i) => {
+                        const x = sparkVals.length === 1 ? sparkW/2 : (i / (sparkVals.length - 1)) * sparkW
+                        const y = sparkH - ((v - sparkMin) / (sparkMax - sparkMin || 1)) * sparkH
+                        return <circle key={i} cx={x} cy={y} r="2.5" fill={i === sparkVals.length-1 ? '#D4A017' : '#93C5FD'} opacity={i === sparkVals.length-1 ? 1 : 0.5} />
+                      })}
+                    </svg>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(147,197,253,0.4)', textAlign: 'center', marginTop: 2 }}>FORM</div>
+                  </div>
+                )}
+              </div>
+            </div>
 
-          {/* H2H Matrix */}
-          <div style={{ marginTop: 16 }}>
-            <button onClick={() => setH2hMatrixOpen(!h2hMatrixOpen)} style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(147,197,253,0.04)', border: '0.5px solid rgba(147,197,253,0.08)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 2 }}>HEAD-TO-HEAD MATRIS</span>
-              <span style={{ color: 'rgba(147,197,253,0.4)', fontSize: 12 }}>{h2hMatrixOpen ? '▲' : '▼'}</span>
-            </button>
-            {h2hMatrixOpen && (() => {
-              const matrix = calcH2HMatrix()
-              return (
-                <div style={{ overflowX: 'auto', marginTop: 8, scrollbarWidth: 'none' }}>
-                  <table style={{ borderCollapse: 'collapse', fontSize: 9, fontFamily: 'var(--mono)', minWidth: '100%' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ padding: '4px 6px', color: 'rgba(147,197,253,0.4)', textAlign: 'left' }}></th>
-                        {tabyPlayers.map(p => <th key={p.id} style={{ padding: '4px 4px', color: 'rgba(147,197,253,0.4)', textAlign: 'center', fontSize: 8 }}>{p.nickname?.slice(0, 4)}</th>)}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tabyPlayers.map(p1 => (
-                        <tr key={p1.id}>
-                          <td style={{ padding: '4px 6px', color: '#93C5FD', fontSize: 8, whiteSpace: 'nowrap' }}>{p1.nickname?.slice(0, 6)}</td>
-                          {tabyPlayers.map(p2 => {
-                            const cell = matrix[p1.id]?.[p2.id]
-                            if (!cell) return <td key={p2.id} style={{ padding: '4px', textAlign: 'center', color: 'rgba(147,197,253,0.15)' }}>—</td>
-                            const clr = cell.w > cell.l ? '#4ADE80' : cell.l > cell.w ? '#E8634A' : 'rgba(240,244,255,0.4)'
-                            return <td key={p2.id} style={{ padding: '4px', textAlign: 'center', color: cell.total > 0 ? clr : 'rgba(147,197,253,0.15)', fontSize: 8 }}>{cell.total > 0 ? `${cell.w}-${cell.l}` : '—'}</td>
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            {/* HÅL-STATISTIK VISUELL */}
+            <div style={{ background: 'rgba(147,197,253,0.03)', borderRadius: 14, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 2, marginBottom: 12 }}>18 HÅL · GENOMSNITT</div>
+              {/* UT */}
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,160,23,0.5)', letterSpacing: 1, marginBottom: 6 }}>UT (1-9)</div>
+              <div style={{ display: 'flex', gap: 3, marginBottom: 12, alignItems: 'flex-end', height: 40 }}>
+                {holeStats.slice(0, 9).map(h => {
+                  const pct = h.count > 0 ? (h.avgStab / 3.5) : 0
+                  const barH = Math.max(4, Math.round(pct * 36))
+                  const col = !h.count ? 'rgba(147,197,253,0.08)' : h.avgStab >= 2.5 ? '#4ADE80' : h.avgStab >= 1.5 ? '#93C5FD' : h.avgStab >= 0.8 ? '#D4A017' : '#E8634A'
+                  return (
+                    <div key={h.hole} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                      <div style={{ width: '100%', height: barH, background: col, borderRadius: 3, opacity: 0.85 }} />
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(147,197,253,0.5)' }}>{h.hole}</div>
+                      {h.count > 0 && <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: col, fontWeight: 600 }}>{h.avgStab.toFixed(1)}</div>}
+                    </div>
+                  )
+                })}
+              </div>
+              {/* IN */}
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,160,23,0.5)', letterSpacing: 1, marginBottom: 6 }}>IN (10-18)</div>
+              <div style={{ display: 'flex', gap: 3, marginBottom: 8, alignItems: 'flex-end', height: 40 }}>
+                {holeStats.slice(9, 18).map(h => {
+                  const pct = h.count > 0 ? (h.avgStab / 3.5) : 0
+                  const barH = Math.max(4, Math.round(pct * 36))
+                  const col = !h.count ? 'rgba(147,197,253,0.08)' : h.avgStab >= 2.5 ? '#4ADE80' : h.avgStab >= 1.5 ? '#93C5FD' : h.avgStab >= 0.8 ? '#D4A017' : '#E8634A'
+                  return (
+                    <div key={h.hole} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                      <div style={{ width: '100%', height: barH, background: col, borderRadius: 3, opacity: 0.85 }} />
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(147,197,253,0.5)' }}>{h.hole}</div>
+                      {h.count > 0 && <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: col, fontWeight: 600 }}>{h.avgStab.toFixed(1)}</div>}
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{ display: 'flex', gap: 8, fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>
+                {[{c:'#4ADE80',l:'2.5+'},{c:'#93C5FD',l:'1.5+'},{c:'#D4A017',l:'0.8+'},{c:'#E8634A',l:'<0.8'}].map(({c,l}) =>
+                  <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: c, display: 'inline-block' }} />{l}</span>
+                )}
+              </div>
+              {bestHole && worstHole && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <div style={{ flex: 1, padding: '8px', borderRadius: 8, background: 'rgba(74,222,128,0.06)', border: '0.5px solid rgba(74,222,128,0.15)', textAlign: 'center' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(74,222,128,0.6)', marginBottom: 2 }}>⭐ FAVORITHÅL</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 700, color: '#4ADE80' }}>Hål {bestHole.hole}</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(74,222,128,0.7)' }}>{bestHole.avgStab.toFixed(1)}p snitt</div>
+                  </div>
+                  <div style={{ flex: 1, padding: '8px', borderRadius: 8, background: 'rgba(232,99,74,0.06)', border: '0.5px solid rgba(232,99,74,0.15)', textAlign: 'center' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(232,99,74,0.6)', marginBottom: 2 }}>💀 SKRÄCKHÅL</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 700, color: '#E8634A' }}>Hål {worstHole.hole}</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(232,99,74,0.7)' }}>{worstHole.avgStab.toFixed(1)}p snitt</div>
+                  </div>
                 </div>
-              )
-            })()}
+              )}
+            </div>
+
+            {/* RUNDHISTORIK */}
+            {roundTotals.length > 0 && (
+              <div style={{ background: 'rgba(147,197,253,0.03)', borderRadius: 14, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 2, marginBottom: 10 }}>RUNDHISTORIK</div>
+                {roundTotals.slice().reverse().map((r, i) => {
+                  const round = tabyRounds.find(rt => rt.id === r.roundId)
+                  const avg = roundTotals.reduce((s, x) => s + x.total, 0) / roundTotals.length
+                  const aboveAvg = r.total > avg
+                  return (
+                    <div key={r.roundId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < roundTotals.length-1 ? '0.5px solid rgba(147,197,253,0.06)' : 'none' }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.4)', width: 60 }}>{r.date}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ height: 4, borderRadius: 2, background: 'rgba(147,197,253,0.08)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${(r.total / (Math.max(...roundTotals.map(x=>x.total)) || 1)) * 100}%`, background: aboveAvg ? '#4ADE80' : '#93C5FD', borderRadius: 2 }} />
+                        </div>
+                      </div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 700, color: aboveAvg ? '#4ADE80' : '#93C5FD', minWidth: 36, textAlign: 'right' }}>{r.total}p</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.3)', minWidth: 28 }}>{r.strokes}sl</div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* H2H MOT ÖVRIGA */}
+            <div style={{ background: 'rgba(147,197,253,0.03)', borderRadius: 14, padding: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 2, marginBottom: 10 }}>H2H MOT ÖVRIGA</div>
+              {tabyPlayers.filter(p => p.id !== statsPlayerId && p.key !== 'spectator').map(p2 => {
+                const r = h2hMatrix[statsPlayerId]?.[p2.id]
+                const hasData = r && r.total > 0
+                const wins = r?.w || 0
+                const losses = r?.l || 0
+                const draws = r?.d || 0
+                const total = wins + losses + draws
+                const dominant = wins > losses
+                return (
+                  <div key={p2.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '0.5px solid rgba(147,197,253,0.05)' }}>
+                    {p2.image_url ? <img src={p2.image_url} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#93C5FD' }}>{p2.name?.charAt(0)}</div>}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, color: '#F0F4FF' }}>{p2.nickname}</div>
+                      {hasData && (
+                        <div style={{ height: 3, borderRadius: 2, background: 'rgba(147,197,253,0.08)', marginTop: 4, overflow: 'hidden', display: 'flex' }}>
+                          <div style={{ width: `${wins/total*100}%`, background: '#4ADE80' }} />
+                          <div style={{ width: `${draws/total*100}%`, background: 'rgba(147,197,253,0.3)' }} />
+                          <div style={{ width: `${losses/total*100}%`, background: '#E8634A' }} />
+                        </div>
+                      )}
+                    </div>
+                    {hasData ? (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 700, color: dominant ? '#4ADE80' : '#E8634A' }}>{wins}–{losses}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: dominant ? 'rgba(74,222,128,0.6)' : 'rgba(232,99,74,0.6)' }}>{draws > 0 ? `${draws} draw` : dominant ? 'LEDER' : 'TAPPAR'}</div>
+                      </div>
+                    ) : (
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(147,197,253,0.2)' }}>—</div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
-        </div>
-      )})()}
+        )
+      })()}
+
 
       {/* ======================================== */}
       {/* WALLET / EVEN STEVEN                      */}
