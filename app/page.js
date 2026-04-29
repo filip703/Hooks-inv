@@ -3907,30 +3907,79 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   )}
                 </Section>
 
-                {/* 2. SIDOSPEL (H2H) */}
+                {/* 2. SIDOSPEL (H2H / LAG) */}
                 {n >= 2 && (
-                  <Section icon="🤜" title="Direktdueller i bollen?">
-                    <div style={{ fontSize: 13, color: 'rgba(147,197,253,0.6)', marginBottom: 12, lineHeight: 1.5 }}>
-                      Välj om du vill ha ett head-to-head-bet mot någon. Räknas hål för hål — bäst stableford vinner.
+                  <Section icon="🤜" title="Sidospel i bollen?">
+                    <div style={{ fontSize: 13, color: 'rgba(147,197,253,0.6)', marginBottom: 14, lineHeight: 1.5 }}>
+                      Sätt på en duell mellan vilka som helst i bollen. Räknas hål för hål — bäst stableford vinner.
                     </div>
-                    {selectedPlayers.filter(p => p.id !== tabyUser?.id).map(p => {
-                      const pairKey = [tabyUser?.id, p.id].sort().join('_')
-                      const hasH2H = (roundSetup.h2hPairs || []).includes(pairKey)
+
+                    {/* Lag-duell — visas om lag finns */}
+                    {tabyTeams.length >= 2 && (() => {
+                      const blueTeam = tabyTeams.find(t => t.color === 'blue')
+                      const goldTeam = tabyTeams.find(t => t.color === 'gold')
+                      const lagPairKey = 'lag_duell'
+                      const hasLagDuell = (roundSetup.h2hPairs || []).includes(lagPairKey)
                       return (
-                        <button key={p.id} onClick={() => setRoundSetup(s => {
+                        <button onClick={() => setRoundSetup(s => {
                           const pairs = s.h2hPairs || []
-                          return { ...s, h2hPairs: hasH2H ? pairs.filter(x => x !== pairKey) : [...pairs, pairKey] }
-                        })} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', marginBottom: 6, borderRadius: 12, cursor: 'pointer', background: hasH2H ? 'rgba(232,99,74,0.1)' : 'rgba(147,197,253,0.04)', border: hasH2H ? '2px solid rgba(232,99,74,0.5)' : '1px solid rgba(147,197,253,0.1)' }}>
-                          <div style={{ width: 24, height: 24, borderRadius: 6, background: hasH2H ? '#E8634A' : 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#fff', flexShrink: 0 }}>{hasH2H ? '✓' : ''}</div>
-                          {p.image_url ? <img src={p.image_url} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#93C5FD', fontSize: 13 }}>{p.name?.charAt(0)}</div>}
+                          return { ...s, h2hPairs: hasLagDuell ? pairs.filter(x => x !== lagPairKey) : [...pairs, lagPairKey] }
+                        })} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '14px', marginBottom: 10, borderRadius: 14, cursor: 'pointer', background: hasLagDuell ? 'rgba(212,160,23,0.1)' : 'rgba(147,197,253,0.04)', border: hasLagDuell ? '2px solid rgba(212,160,23,0.5)' : '1px solid rgba(147,197,253,0.1)' }}>
+                          <div style={{ width: 28, height: 28, borderRadius: 8, background: hasLagDuell ? '#D4A017' : 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: hasLagDuell ? '#0C1830' : '#93C5FD', flexShrink: 0, fontWeight: 700 }}>{hasLagDuell ? '✓' : '🛡️'}</div>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 15, color: '#F0F4FF', fontWeight: hasH2H ? 600 : 400 }}>Mot {p.nickname}</div>
-                            <div style={{ fontSize: 11, color: 'rgba(147,197,253,0.5)', marginTop: 1 }}>HCP {p.taby_hcp || p.hcp}</div>
+                            <div style={{ fontSize: 15, color: '#F0F4FF', fontWeight: hasLagDuell ? 700 : 400 }}>Lag-duell</div>
+                            <div style={{ fontSize: 11, color: 'rgba(212,160,23,0.6)', marginTop: 2 }}>
+                              {blueTeam?.name} <span style={{ color: 'rgba(240,244,255,0.3)' }}>vs</span> {goldTeam?.name}
+                            </div>
                           </div>
-                          <div style={{ fontSize: 12, color: hasH2H ? '#E8634A' : 'rgba(147,197,253,0.3)', fontWeight: hasH2H ? 700 : 400 }}>{hasH2H ? 'PÅ' : 'AV'}</div>
+                          <div style={{ fontSize: 12, color: hasLagDuell ? '#D4A017' : 'rgba(147,197,253,0.3)', fontWeight: hasLagDuell ? 700 : 400 }}>{hasLagDuell ? 'PÅ' : 'AV'}</div>
                         </button>
                       )
-                    })}
+                    })()}
+
+                    {/* Separator om lag finns */}
+                    {tabyTeams.length >= 2 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                        <div style={{ flex: 1, height: '0.5px', background: 'rgba(147,197,253,0.1)' }} />
+                        <span style={{ fontSize: 10, color: 'rgba(147,197,253,0.3)', fontFamily: 'var(--mono)' }}>ELLER INDIVIDUELLA DUELLER</span>
+                        <div style={{ flex: 1, height: '0.5px', background: 'rgba(147,197,253,0.1)' }} />
+                      </div>
+                    )}
+
+                    {/* Alla möjliga par i bollen */}
+                    {(() => {
+                      const pairs = []
+                      for (let i = 0; i < selectedPlayers.length; i++) {
+                        for (let j = i + 1; j < selectedPlayers.length; j++) {
+                          pairs.push([selectedPlayers[i], selectedPlayers[j]])
+                        }
+                      }
+                      return pairs.map(([p1, p2]) => {
+                        const pairKey = [p1.id, p2.id].sort().join('_')
+                        const hasH2H = (roundSetup.h2hPairs || []).includes(pairKey)
+                        const isMePair = p1.id === tabyUser?.id || p2.id === tabyUser?.id
+                        return (
+                          <button key={pairKey} onClick={() => setRoundSetup(s => {
+                            const cur = s.h2hPairs || []
+                            return { ...s, h2hPairs: hasH2H ? cur.filter(x => x !== pairKey) : [...cur, pairKey] }
+                          })} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', marginBottom: 6, borderRadius: 12, cursor: 'pointer', background: hasH2H ? 'rgba(232,99,74,0.1)' : isMePair ? 'rgba(147,197,253,0.06)' : 'rgba(147,197,253,0.03)', border: hasH2H ? '2px solid rgba(232,99,74,0.5)' : `1px solid rgba(147,197,253,${isMePair ? '0.12' : '0.08'})` }}>
+                            <div style={{ width: 24, height: 24, borderRadius: 6, background: hasH2H ? '#E8634A' : 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: hasH2H ? '#fff' : '#93C5FD', flexShrink: 0, fontWeight: 700 }}>{hasH2H ? '✓' : ''}</div>
+                            {/* P1 */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+                              {p1.image_url ? <img src={p1.image_url} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#93C5FD', flexShrink: 0 }}>{p1.name?.charAt(0)}</div>}
+                              <span style={{ fontSize: 13, color: '#F0F4FF', fontWeight: p1.id === tabyUser?.id ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p1.id === tabyUser?.id ? 'Du' : p1.nickname}</span>
+                            </div>
+                            <span style={{ fontSize: 11, color: 'rgba(147,197,253,0.35)', fontWeight: 700, flexShrink: 0 }}>vs</span>
+                            {/* P2 */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, justifyContent: 'flex-end' }}>
+                              <span style={{ fontSize: 13, color: '#F0F4FF', fontWeight: p2.id === tabyUser?.id ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p2.id === tabyUser?.id ? 'Du' : p2.nickname}</span>
+                              {p2.image_url ? <img src={p2.image_url} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#93C5FD', flexShrink: 0 }}>{p2.name?.charAt(0)}</div>}
+                            </div>
+                            <div style={{ fontSize: 11, color: hasH2H ? '#E8634A' : 'rgba(147,197,253,0.3)', fontWeight: hasH2H ? 700 : 400, flexShrink: 0, marginLeft: 4 }}>{hasH2H ? 'PÅ' : 'AV'}</div>
+                          </button>
+                        )
+                      })
+                    })()}
                   </Section>
                 )}
 
