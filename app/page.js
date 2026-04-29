@@ -298,7 +298,8 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   // Chat form state
   const [tabyMsg, setTabyMsg] = useState('')
   const [showTabyMenu, setShowTabyMenu] = useState(false)
-  const [showEndRoundModal, setShowEndRoundModal] = useState(false)
+  const [showEventResultModal, setShowEventResultModal] = useState(null) // event object
+  const [eventResultDraft, setEventResultDraft] = useState({}) // {playerId: position}
   const [selectedEventModal, setSelectedEventModal] = useState(null) // taby_event obj
   const [tabyTeamGenLoading, setTabyTeamGenLoading] = useState(false)
   const [tabyAllPlayers, setTabyAllPlayers] = useState([])
@@ -3697,6 +3698,21 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     </div>
                   )}
 
+                  {/* Admin: sätt resultat */}
+                  {(tabyUser?.key === 'filip' || tabyUser?.key === 'marcus') && (
+                    <button onClick={() => {
+                      // Förifyll med befintliga placeringar om de finns
+                      const existing = ev.placements || {}
+                      setEventResultDraft(Object.fromEntries(
+                        Object.entries(existing).map(([pid, pos]) => [pid, pos])
+                      ))
+                      setShowEventResultModal(ev)
+                      setSelectedEventModal(null)
+                    }} style={{ width: '100%', padding: '10px', borderRadius: 10, cursor: 'pointer', background: 'rgba(212,175,55,0.08)', border: '0.5px solid rgba(212,175,55,0.3)', color: '#D4A017', fontSize: 12, fontFamily: 'var(--mono)', marginBottom: 6 }}>
+                      🏆 Sätt event-resultat
+                    </button>
+                  )}
+
                   {/* Admin: avsluta event */}
                   {!isCompleted && isPast && (tabyUser?.key === 'filip' || tabyUser?.key === 'marcus') && (
                     <button onClick={async () => {
@@ -3718,6 +3734,134 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           </div>
         </div>
       )}
+
+      {/* ======================================== */}
+      {/* EVENT RESULTAT MODAL (admin)              */}
+      {/* ======================================== */}
+      {showEventResultModal && (() => {
+        const ev = showEventResultModal
+        const activePlayers = tabyPlayers.filter(p => p.key !== 'spectator')
+        // Hämta stableford från event-rundor automatiskt om de finns
+        const eventRounds = tabyRounds.filter(r => r.event_id === ev.id && r.status === 'completed')
+        const autoRankings = activePlayers.map(p => {
+          const total = eventRounds.reduce((sum, r) =>
+            sum + tabyScores.filter(s => s.round_id === r.id && s.player_id === p.id).reduce((s, sc) => s + (sc.stableford || 0), 0), 0)
+          return { player: p, total }
+        }).filter(r => r.total > 0).sort((a, b) => b.total - a.total)
+
+        const EVENT_POINTS = { 1: 25, 2: 18, 3: 12, 4: 8, 5: 5, 6: 2 }
+
+        return (
+          <div onClick={() => setShowEventResultModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)', zIndex: 650, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', animation: 'fadeIn 0.15s ease' }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg, #0C1830 0%, #0A1525 100%)', borderRadius: '20px 20px 0 0', padding: '8px 0 calc(28px + env(safe-area-inset-bottom, 0px))', border: '0.5px solid rgba(212,160,23,0.2)', borderBottom: 'none', animation: 'slideUp 0.25s cubic-bezier(0.16,1,0.3,1)', maxHeight: '90vh', overflowY: 'auto' }}>
+
+              {/* Drag handle */}
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(212,160,23,0.3)', margin: '0 auto 16px' }} />
+
+              {/* Header */}
+              <div style={{ padding: '0 20px 16px', borderBottom: '0.5px solid rgba(212,160,23,0.1)' }}>
+                <div style={{ fontFamily: 'var(--serif)', fontSize: 20, color: '#D4A017', marginBottom: 4 }}>🏆 {ev.name} — Resultat</div>
+                <div style={{ fontSize: 11, color: 'rgba(147,197,253,0.5)', fontFamily: 'var(--mono)' }}>Sätt placering per spelare · OoM uppdateras direkt</div>
+              </div>
+
+              <div style={{ padding: '16px 20px' }}>
+
+                {/* Auto-rank från rundor */}
+                {autoRankings.length > 0 && (
+                  <div style={{ marginBottom: 16, padding: 12, borderRadius: 12, background: 'rgba(74,222,128,0.06)', border: '0.5px solid rgba(74,222,128,0.2)' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#4ADE80', letterSpacing: 1.5, marginBottom: 8 }}>📊 AUTO-RANKING FRÅN RUNDORNA</div>
+                    {autoRankings.map((r, i) => (
+                      <div key={r.player.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: i === 0 ? '#D4A017' : 'rgba(240,244,255,0.4)', width: 20 }}>{i + 1}</div>
+                        {r.player.image_url ? <img src={r.player.image_url} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#93C5FD' }}>{r.player.name?.charAt(0)}</div>}
+                        <div style={{ flex: 1, fontSize: 12, color: '#F0F4FF' }}>{r.player.nickname}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: '#4ADE80' }}>{r.total}p</div>
+                      </div>
+                    ))}
+                    <button onClick={() => {
+                      const draft = {}
+                      autoRankings.forEach((r, i) => { draft[r.player.id] = i + 1 })
+                      setEventResultDraft(draft)
+                    }} style={{ width: '100%', marginTop: 10, padding: '8px', borderRadius: 8, cursor: 'pointer', background: 'rgba(74,222,128,0.1)', border: '0.5px solid rgba(74,222,128,0.3)', color: '#4ADE80', fontSize: 11, fontFamily: 'var(--mono)' }}>
+                      Fyll i automatiskt ↓
+                    </button>
+                  </div>
+                )}
+
+                {/* Manuell placering per spelare */}
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1.5, marginBottom: 10 }}>SÄTT PLACERINGAR MANUELLT</div>
+                {activePlayers.map(p => {
+                  const pos = eventResultDraft[p.id]
+                  const pts = pos ? EVENT_POINTS[pos] || 0 : 0
+                  return (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '0.5px solid rgba(147,197,253,0.06)' }}>
+                      {p.image_url ? <img src={p.image_url} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#93C5FD', fontSize: 12 }}>{p.name?.charAt(0)}</div>}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, color: '#F0F4FF' }}>{p.nickname}</div>
+                        {pos && <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D4A017', marginTop: 1 }}>+{pts} OoM-poäng</div>}
+                      </div>
+                      {/* Positions-knappar */}
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button onClick={() => setEventResultDraft(prev => { const d = { ...prev }; delete d[p.id]; return d })}
+                          style={{ width: 28, height: 28, borderRadius: 6, cursor: 'pointer', background: !pos ? 'rgba(232,99,74,0.12)' : 'transparent', border: !pos ? '1px solid rgba(232,99,74,0.3)' : '0.5px solid rgba(147,197,253,0.1)', color: !pos ? '#E8634A' : 'rgba(147,197,253,0.4)', fontSize: 10, fontFamily: 'var(--mono)' }}>—</button>
+                        {[1,2,3,4,5,6].map(n => (
+                          <button key={n} onClick={() => setEventResultDraft(prev => ({ ...prev, [p.id]: n }))}
+                            style={{ width: 28, height: 28, borderRadius: 6, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 12, fontWeight: pos === n ? 700 : 400, background: pos === n ? (n === 1 ? 'rgba(212,160,23,0.25)' : 'rgba(147,197,253,0.15)') : 'rgba(147,197,253,0.04)', border: pos === n ? `1px solid ${n === 1 ? '#D4A017' : '#93C5FD'}` : '0.5px solid rgba(147,197,253,0.1)', color: pos === n ? (n === 1 ? '#D4A017' : '#93C5FD') : 'rgba(240,244,255,0.4)' }}>
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Preview OoM-effekt */}
+                {Object.keys(eventResultDraft).length > 0 && (
+                  <div style={{ marginTop: 16, padding: 12, borderRadius: 12, background: 'rgba(212,160,23,0.06)', border: '0.5px solid rgba(212,160,23,0.15)' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,160,23,0.7)', letterSpacing: 1.5, marginBottom: 8 }}>PREVIEW — OoM-POÄNG DETTA EVENT</div>
+                    {Object.entries(eventResultDraft).sort((a,b) => a[1]-b[1]).map(([pid, pos]) => {
+                      const p = activePlayers.find(x => x.id === pid)
+                      const pts = EVENT_POINTS[pos] || 0
+                      return p ? (
+                        <div key={pid} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 12, color: 'rgba(240,244,255,0.7)' }}>
+                          <span>{pos}. {p.nickname}</span>
+                          <span style={{ fontFamily: 'var(--mono)', color: '#D4A017' }}>+{pts}p</span>
+                        </div>
+                      ) : null
+                    })}
+                  </div>
+                )}
+
+                {/* Spara */}
+                <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                  <button onClick={() => setShowEventResultModal(null)} style={{ flex: 1, padding: '13px', borderRadius: 12, cursor: 'pointer', background: 'transparent', border: '0.5px solid rgba(147,197,253,0.15)', color: 'rgba(147,197,253,0.5)', fontSize: 13, fontFamily: 'var(--mono)' }}>
+                    Avbryt
+                  </button>
+                  <button onClick={async () => {
+                    if (Object.keys(eventResultDraft).length === 0) return
+                    const winnerId = Object.entries(eventResultDraft).find(([,pos]) => pos === 1)?.[0] || null
+                    await supabase.from('taby_events').update({
+                      status: 'completed',
+                      completed_at: new Date().toISOString(),
+                      winner_id: winnerId,
+                      placements: eventResultDraft
+                    }).eq('id', ev.id)
+                    // Uppdatera lokalt
+                    setTabyEvents(prev => prev.map(e => e.id === ev.id ? {
+                      ...e, status: 'completed', winner_id: winnerId, placements: eventResultDraft
+                    } : e))
+                    setShowEventResultModal(null)
+                    const winner = activePlayers.find(p => p.id === winnerId)
+                    showTabyToast(`${ev.name} avslutat! ${winner?.nickname} vann 🏆`, 'birdie')
+                  }} style={{ flex: 2, padding: '13px', borderRadius: 12, cursor: 'pointer', background: 'linear-gradient(135deg, rgba(212,160,23,0.22), rgba(212,160,23,0.08))', border: '0.5px solid rgba(212,160,23,0.4)', color: '#D4A017', fontSize: 14, fontWeight: 600, fontFamily: 'var(--serif)' }}>
+                    Spara resultat ✓
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ======================================== */}
       {/* AVSLUTA RUNDA MODAL                       */}
