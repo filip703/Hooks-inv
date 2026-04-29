@@ -1993,40 +1993,45 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               {(() => {
                 const pendingKey = `${activePid}_${h.h}`
                 const pendingVal = pendingScore[pendingKey]
-                const hasScore = pendingVal !== undefined || sc?.strokes != null
+                const isSaved = sc?.strokes != null
+                const isPending = pendingVal !== undefined
                 const displayVal = pendingVal ?? sc?.strokes ?? h.p
-                const isReady = pendingVal !== undefined // Något nytt att spara
+                const canProceed = isSaved || isPending  // Måste ha score för att gå vidare
 
                 return (
                   <button onPointerDown={async e => {
                     e.preventDefault()
-                    if (isReady) {
-                      // Spara score
+                    if (!canProceed) return  // Blockera om inget registrerat
+                    if (isPending) {
                       await saveHoleScore(h.h, displayVal, activePid)
-                      // Rensa pending för detta hål
                       setPendingScore(prev => { const n = { ...prev }; delete n[pendingKey]; return n })
                     }
-                    // Navigera alltid till nästa hål
-                    if (nextH) {
-                      setTabyActiveHole(nextH)
-                      setTabyCaddieMsg(null)
-                    } else {
-                      setTabyActiveHole(null)
-                    }
-                  }} style={{ width: '100%', padding: '18px', borderRadius: 16, border: 'none', cursor: 'pointer', marginBottom: 10, background: hasScore ? 'linear-gradient(135deg, #16A34A, #15803D)' : '#E5E7EB', color: hasScore ? 'white' : '#9CA3AF', fontSize: 18, fontWeight: 900, boxShadow: hasScore ? '0 4px 16px rgba(22,163,74,0.35)' : 'none', WebkitTapHighlightColor: 'transparent', letterSpacing: 0.3, userSelect: 'none' }}>
-                    {h.h < 18
-                      ? (isReady ? `✓ Spara & gå till Hål ${nextH}` : `→ Hål ${nextH}`)
-                      : (isReady ? '✓ Spara & avsluta' : '→ Avsluta')}
+                    if (nextH) { setTabyActiveHole(nextH); setTabyCaddieMsg(null) }
+                    else { setTabyActiveHole(null) }
+                  }} style={{
+                    width: '100%', padding: '18px', borderRadius: 16, border: 'none',
+                    cursor: canProceed ? 'pointer' : 'not-allowed', marginBottom: 10,
+                    background: canProceed ? 'linear-gradient(135deg, #16A34A, #15803D)' : '#E5E7EB',
+                    color: canProceed ? 'white' : '#9CA3AF',
+                    fontSize: 18, fontWeight: 900,
+                    boxShadow: canProceed ? '0 4px 16px rgba(22,163,74,0.35)' : 'none',
+                    WebkitTapHighlightColor: 'transparent', letterSpacing: 0.3, userSelect: 'none'
+                  }}>
+                    {!canProceed
+                      ? '← Välj antal slag ovan'
+                      : h.h < 18
+                        ? (isPending ? `✓ Spara & gå till Hål ${nextH}` : `→ Hål ${nextH}`)
+                        : (isPending ? '✓ Spara & avsluta' : '→ Avsluta')}
                   </button>
                 )
               })()}
 
-              {/* ── NAV: föregående / nästa ── */}
+              {/* ── NAV: bara tillbaka ── */}
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                 <button onClick={() => prevHole && (setTabyActiveHole(prevHole), setTabyCaddieMsg(null))} disabled={!prevHole}
-                  style={{ flex: 1, padding: '12px', borderRadius: 12, background: 'white', border: '1.5px solid #E5E7EB', color: prevHole ? '#111' : '#ccc', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', fontWeight: 500 }}>← {prevHole || ''}</button>
-                <button onClick={() => nextH ? (setTabyActiveHole(nextH), setTabyCaddieMsg(null)) : setTabyActiveHole(null)}
-                  style={{ flex: 1, padding: '12px', borderRadius: 12, background: '#EFF6FF', border: '1.5px solid #BFDBFE', color: '#2563EB', fontSize: 14, cursor: 'pointer', fontWeight: 700 }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
+                  style={{ flex: 1, padding: '12px', borderRadius: 12, background: 'white', border: '1.5px solid #E5E7EB', color: prevHole ? '#555' : '#ccc', fontSize: 13, cursor: prevHole ? 'pointer' : 'default', fontWeight: 500 }}>← Hål {prevHole || ''}</button>
+                <button onClick={() => setTabyActiveHole(null)}
+                  style={{ padding: '12px 16px', borderRadius: 12, background: 'white', border: '1.5px solid #E5E7EB', color: '#888', fontSize: 13, cursor: 'pointer' }}>✕ Stäng</button>
               </div>
 
               {/* Matchplay auto-close */}
