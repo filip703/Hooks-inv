@@ -302,6 +302,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [showEventResultModal, setShowEventResultModal] = useState(null)
   const [eventResultDraft, setEventResultDraft] = useState({})
   const [showEndRoundModal, setShowEndRoundModal] = useState(false)
+  const [pendingScore, setPendingScore] = useState({}) // { [playerId_hole]: strokes }
   const [tabyTeams, setTabyTeams] = useState([])
   const [selectedEventModal, setSelectedEventModal] = useState(null) // taby_event obj
   const [tabyTeamGenLoading, setTabyTeamGenLoading] = useState(false)
@@ -1912,55 +1913,113 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               </div>
 
               {/* ── CARD 5: SCORE INPUT ── */}
-              <div style={{ background: scoreBg, borderRadius: 14, padding: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: `2px solid ${scoreBorder}`, marginBottom: 8 }}>
-                {/* Spelare-väljare om flera */}
-                {newRound.player_ids?.length > 1 && (
-                  <div style={{ display: 'flex', gap: 5, marginBottom: 10, flexWrap: 'wrap' }}>
-                    {roundPlayers.map(rp => {
-                      const isActive2 = rp.id === activePid
-                      return (
-                        <button key={rp.id} onClick={() => setScoringPlayerId(rp.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 8, cursor: 'pointer', background: isActive2 ? '#DCFCE7' : 'white', border: isActive2 ? '2px solid #16a34a' : '1px solid #E5E7EB', fontSize: 11, fontWeight: isActive2 ? 700 : 400, color: isActive2 ? '#16a34a' : '#555' }}>
-                          {rp.image_url && <img src={rp.image_url} style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover' }} />}
-                          {rp.id === tabyUser?.id ? 'Du' : rp.nickname}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-                {/* Score display */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button onPointerDown={e => { e.preventDefault(); if (currentVal > 1) saveHoleScore(h.h, currentVal - 1) }}
-                    style={{ width: 72, height: 72, borderRadius: 18, background: 'white', border: '2px solid #E5E7EB', color: '#111', fontSize: 36, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, WebkitTapHighlightColor: 'transparent' }}>−</button>
-                  <div onPointerDown={e => { e.preventDefault(); if (!sc) saveHoleScore(h.h, h.p) }}
-                    style={{ flex: 1, height: 88, borderRadius: 16, background: 'white', border: `2px solid ${scoreBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: sc ? 'default' : 'pointer', WebkitTapHighlightColor: 'transparent' }}>
-                    <div style={{ fontSize: 64, fontWeight: 900, color: scoreColor, lineHeight: 1 }}>{sc?.strokes || h.p}</div>
-                    {!sc && <div style={{ fontSize: 10, color: '#D97706', fontFamily: 'var(--mono)', letterSpacing: 1 }}>TRYCK FÖR PAR</div>}
-                  </div>
-                  <button onPointerDown={e => { e.preventDefault(); if (currentVal < 15) saveHoleScore(h.h, currentVal + 1) }}
-                    style={{ width: 72, height: 72, borderRadius: 18, background: 'white', border: '2px solid #E5E7EB', color: '#111', fontSize: 36, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, WebkitTapHighlightColor: 'transparent' }}>+</button>
-                </div>
-                {/* Stableford label */}
-                {sc && stabLabel && (
-                  <div style={{ textAlign: 'center', marginTop: 8, padding: '4px 0' }}>
-                    <span style={{ background: scoreBorder, color: scoreColor, fontSize: 12, fontWeight: 900, padding: '4px 16px', borderRadius: 10 }}>{stabLabel}</span>
-                  </div>
-                )}
-                {/* Hålhistorik */}
-                {(() => {
-                  const history = getTabyHoleHistory(tabyUser?.id, h.h)
-                  if (!history) return null
-                  return <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(0,0,0,0.06)', fontSize: 10, color: '#888' }}>
-                    <span>Förra: <strong style={{ color: '#555' }}>{history.last.strokes} slag</strong></span>
-                    <span>Bäst: <strong style={{ color: '#555' }}>{history.bestStab}p</strong></span>
-                  </div>
-                })()}
-              </div>
+              {(() => {
+                const pendingKey = `${activePid}_${h.h}`
+                const pendingVal = pendingScore[pendingKey]
+                // Vis-värdet: pending → sparat → par (default)
+                const displayVal = pendingVal ?? sc?.strokes ?? h.p
+                const isPending = pendingVal !== undefined
+                const isSaved = !isPending && sc?.strokes != null
+                // Beräkna stableford på display-värdet för feedback
+                const dispStab = calcStab(displayVal, h.p, extra)
+                const dispStabLabel = dispStab === 0 ? 'NOLLA · 0p' : dispStab === 1 ? 'BOGEY · 1p' : dispStab === 2 ? 'PAR · 2p' : dispStab === 3 ? 'BIRDIE 🐦 · 3p' : dispStab === 4 ? 'EAGLE 🦅 · 4p' : `HIO 🎯 · ${dispStab}p`
+                const dispColor = dispStab === 0 ? '#dc2626' : dispStab >= 3 ? '#16a34a' : dispStab === 2 ? '#16a34a' : '#2563EB'
+                const dispBg = isPending ? '#FFFBEB' : isSaved ? (dispStab === 0 ? '#FEF2F2' : dispStab >= 3 ? '#DCFCE7' : dispStab === 2 ? '#F0FDF4' : '#EFF6FF') : '#F9FAFB'
+                const dispBorder = isPending ? '#FDE68A' : isSaved ? (dispStab === 0 ? '#FCA5A5' : dispStab >= 3 ? '#86EFAC' : '#93C5FD') : '#E5E7EB'
 
-              {/* ── BEKRÄFTA — stor grön ── */}
-              <button onPointerDown={e => { e.preventDefault(); setTabyHole(prev => Math.min(prev + 1, 18)) }}
-                style={{ width: '100%', padding: '18px', borderRadius: 16, border: 'none', cursor: 'pointer', marginBottom: 10, background: sc ? 'linear-gradient(135deg, #16A34A, #15803D)' : '#E5E7EB', color: sc ? 'white' : '#9CA3AF', fontSize: 18, fontWeight: 900, boxShadow: sc ? '0 4px 16px rgba(22,163,74,0.35)' : 'none', WebkitTapHighlightColor: 'transparent', letterSpacing: 0.3 }}>
-                {h.h < 18 ? `✓  Bekräfta hål ${h.h}  →  Hål ${h.h + 1}` : `✓  Bekräfta hål 18  —  Klar!`}
-              </button>
+                const setPending = (val) => {
+                  const clamped = Math.max(1, Math.min(15, val))
+                  setPendingScore(prev => ({ ...prev, [pendingKey]: clamped }))
+                }
+
+                return (
+                  <div style={{ background: dispBg, borderRadius: 14, padding: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: `2px solid ${dispBorder}`, marginBottom: 8 }}>
+                    {/* Spelare-väljare om flera */}
+                    {newRound.player_ids?.length > 1 && (
+                      <div style={{ display: 'flex', gap: 5, marginBottom: 10, flexWrap: 'wrap' }}>
+                        {roundPlayers.map(rp => {
+                          const isActive2 = rp.id === activePid
+                          return (
+                            <button key={rp.id} onClick={() => { setScoringPlayerId(rp.id) }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 8, cursor: 'pointer', background: isActive2 ? '#DCFCE7' : 'white', border: isActive2 ? '2px solid #16a34a' : '1px solid #E5E7EB', fontSize: 11, fontWeight: isActive2 ? 700 : 400, color: isActive2 ? '#16a34a' : '#555' }}>
+                              {rp.image_url && <img src={rp.image_url} style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover' }} />}
+                              {rp.id === tabyUser?.id ? 'Du' : rp.nickname}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Status-rad */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <div style={{ fontSize: 10, color: isPending ? '#92400E' : isSaved ? '#555' : '#aaa', fontWeight: isPending ? 700 : 400, fontFamily: 'var(--mono)', letterSpacing: 0.5 }}>
+                        {isPending ? '✏️ INTE SPARAT ÄN' : isSaved ? '✓ SPARAT' : 'VÄLJ ANTAL SLAG'}
+                      </div>
+                      {isSaved && <button onClick={() => setPendingScore(prev => ({ ...prev, [pendingKey]: sc.strokes }))} style={{ fontSize: 9, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--mono)' }}>Ändra</button>}
+                    </div>
+
+                    {/* −  siffra  + */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button onPointerDown={e => { e.preventDefault(); setPending(displayVal - 1) }}
+                        style={{ width: 72, height: 72, borderRadius: 18, background: 'white', border: '2px solid #E5E7EB', color: '#111', fontSize: 36, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, WebkitTapHighlightColor: 'transparent', userSelect: 'none' }}>−</button>
+                      <div style={{ flex: 1, height: 88, borderRadius: 16, background: 'white', border: `2px solid ${dispBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                        <div style={{ fontSize: 64, fontWeight: 900, color: dispColor, lineHeight: 1 }}>{displayVal}</div>
+                        {!isSaved && !isPending && <div style={{ fontSize: 10, color: '#D97706', fontFamily: 'var(--mono)', letterSpacing: 0.8 }}>VÄLJ + BEKRÄFTA</div>}
+                      </div>
+                      <button onPointerDown={e => { e.preventDefault(); setPending(displayVal + 1) }}
+                        style={{ width: 72, height: 72, borderRadius: 18, background: 'white', border: '2px solid #E5E7EB', color: '#111', fontSize: 36, fontWeight: 300, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, WebkitTapHighlightColor: 'transparent', userSelect: 'none' }}>+</button>
+                    </div>
+
+                    {/* Stableford-feedback (visas alltid när pending eller saved) */}
+                    {(isPending || isSaved) && (
+                      <div style={{ textAlign: 'center', marginTop: 8 }}>
+                        <span style={{ background: dispBorder, color: dispColor, fontSize: 13, fontWeight: 900, padding: '5px 18px', borderRadius: 10 }}>{dispStabLabel}</span>
+                      </div>
+                    )}
+
+                    {/* Hålhistorik */}
+                    {(() => {
+                      const history = getTabyHoleHistory(tabyUser?.id, h.h)
+                      if (!history) return null
+                      return <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(0,0,0,0.06)', fontSize: 10, color: '#888' }}>
+                        <span>Förra: <strong style={{ color: '#555' }}>{history.last.strokes} slag</strong></span>
+                        <span>Bäst: <strong style={{ color: '#555' }}>{history.bestStab}p stableford</strong></span>
+                      </div>
+                    })()}
+                  </div>
+                )
+              })()}
+
+              {/* ── BEKRÄFTA — sparar score OCH navigerar ── */}
+              {(() => {
+                const pendingKey = `${activePid}_${h.h}`
+                const pendingVal = pendingScore[pendingKey]
+                const hasScore = pendingVal !== undefined || sc?.strokes != null
+                const displayVal = pendingVal ?? sc?.strokes ?? h.p
+                const isReady = pendingVal !== undefined // Något nytt att spara
+
+                return (
+                  <button onPointerDown={async e => {
+                    e.preventDefault()
+                    if (isReady) {
+                      // Spara score
+                      await saveHoleScore(h.h, displayVal, activePid)
+                      // Rensa pending för detta hål
+                      setPendingScore(prev => { const n = { ...prev }; delete n[pendingKey]; return n })
+                    }
+                    // Navigera alltid till nästa hål
+                    if (nextH) {
+                      setTabyActiveHole(nextH)
+                      setTabyCaddieMsg(null)
+                    } else {
+                      setTabyActiveHole(null)
+                    }
+                  }} style={{ width: '100%', padding: '18px', borderRadius: 16, border: 'none', cursor: 'pointer', marginBottom: 10, background: hasScore ? 'linear-gradient(135deg, #16A34A, #15803D)' : '#E5E7EB', color: hasScore ? 'white' : '#9CA3AF', fontSize: 18, fontWeight: 900, boxShadow: hasScore ? '0 4px 16px rgba(22,163,74,0.35)' : 'none', WebkitTapHighlightColor: 'transparent', letterSpacing: 0.3, userSelect: 'none' }}>
+                    {h.h < 18
+                      ? (isReady ? `✓ Spara & gå till Hål ${nextH}` : `→ Hål ${nextH}`)
+                      : (isReady ? '✓ Spara & avsluta' : '→ Avsluta')}
+                  </button>
+                )
+              })()}
 
               {/* ── NAV: föregående / nästa ── */}
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
