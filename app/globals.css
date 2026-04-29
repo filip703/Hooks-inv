@@ -729,6 +729,7 @@ body {
   100% { opacity: 1; transform: scale(1); letter-spacing: 8px; }
 }
 @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
 /* ===== GLOBAL INTERACTIVE ===== */
 input:focus, select:focus { outline: none; border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(212,175,55,0.12); }

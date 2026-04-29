@@ -298,7 +298,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   // Chat form state
   const [tabyMsg, setTabyMsg] = useState('')
   const [showTabyMenu, setShowTabyMenu] = useState(false)
-  const [tabyTeams, setTabyTeams] = useState([])
+  const [showEndRoundModal, setShowEndRoundModal] = useState(false)
   const [tabyTeamGenLoading, setTabyTeamGenLoading] = useState(false)
   const [tabyAllPlayers, setTabyAllPlayers] = useState([])
   const [tabyHoleImages, setTabyHoleImages] = useState({}) // { 1: 'url', 2: 'url', ... }
@@ -1485,6 +1485,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>Spel-HCP: {phcp}</div>
                   <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>Netto: {totalStrokes > 0 ? totalStrokes - Math.round(phcp * holesPlayed / 18) : '—'}</div>
+                  <div style={{ flex: 1 }} />
+                  <button onClick={() => setShowEndRoundModal(true)} style={{ padding: '2px 10px', borderRadius: 6, cursor: 'pointer', background: 'rgba(232,99,74,0.08)', border: '0.5px solid rgba(232,99,74,0.25)', color: '#E8634A', fontSize: 9, fontFamily: 'var(--mono)', letterSpacing: 0.5 }}>Avsluta runda</button>
                 </div>
               </div>
               {/* Hole list — Gamebook-inspirerad, klickbar rad = fullscreen */}
@@ -3577,6 +3579,73 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           <button onClick={() => { setTabyUser(null); localStorage.removeItem('taby_user') }} style={{ width: '100%', padding: '12px', borderRadius: 10, cursor: 'pointer', background: 'rgba(232,99,74,0.06)', border: '0.5px solid rgba(232,99,74,0.2)', color: '#E8634A', fontSize: 13, fontFamily: 'var(--mono)', letterSpacing: 1 }}>
             Byt spelare / Logga ut
           </button>
+        </div>
+      )}
+
+      {/* ======================================== */}
+      {/* AVSLUTA RUNDA MODAL                       */}
+      {/* ======================================== */}
+      {showEndRoundModal && newRound && (
+        <div onClick={() => setShowEndRoundModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(12px)', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', animation: 'fadeIn 0.15s ease' }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg, #0C1830 0%, #0A1525 100%)', borderRadius: '20px 20px 0 0', padding: '8px 0 calc(24px + env(safe-area-inset-bottom, 0px))', border: '0.5px solid rgba(147,197,253,0.12)', borderBottom: 'none', animation: 'slideUp 0.25s cubic-bezier(0.16,1,0.3,1)' }}>
+            {/* Drag handle */}
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(147,197,253,0.2)', margin: '0 auto 20px' }} />
+
+            {/* Header */}
+            <div style={{ padding: '0 20px 16px', borderBottom: '0.5px solid rgba(147,197,253,0.08)' }}>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 20, color: '#F0F4FF', marginBottom: 4 }}>Avsluta runda?</div>
+              <div style={{ fontSize: 12, color: 'rgba(147,197,253,0.5)', fontFamily: 'var(--mono)' }}>
+                {holesPlayed} av 18 hål spelade · {totalStab}p
+              </div>
+            </div>
+
+            {/* Alternativ */}
+            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+              {/* Spara och avsluta */}
+              <button onClick={async () => {
+                await supabase.from('taby_rounds').update({
+                  status: 'completed',
+                  completed_at: new Date().toISOString()
+                }).eq('id', newRound.id)
+                setNewRound(null); setScoreInput({}); setScoringPlayerId(null)
+                setShowEndRoundModal(false); setTabyView('leaderboard')
+                showTabyToast(`Runda sparad! ${totalStab}p 🏆`, 'birdie')
+              }} style={{ width: '100%', padding: '16px', borderRadius: 12, cursor: 'pointer', background: 'linear-gradient(135deg, rgba(74,222,128,0.12), rgba(74,222,128,0.06))', border: '0.5px solid rgba(74,222,128,0.3)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(74,222,128,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>✓</div>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: '#4ADE80', marginBottom: 2 }}>Spara och avsluta</div>
+                  <div style={{ fontSize: 12, color: 'rgba(74,222,128,0.6)' }}>
+                    Resultatet räknas in i Order of Merit
+                  </div>
+                </div>
+              </button>
+
+              {/* Radera och avsluta */}
+              <button onClick={async () => {
+                if (!confirm('Är du säker? Alla scores raderas och rundan tas bort.')) return
+                await supabase.from('taby_scores').delete().eq('round_id', newRound.id)
+                await supabase.from('taby_rounds').delete().eq('id', newRound.id)
+                setNewRound(null); setScoreInput({}); setScoringPlayerId(null)
+                setTabyRounds(prev => prev.filter(r => r.id !== newRound.id))
+                setShowEndRoundModal(false); setTabyView('scoring')
+                showTabyToast('Runda raderad', 'zero')
+              }} style={{ width: '100%', padding: '16px', borderRadius: 12, cursor: 'pointer', background: 'rgba(232,99,74,0.08)', border: '0.5px solid rgba(232,99,74,0.25)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(232,99,74,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🗑️</div>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: '#E8634A', marginBottom: 2 }}>Radera och avsluta</div>
+                  <div style={{ fontSize: 12, color: 'rgba(232,99,74,0.6)' }}>
+                    Scores raderas — påverkar inte Order of Merit
+                  </div>
+                </div>
+              </button>
+
+              {/* Avbryt */}
+              <button onClick={() => setShowEndRoundModal(false)} style={{ width: '100%', padding: '13px', borderRadius: 12, cursor: 'pointer', background: 'transparent', border: '0.5px solid rgba(147,197,253,0.1)', color: 'rgba(147,197,253,0.5)', fontSize: 14, fontFamily: 'var(--mono)' }}>
+                Fortsätt rundan
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
