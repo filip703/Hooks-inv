@@ -500,6 +500,8 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   }
 
   // Get player stats from scores
+  const EVENT_MERIT_POINTS = { 1: 25, 2: 18, 3: 12, 4: 8, 5: 5, 6: 2 }
+
   const getPlayerStats = (playerId) => {
     const playerScores = tabyScores.filter(s => s.player_id === playerId)
     const roundIds = [...new Set(playerScores.map(s => s.round_id))]
@@ -513,7 +515,24 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     const best8 = [...roundStableford].sort((a, b) => b.total - a.total).slice(0, 8)
     const pi = best8.length > 0 ? Math.round(best8.reduce((s, r) => s + r.total, 0) / best8.length * 10) / 10 : 0
     const avgStrokes = roundStableford.length > 0 ? Math.round(roundStableford.reduce((s, r) => s + r.strokes, 0) / roundStableford.length * 10) / 10 : 0
-    return { roundCount, totalStableford, totalStrokes, pi, avgStrokes, best8, fullRounds: roundStableford.length }
+
+    // Event-poäng: kolla placements i completed events
+    const eventResults = tabyEvents
+      .filter(e => e.status === 'completed' && e.placements)
+      .map(e => {
+        const pos = e.placements?.[playerId]
+        if (!pos) return null
+        return { eventId: e.id, name: e.name, position: pos, points: EVENT_MERIT_POINTS[pos] || 0 }
+      }).filter(Boolean)
+    const eventPoints = eventResults.reduce((s, e) => s + e.points, 0)
+
+    // H2H-vinster
+    const myH2H = tabyH2H.filter(m => m.player1_id === playerId || m.player2_id === playerId)
+    const h2hWins = myH2H.filter(m => m.winner_id === playerId).length
+    const h2hTotal = myH2H.filter(m => m.winner_id !== null).length
+    const h2hPct = h2hTotal > 0 ? Math.round(h2hWins / h2hTotal * 100) : 0
+
+    return { roundCount, totalStableford, totalStrokes, pi, avgStrokes, best8, fullRounds: roundStableford.length, eventPoints, eventResults, h2hWins, h2hPct }
   }
 
   // Create new round
@@ -1224,23 +1243,36 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <div style={{ padding: '10px 14px 6px', fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 2 }}>ORDER OF MERIT</div>
             {playerStats.map((pl, idx) => {
               const sparkVals = getSparklineValues(pl.id)
+              const st = pl.stats
+              const hasEventPts = (st.eventPoints || 0) > 0
               return (
-                <div key={pl.id} onClick={() => pl.id !== tabyUser?.id && setTabySpectatePid(pl.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: idx === 0 ? 'none' : '0.5px solid rgba(147,197,253,0.06)', cursor: pl.id !== tabyUser?.id ? 'pointer' : 'default', transition: 'background 0.2s' }}
-                  onMouseEnter={e => { if (pl.id !== tabyUser?.id) e.currentTarget.style.background = 'rgba(147,197,253,0.04)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+                <div key={pl.id} onClick={() => { setTabyUser(prev => ({ ...prev, statsViewPid: pl.id })); setTabyView('stats') }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: idx === 0 ? 'none' : '0.5px solid rgba(147,197,253,0.06)', cursor: 'pointer', transition: 'background 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(147,197,253,0.04)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <div style={{ fontFamily: 'var(--serif)', fontSize: idx === 0 ? 20 : 16, color: idx === 0 ? '#D4A017' : 'rgba(240,244,255,0.4)', width: 24 }}>{idx + 1}</div>
                   {pl.image_url ? <img src={pl.image_url} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: `1.5px solid ${idx === 0 ? '#D4A017' : 'rgba(147,197,253,0.15)'}` }} /> : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', border: `1.5px solid ${idx === 0 ? '#D4A017' : 'rgba(147,197,253,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD', fontWeight: 500 }}>{pl.name?.charAt(0)}{pl.name?.split(' ')[1]?.charAt(0)}</div>}
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 13, color: '#F0F4FF', fontWeight: idx === 0 ? 600 : 400 }}>{pl.nickname}</span>
                       {sparkVals.length >= 2 && <Sparkline values={sparkVals} width={50} height={14} color={idx === 0 ? '#D4A017' : '#93C5FD'} />}
-                      {pl.id !== tabyUser?.id && <span style={{ fontSize: 9, color: 'rgba(147,197,253,0.3)', fontFamily: 'var(--mono)', marginLeft: 'auto' }}>👀</span>}
                     </div>
-                    <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>HCP {pl.taby_hcp || pl.hcp} · {pl.stats.fullRounds} rundor{pl.stats.avgStrokes ? ` · ${pl.stats.avgStrokes} snitt slag` : ''}</div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>HCP {pl.taby_hcp || pl.hcp} · {st.fullRounds}R</span>
+                      {hasEventPts && (
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 9, padding: '1px 6px', borderRadius: 4, background: 'rgba(212,160,23,0.12)', border: '0.5px solid rgba(212,160,23,0.3)', color: '#D4A017' }}>
+                          🏆 {st.eventResults.map(e => `${e.name} #${e.position}`).join(' · ')}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: idx === 0 ? 18 : 15, color: idx === 0 ? '#D4A017' : 'rgba(240,244,255,0.5)', fontWeight: 500 }}>{pl.stats.pi || '—'}</div>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.3)' }}>PI</div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', justifyContent: 'flex-end' }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(147,197,253,0.5)' }}>{st.pi || '—'}<span style={{ fontSize: 7, opacity: 0.7 }}> PI</span></div>
+                        {hasEventPts && <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(212,160,23,0.8)' }}>+{st.eventPoints}<span style={{ fontSize: 7, opacity: 0.7 }}> ev</span></div>}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )
