@@ -1922,7 +1922,19 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 const isSaved = !isPending && sc?.strokes != null
                 // Beräkna stableford på display-värdet för feedback
                 const dispStab = calcStab(displayVal, h.p, extra)
-                const dispStabLabel = dispStab === 0 ? 'NOLLA · 0p' : dispStab === 1 ? 'BOGEY · 1p' : dispStab === 2 ? 'PAR · 2p' : dispStab === 3 ? 'BIRDIE 🐦 · 3p' : dispStab === 4 ? 'EAGLE 🦅 · 4p' : `HIO 🎯 · ${dispStab}p`
+                // Label baseras på slag vs PAR (inte stableford-poäng) — annars visas BIRDIE fast det är PAR med extraslag
+                const grossDiff = displayVal - h.p
+                const dispStabLabel = (() => {
+                  if (displayVal === 1) return `HIO 🎯 · ${dispStab}p`
+                  if (grossDiff <= -3) return `ALBATROSS 🦅🦅 · ${dispStab}p`
+                  if (grossDiff === -2) return `EAGLE 🦅 · ${dispStab}p`
+                  if (grossDiff === -1) return `BIRDIE 🐦 · ${dispStab}p`
+                  if (grossDiff === 0) return `PAR · ${dispStab}p`
+                  if (grossDiff === 1) return `BOGEY · ${dispStab}p`
+                  if (grossDiff === 2) return `DOUBLE · ${dispStab}p`
+                  if (dispStab === 0) return `NOLLA · 0p`
+                  return `+${grossDiff} · ${dispStab}p`
+                })()
                 const dispColor = dispStab === 0 ? '#dc2626' : dispStab >= 3 ? '#16a34a' : dispStab === 2 ? '#16a34a' : '#2563EB'
                 const dispBg = isPending ? '#FFFBEB' : isSaved ? (dispStab === 0 ? '#FEF2F2' : dispStab >= 3 ? '#DCFCE7' : dispStab === 2 ? '#F0FDF4' : '#EFF6FF') : '#F9FAFB'
                 const dispBorder = isPending ? '#FDE68A' : isSaved ? (dispStab === 0 ? '#FCA5A5' : dispStab >= 3 ? '#86EFAC' : '#93C5FD') : '#E5E7EB'
@@ -1989,40 +2001,81 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 )
               })()}
 
-              {/* ── BEKRÄFTA — sparar score OCH navigerar ── */}
+              {/* ── BEKRÄFTA — sparar ALLA spelares pending för hålet, navigerar ── */}
               {(() => {
-                const pendingKey = `${activePid}_${h.h}`
-                const pendingVal = pendingScore[pendingKey]
-                const isSaved = sc?.strokes != null
-                const isPending = pendingVal !== undefined
-                const displayVal = pendingVal ?? sc?.strokes ?? h.p
-                const canProceed = isSaved || isPending  // Måste ha score för att gå vidare
+                // Kolla alla spelare i rundan — har alla pending eller sparat?
+                const allPlayersDone = roundPlayers.every(rp => {
+                  const pk = `${rp.id}_${h.h}`
+                  return pendingScore[pk] !== undefined || tabyScores.some(s => s.round_id === newRound.id && s.player_id === rp.id && s.hole === h.h && s.strokes)
+                })
+                const anyPending = roundPlayers.some(rp => pendingScore[`${rp.id}_${h.h}`] !== undefined)
+                const canProceed = allPlayersDone
+
+                // Visa status per spelare om fler än 1
+                const multiPlayer = roundPlayers.length > 1
 
                 return (
-                  <button onPointerDown={async e => {
-                    e.preventDefault()
-                    if (!canProceed) return  // Blockera om inget registrerat
-                    if (isPending) {
-                      await saveHoleScore(h.h, displayVal, activePid)
-                      setPendingScore(prev => { const n = { ...prev }; delete n[pendingKey]; return n })
-                    }
-                    if (nextH) { setTabyActiveHole(nextH); setTabyCaddieMsg(null) }
-                    else { setTabyActiveHole(null) }
-                  }} style={{
-                    width: '100%', padding: '18px', borderRadius: 16, border: 'none',
-                    cursor: canProceed ? 'pointer' : 'not-allowed', marginBottom: 10,
-                    background: canProceed ? 'linear-gradient(135deg, #16A34A, #15803D)' : '#E5E7EB',
-                    color: canProceed ? 'white' : '#9CA3AF',
-                    fontSize: 18, fontWeight: 900,
-                    boxShadow: canProceed ? '0 4px 16px rgba(22,163,74,0.35)' : 'none',
-                    WebkitTapHighlightColor: 'transparent', letterSpacing: 0.3, userSelect: 'none'
-                  }}>
-                    {!canProceed
-                      ? '← Välj antal slag ovan'
-                      : h.h < 18
-                        ? (isPending ? `✓ Spara & gå till Hål ${nextH}` : `→ Hål ${nextH}`)
-                        : (isPending ? '✓ Spara & avsluta' : '→ Avsluta')}
-                  </button>
+                  <div style={{ marginBottom: 10 }}>
+                    {/* Status per spelare (vid multi) */}
+                    {multiPlayer && (
+                      <div style={{ display: 'flex', gap: 5, marginBottom: 8, flexWrap: 'wrap' }}>
+                        {roundPlayers.map(rp => {
+                          const pk = `${rp.id}_${h.h}`
+                          const pv = pendingScore[pk]
+                          const sv = tabyScores.find(s => s.round_id === newRound.id && s.player_id === rp.id && s.hole === h.h)
+                          const hasPending = pv !== undefined
+                          const hasSaved = !hasPending && sv?.strokes != null
+                          const missing = !hasPending && !hasSaved
+                          return (
+                            <div key={rp.id} onClick={() => setScoringPlayerId(rp.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, cursor: 'pointer', background: missing ? '#FEF2F2' : hasPending ? '#FFFBEB' : '#F0FDF4', border: `1.5px solid ${missing ? '#FCA5A5' : hasPending ? '#FDE68A' : '#86EFAC'}` }}>
+                              {rp.image_url && <img src={rp.image_url} style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover' }} />}
+                              <span style={{ fontSize: 11, fontWeight: 600, color: missing ? '#dc2626' : hasPending ? '#92400E' : '#16a34a' }}>
+                                {rp.id === tabyUser?.id ? 'Du' : rp.nickname}
+                              </span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: missing ? '#dc2626' : '#111' }}>
+                                {missing ? '?' : hasPending ? pv : sv?.strokes}
+                              </span>
+                              {hasSaved && <span style={{ fontSize: 9 }}>✓</span>}
+                              {hasPending && <span style={{ fontSize: 9 }}>•</span>}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    <button onPointerDown={async e => {
+                      e.preventDefault()
+                      if (!canProceed) return
+                      // Spara ALLA spelares pending för detta hål
+                      const saves = roundPlayers
+                        .filter(rp => pendingScore[`${rp.id}_${h.h}`] !== undefined)
+                        .map(rp => saveHoleScore(h.h, pendingScore[`${rp.id}_${h.h}`], rp.id))
+                      await Promise.all(saves)
+                      // Rensa pending för detta hål (alla spelare)
+                      setPendingScore(prev => {
+                        const n = { ...prev }
+                        roundPlayers.forEach(rp => delete n[`${rp.id}_${h.h}`])
+                        return n
+                      })
+                      // Navigera
+                      if (nextH) { setTabyActiveHole(nextH); setTabyCaddieMsg(null) }
+                      else { setTabyActiveHole(null) }
+                    }} style={{
+                      width: '100%', padding: '18px', borderRadius: 16, border: 'none',
+                      cursor: canProceed ? 'pointer' : 'not-allowed',
+                      background: canProceed ? 'linear-gradient(135deg, #16A34A, #15803D)' : '#E5E7EB',
+                      color: canProceed ? 'white' : '#9CA3AF',
+                      fontSize: 17, fontWeight: 900,
+                      boxShadow: canProceed ? '0 4px 16px rgba(22,163,74,0.35)' : 'none',
+                      WebkitTapHighlightColor: 'transparent', letterSpacing: 0.3, userSelect: 'none'
+                    }}>
+                      {!canProceed
+                        ? `← Fyll i alla ${roundPlayers.length} spelare`
+                        : h.h < 18
+                          ? (anyPending ? `✓ Spara alla & Hål ${nextH}` : `→ Hål ${nextH}`)
+                          : (anyPending ? '✓ Spara & avsluta' : '→ Avsluta')}
+                    </button>
+                  </div>
                 )
               })()}
 
