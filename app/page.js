@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven } from '../lib/courses'
+import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven, holeImages } from '../lib/courses'
 import { TABY_GPS, TABY_HOLES, TABY_COURSE, distanceToGreen, distanceToTee, haversineDistance } from '../lib/courses-taby'
 import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio } from '../lib/sounds'
 import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush, sendPush } from '../lib/push'
@@ -5147,11 +5147,23 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             </div>
             <button onClick={() => setGuideHole(null)} style={{ background: 'none', border: 'none', color: 'var(--cream)', fontSize: 28, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
           </div>
+          {/* Banguide-bild från LiveCaddie CloudFront */}
+          {(() => {
+            const courseName = course?.name?.includes('Skog') ? 'Skogsbanan' : 'Parkbanan'
+            const imgUrl = holeImages?.[courseName]?.[guideHole]
+            if (!imgUrl) return null
+            return (
+              <div onClick={e => e.stopPropagation()}>
+                <img src={imgUrl} alt={`Hål ${guideHole}`} style={{ width: '100%', maxHeight: '45vh', objectFit: 'cover', display: 'block' }} />
+                <div style={{ fontSize: 9, color: 'var(--cream-muted)', textAlign: 'center', padding: '3px 0', background: 'rgba(0,0,0,0.5)' }}>LiveCaddie · Hooks GK</div>
+              </div>
+            )
+          })()}
           {/* Flyover video */}
           {flyovers[RC[selRound]]?.[guideHole] && (
             <div style={{ padding: '8px 16px 0' }} onClick={e => e.stopPropagation()}>
               <video src={flyovers[RC[selRound]][guideHole]} controls playsInline autoPlay muted
-                style={{ width: '100%', borderRadius: 12, maxHeight: '40vh', background: '#000' }} />
+                style={{ width: '100%', borderRadius: 12, maxHeight: '35vh', background: '#000' }} />
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', textAlign: 'center', marginTop: 4 }}>3D Flyover · LiveCaddie</div>
             </div>
           )}
@@ -5220,12 +5232,24 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 <div style={{ fontSize: 13, color: 'var(--cream-muted)', fontStyle: 'italic', marginTop: 8 }}>{h.tip}</div>
               </div>
 
-              {/* Flyover mini */}
-              {flyUrl && (
-                <div style={{ marginBottom: 16 }}>
-                  <video src={flyUrl} controls playsInline muted style={{ width: '100%', borderRadius: 12, maxHeight: 180, background: '#000' }} />
-                </div>
-              )}
+              {/* Banguide-bild + Flyover */}
+              {(() => {
+                const courseName = course?.name?.includes('Skog') ? 'Skogsbanan' : 'Parkbanan'
+                const imgUrl = holeImages?.[courseName]?.[h.hole]
+                return imgUrl ? (
+                  <div style={{ marginBottom: 8, borderRadius: 12, overflow: 'hidden', position: 'relative', cursor: 'pointer' }} onClick={() => setGuideHole(h.hole)}>
+                    <img src={imgUrl} alt={`Hål ${h.hole}`} style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.7))', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.7)', letterSpacing: 1 }}>BANGUIDE · TRYCK FÖR MER</span>
+                      {flyUrl && <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)' }}>📹 Flyover tillgänglig</span>}
+                    </div>
+                  </div>
+                ) : flyUrl ? (
+                  <div style={{ marginBottom: 16 }}>
+                    <video src={flyUrl} controls playsInline muted style={{ width: '100%', borderRadius: 12, maxHeight: 180, background: '#000' }} />
+                  </div>
+                ) : null
+              })()}
 
               {/* CADDIE AI */}
               <div style={{ marginBottom: 16 }}>
