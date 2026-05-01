@@ -418,7 +418,19 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     const channels = [
       supabase.channel('taby_scores_rt').on('postgres_changes',
         { event: '*', schema: 'public', table: 'taby_scores' },
-        () => loadData()
+        (payload) => {
+          // Snabb path: uppdatera bara taby_scores utan full loadData
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const s = payload.new
+            setTabyScores(prev => {
+              const filtered = prev.filter(x => !(x.round_id === s.round_id && x.player_id === s.player_id && x.hole === s.hole))
+              return [...filtered, s]
+            })
+          } else if (payload.eventType === 'DELETE') {
+            const s = payload.old
+            setTabyScores(prev => prev.filter(x => !(x.round_id === s.round_id && x.player_id === s.player_id && x.hole === s.hole)))
+          }
+        }
       ).subscribe(),
       supabase.channel('taby_rounds_rt').on('postgres_changes',
         { event: '*', schema: 'public', table: 'taby_rounds' },
@@ -2063,9 +2075,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                       const npAlreadySet = tabyExpenses.some(e => e.source === 'ldnp' && e.description?.includes(`hål ${h.h}`) && e.description?.includes('Närmast Pin'))
 
                       if (ldHole === h.h && !ldAlreadySet) {
-                        setLdNpModal({ type: 'ld', hole: h.h, nextH, roundPlayers })
+                        setLdNpModal({ type: 'ld', hole: h.h, nextH })
                       } else if (npHole === h.h && !npAlreadySet) {
-                        setLdNpModal({ type: 'np', hole: h.h, nextH, roundPlayers })
+                        setLdNpModal({ type: 'np', hole: h.h, nextH })
                       } else {
                         if (nextH) { setTabyActiveHole(nextH); setTabyCaddieMsg(null) }
                         else { setTabyActiveHole(null) }
@@ -4093,7 +4105,11 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {/* LD / NP VINNARE MODAL                     */}
       {/* ======================================== */}
       {ldNpModal && (() => {
-        const { type, hole, nextH: modalNextH, roundPlayers: modalPlayers } = ldNpModal
+        const { type, hole, nextH: modalNextH } = ldNpModal
+        // Derivera spelare FÄRSKT från newRound — inte från passad prop (kan vara stale)
+        const modalPlayers = newRound?.player_ids
+          ? tabyPlayers.filter(p => newRound.player_ids.includes(p.id) && p.key !== 'spectator')
+          : tabyPlayers.filter(p => p.taby_active && p.key !== 'spectator')
         const isLD = type === 'ld'
         const color = isLD ? '#D4A017' : '#16a34a'
         const bgColor = isLD ? '#FEF3C7' : '#DCFCE7'
