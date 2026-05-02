@@ -1328,7 +1328,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', justifyContent: 'flex-end' }}>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(147,197,253,0.5)' }}>{st.pi || '—'}<span style={{ fontSize: 7, opacity: 0.7 }}> PI</span></div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(147,197,253,0.5)' }}>{st.pi > 0 ? <>{st.pi}<span style={{ fontSize: 7, opacity: 0.7 }}> PI</span></> : <span style={{ opacity: 0.3 }}>inga rundor</span>}</div>
                         {hasEventPts && <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(212,160,23,0.8)' }}>+{st.eventPoints}<span style={{ fontSize: 7, opacity: 0.7 }}> ev</span></div>}
                       </div>
                     </div>
