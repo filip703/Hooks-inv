@@ -4609,13 +4609,23 @@ function DIOApp({ onSwitchMode }) {
   useEffect(() => {
     if (!supabase) return
     const c1 = supabase.channel('s1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_scores' }, p => {
-      fetchAll()
-      if (p.new?.player_id !== user?.id) {
+      // Snabb optimistisk update — ingen full fetchAll
+      if (p.eventType === 'INSERT' || p.eventType === 'UPDATE') {
+        const s = p.new
+        setScores(prev => {
+          const filtered = prev.filter(x => !(x.player_id === s.player_id && x.round_id === s.round_id && x.hole === s.hole))
+          return [...filtered, s]
+        })
+      } else if (p.eventType === 'DELETE') {
+        const s = p.old
+        setScores(prev => prev.filter(x => !(x.player_id === s.player_id && x.round_id === s.round_id && x.hole === s.hole)))
+      }
+      // Shoutouts för andra spelares scores
+      if (p.new?.player_id !== user?.id && (p.eventType === 'INSERT' || p.eventType === 'UPDATE')) {
         if (p.new?.stableford_points >= 3) {
           const pl = players.find(x => x.id === p.new.player_id)
           if (pl) {
-            // Real birdie/eagle check: strokes vs par (NOT stableford!)
-            const holePar = (courses.Skogsbanan.holes[p.new.hole - 1]?.par) || 4
+            const holePar = course?.holes?.find(h => h.hole === p.new.hole)?.par || 4
             const m = getShoutout(pl.name, pl.nickname, p.new.strokes, holePar)
             if (m) { const diff = p.new.strokes - holePar; showToast(m, diff <= -2 ? 'eagle' : 'birdie') }
           }
@@ -5241,6 +5251,23 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', background: 'var(--surface)', borderBottom: '1px solid var(--card-border)' }}>
               <button onClick={() => setActiveHole(null)} style={{ background: 'none', border: 'none', color: 'var(--cream)', fontSize: 16, cursor: 'pointer' }}>← Alla hål</button>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--cream-muted)' }}>{RL[selRound]} · {course.name}</div>
+            </div>
+
+            {/* Spelare-väljare — alla kan registrera för alla i bollen */}
+            <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--card-border)', padding: '8px 12px', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'var(--cream-muted)', letterSpacing: 1, flexShrink: 0 }}>REGGADE FÖR:</span>
+              {players.filter(p => p.key !== 'spectator').map(p => {
+                const isSel = (adminPid || user?.id) === p.id
+                const pScore = roundId ? scores.find(s => s.player_id === p.id && s.round_id === roundId && s.hole === activeHole) : null
+                return (
+                  <button key={p.id} onClick={() => setAdminPid(p.id === user?.id ? null : p.id)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 8, cursor: 'pointer', background: isSel ? 'rgba(212,175,55,0.15)' : 'transparent', border: isSel ? '1px solid rgba(212,175,55,0.4)' : '1px solid var(--card-border)', transition: 'all 0.15s' }}>
+                    {p.image_url ? <img src={p.image_url} style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--surface-raised)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: 'var(--cream-muted)' }}>{p.name?.charAt(0)}</div>}
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: isSel ? 'var(--gold)' : 'var(--cream-muted)', fontWeight: isSel ? 700 : 400 }}>{p.name.split(' ')[0]}</span>
+                    {pScore && <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: pScore.stableford_points >= 3 ? 'var(--green)' : pScore.stableford_points === 0 ? 'var(--coral)' : 'var(--cream-dim)', fontWeight: 600 }}>{pScore.strokes}</span>}
+                    {!pScore && <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,175,55,0.4)' }}>?</span>}
+                  </button>
+                )
+              })}
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
