@@ -1269,6 +1269,40 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               const sparkVals = getSparklineValues(pl.id)
               const st = pl.stats
               const hasEventPts = (st.eventPoints || 0) > 0
+
+              // Trendpil — jämför senaste rundan mot snittet av tidigare
+              const trend = (() => {
+                if (sparkVals.length < 2) return null
+                const last = sparkVals[sparkVals.length - 1]
+                const prev = sparkVals.slice(0, -1)
+                const prevAvg = prev.reduce((s, v) => s + v, 0) / prev.length
+                const diff = last - prevAvg
+                if (diff > 0.5) return 'up'
+                if (diff < -0.5) return 'down'
+                return 'flat'
+              })()
+
+              const TrendArrow = () => {
+                if (!trend) return null
+                if (trend === 'up') return (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M7 11 L7 3" stroke="#4ADE80" strokeWidth="1.8" strokeLinecap="round"/>
+                    <path d="M3.5 6.5 L7 3 L10.5 6.5" stroke="#4ADE80" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )
+                if (trend === 'down') return (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M7 3 L7 11" stroke="#E8634A" strokeWidth="1.8" strokeLinecap="round"/>
+                    <path d="M3.5 7.5 L7 11 L10.5 7.5" stroke="#E8634A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )
+                return (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M3 7 L11 7" stroke="rgba(147,197,253,0.4)" strokeWidth="1.8" strokeLinecap="round"/>
+                    <path d="M7.5 4 L11 7 L7.5 10" stroke="rgba(147,197,253,0.4)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )
+              }
               return (
                 <div key={pl.id} onClick={() => { setTabyUser(prev => ({ ...prev, statsViewPid: pl.id })); setTabyView('stats') }}
                   style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: idx === 0 ? 'none' : '0.5px solid rgba(147,197,253,0.06)', cursor: 'pointer', transition: 'background 0.2s' }}
@@ -1279,6 +1313,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 13, color: '#F0F4FF', fontWeight: idx === 0 ? 600 : 400 }}>{pl.nickname}</span>
+                      <TrendArrow />
                       {sparkVals.length >= 2 && <Sparkline values={sparkVals} width={50} height={14} color={idx === 0 ? '#D4A017' : '#93C5FD'} />}
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
