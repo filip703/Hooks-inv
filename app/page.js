@@ -5358,15 +5358,22 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   <button onClick={() => { if (currentVal < 15) save(h.hole, currentVal + 1) }}
                     style={{ width: 64, height: 64, borderRadius: 16, background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                 </div>
-                {/* Points display */}
-                {pts !== null && (
-                  <div style={{ textAlign: 'center', marginTop: 16 }}>
-                    <span style={{ fontSize: 32, fontFamily: 'var(--mono)', fontWeight: 500, color: pts === 0 ? 'var(--coral)' : pts >= 3 ? 'var(--green)' : pts >= 4 ? 'var(--gold-bright)' : 'var(--cream)' }}>
-                      {isDouble ? pts * 2 : pts}p
-                    </span>
-                    {isDouble && <span style={{ fontSize: 14, color: 'var(--coral)', marginLeft: 6 }}>2×</span>}
-                  </div>
-                )}
+                {/* Gross-label + poäng — label baseras på slag vs par (ej stablefordpoäng) */}
+                {strokes && pts !== null && (() => {
+                  const grossDiff = parseInt(strokes) - h.par
+                  const grossLabel = parseInt(strokes) === 1 ? 'HIO 🎯' : grossDiff <= -3 ? 'ALBATROSS 🦅🦅' : grossDiff === -2 ? 'EAGLE 🦅' : grossDiff === -1 ? 'BIRDIE 🐦' : grossDiff === 0 ? 'PAR' : grossDiff === 1 ? 'BOGEY' : grossDiff === 2 ? 'DOUBLE' : `+${grossDiff}`
+                  const labelColor = grossDiff <= -1 ? 'var(--green)' : grossDiff === 0 ? 'var(--cream-dim)' : grossDiff === 1 ? 'rgba(240,180,100,0.8)' : 'var(--coral)'
+                  const displayPts = isDouble ? pts * 2 : pts
+                  const ptsColor = pts === 0 ? 'var(--coral)' : pts >= 3 ? 'var(--green)' : pts >= 2 ? 'var(--cream)' : 'var(--cream-dim)'
+                  return (
+                    <div style={{ textAlign: 'center', marginTop: 14 }}>
+                      <span style={{ fontSize: 15, fontFamily: 'var(--mono)', fontWeight: 700, color: labelColor, letterSpacing: 0.5 }}>{grossLabel}</span>
+                      <span style={{ fontSize: 13, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', margin: '0 8px' }}>·</span>
+                      <span style={{ fontSize: 28, fontFamily: 'var(--mono)', fontWeight: 500, color: ptsColor }}>{displayPts}p</span>
+                      {isDouble && <span style={{ fontSize: 12, color: 'var(--coral)', marginLeft: 4 }}>2×</span>}
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* Others on this hole */}
