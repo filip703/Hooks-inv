@@ -1750,18 +1750,25 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             {/* ── TOP BAR ── */}
             <div style={{ background: '#1B4332', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))' }}>
               <button onClick={() => { setTabyActiveHole(null); setTabyCaddieMsg(null) }} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', borderRadius: 8, padding: '5px 10px', fontSize: 14, cursor: 'pointer' }}>←</button>
-              <div style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: '#4ADE80', fontWeight: 800, fontFamily: 'var(--mono)', letterSpacing: 1 }}>{fmtLabel}</div>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontFamily: 'var(--mono)' }}>
-                  {holesPlayed}/18 hål &nbsp;·&nbsp;
-                  {fmt === 'stableford' && <span style={{ color: '#D4A017' }}>{totalStab}p</span>}
-                  {fmt === 'stroke' && <span style={{ color: '#4ADE80' }}>{totalStrokes > 0 ? `${totalStrokes} slag` : '—'}</span>}
-                  {fmt === 'matchplay' && <span style={{ color: mpColor, fontWeight: 700 }}>{mpStatusStr}</span>}
-                  {fmt === 'skins' && <span style={{ color: '#D4A017' }}>{mySkins} skins</span>}
-                  {fmt === 'lag' && <span style={{ color: '#D4A017' }}>{blueTeam?.name} {blueStab} – {goldStab} {goldTeam?.name}</span>}
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <div style={{ fontSize: 11, color: '#4ADE80', fontWeight: 800, fontFamily: 'var(--mono)', letterSpacing: 1 }}>{fmtLabel}</div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--mono)' }}>{holesPlayed}/18 hål</div>
+                </div>
+                {/* Rundsammanfattning — din totala score direkt synlig */}
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 2 }}>
+                  {fmt === 'stableford' && <>
+                    <span style={{ fontSize: 16, fontWeight: 900, color: 'white' }}>{totalStab}p</span>
+                    {prevRound && <span style={{ fontSize: 11, fontWeight: 700, color: cumDiff > 0 ? '#4ADE80' : cumDiff < 0 ? '#FCA5A5' : 'rgba(255,255,255,0.4)', fontFamily: 'var(--mono)' }}>{cumDiff > 0 ? '+' : ''}{cumDiff} vs förra</span>}
+                    {holesPlayed > 0 && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--mono)' }}>snitt {(totalStab / holesPlayed).toFixed(1)}p/hål</span>}
+                  </>}
+                  {fmt === 'stroke' && <span style={{ fontSize: 16, fontWeight: 900, color: 'white' }}>{totalStrokes > 0 ? `${totalStrokes} slag` : '—'}</span>}
+                  {fmt === 'matchplay' && <span style={{ fontSize: 16, fontWeight: 900, color: mpColor }}>{mpStatusStr}</span>}
+                  {fmt === 'skins' && <span style={{ fontSize: 16, fontWeight: 900, color: '#D4A017' }}>{mySkins} skins</span>}
+                  {fmt === 'lag' && <span style={{ fontSize: 12, fontWeight: 700, color: '#D4A017' }}>{blueTeam?.name} {blueStab} – {goldStab} {goldTeam?.name}</span>}
                 </div>
               </div>
-              <button onClick={() => setShowEndRoundModal(true)} style={{ background: 'rgba(232,99,74,0.2)', border: 'none', color: '#FCA5A5', borderRadius: 8, padding: '5px 8px', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--mono)' }}>Avsluta</button>
+              <button onClick={() => setShowEndRoundModal(true)} style={{ background: 'rgba(232,99,74,0.2)', border: 'none', color: '#FCA5A5', borderRadius: 8, padding: '5px 8px', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--mono)', flexShrink: 0 }}>Avsluta</button>
             </div>
 
             {/* ── HOLE STRIP ── */}
@@ -1931,31 +1938,49 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 </div>
               )}
 
-              {/* ── CARD 4: LIVE LEADERBOARD ── */}
+              {/* ── CARD 4: LIVE LEADERBOARD — sorterat på RUNDAN ── */}
               <div style={{ ...CS.card }}>
-                <div style={{ fontSize: 9, fontWeight: 800, color: '#888', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>🏆 LIVE LEADERBOARD</div>
-                {playerStats.slice(0, 4).map((pl, idx) => {
-                  const isMe = pl.id === tabyUser?.id
-                  const plStab = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === pl.id).reduce((sum, s) => sum + (s.stableford || 0), 0)
-                  const plHoles = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === pl.id && s.strokes > 0).length
-                  if (!newRound.player_ids?.includes(pl.id)) return null
-                  return (
-                    <div key={pl.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: idx < 3 ? '1px solid #F3F4F6' : 'none', background: isMe ? '#F0FDF4' : 'transparent', borderRadius: isMe ? 6 : 0, paddingLeft: isMe ? 6 : 0 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#bbb', width: 16 }}>{idx + 1}</div>
-                      {pl.image_url ? <img src={pl.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#555', fontWeight: 700, flexShrink: 0 }}>{pl.name?.charAt(0)}</div>}
-                      <div style={{ flex: 1, fontSize: 12, color: '#111', fontWeight: isMe ? 700 : 400 }}>{isMe ? 'Du' : pl.nickname}</div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: isMe ? '#16a34a' : '#111' }}>{plStab}p</div>
-                        <div style={{ fontSize: 9, color: '#aaa', fontFamily: 'var(--mono)' }}>{plHoles}/18</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: '#888', letterSpacing: 1.5, textTransform: 'uppercase' }}>🏆 RUNDA-LEADERBOARD</div>
+                  <div style={{ fontSize: 9, color: '#aaa', fontFamily: 'var(--mono)' }}>Hål {h.h} av 18</div>
+                </div>
+                {(() => {
+                  // Sortera på rundans stableford, inte OoM PI
+                  const roundRanked = roundPlayers.map(pl => {
+                    const plStab = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === pl.id).reduce((sum, s) => sum + (s.stableford || 0), 0)
+                    const plHoles = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === pl.id && s.strokes > 0).length
+                    const vsHole = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === pl.id && s.hole === h.h).reduce((sum, s) => sum + (s.stableford || 0), 0)
+                    return { ...pl, plStab, plHoles, vsHole }
+                  }).sort((a, b) => b.plStab - a.plStab)
+
+                  const leader = roundRanked[0]?.plStab || 0
+
+                  return roundRanked.map((pl, idx) => {
+                    const isMe = pl.id === tabyUser?.id
+                    const diff = pl.plStab - leader
+                    const diffStr = idx === 0 ? 'LEDER' : diff === 0 ? 'AS' : `${diff}p`
+                    const diffColor = idx === 0 ? '#16a34a' : diff === 0 ? '#2563EB' : '#dc2626'
+                    return (
+                      <div key={pl.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', marginBottom: 4, borderRadius: 10, background: isMe ? '#F0FDF4' : '#F9FAFB', border: isMe ? '1.5px solid #86EFAC' : '1px solid transparent' }}>
+                        <div style={{ fontSize: 13, fontWeight: 900, color: idx === 0 ? '#16a34a' : '#bbb', width: 20 }}>{idx + 1}</div>
+                        {pl.image_url ? <img src={pl.image_url} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#555', fontWeight: 700, flexShrink: 0 }}>{pl.name?.charAt(0)}</div>}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, color: '#111', fontWeight: isMe ? 800 : 500 }}>{isMe ? 'Du' : pl.nickname}</div>
+                          <div style={{ fontSize: 9, color: '#aaa', fontFamily: 'var(--mono)' }}>{pl.plHoles}/{h.h} hål spelade</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 18, fontWeight: 900, color: isMe ? '#16a34a' : '#111' }}>{pl.plStab}p</div>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: diffColor }}>{diffStr}</div>
+                        </div>
                       </div>
-                    </div>
-                  )
-                }).filter(Boolean)}
+                    )
+                  })
+                })()}
                 {/* Ghost match */}
                 {prevRound && (
-                  <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888' }}>
-                    <span>👻 Förra rundan</span>
-                    <span style={{ fontWeight: 700, color: cumDiff > 0 ? '#16a34a' : cumDiff < 0 ? '#dc2626' : '#888' }}>{cumDiff > 0 ? '+' : ''}{cumDiff}p</span>
+                  <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888', alignItems: 'center' }}>
+                    <span>👻 vs förra rundan (hål {h.h})</span>
+                    <span style={{ fontWeight: 800, fontSize: 13, color: cumDiff > 0 ? '#16a34a' : cumDiff < 0 ? '#dc2626' : '#888' }}>{cumDiff > 0 ? '+' : ''}{cumDiff}p</span>
                   </div>
                 )}
               </div>
