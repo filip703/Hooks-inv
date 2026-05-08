@@ -1270,6 +1270,17 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               const st = pl.stats
               const hasEventPts = (st.eventPoints || 0) > 0
 
+              // Kolla om spelaren har en aktiv (pågående) runda just nu
+              const activeRound = tabyRounds.find(r =>
+                r.player_ids?.includes(pl.id) &&
+                r.status !== 'completed' &&
+                (() => { const ageH = (new Date() - new Date(r.created_at || r.date)) / 36e5; return ageH < 24 })() &&
+                tabyScores.filter(s => s.round_id === r.id && s.player_id === pl.id).length < 18 &&
+                tabyScores.filter(s => s.round_id === r.id && s.player_id === pl.id).length > 0
+              )
+              const activeHoles = activeRound ? tabyScores.filter(s => s.round_id === activeRound.id && s.player_id === pl.id).length : 0
+              const activeStab = activeRound ? tabyScores.filter(s => s.round_id === activeRound.id && s.player_id === pl.id).reduce((sum, s) => sum + (s.stableford || 0), 0) : 0
+
               // Trendpil — jämför senaste rundan mot snittet av tidigare
               const trend = (() => {
                 if (sparkVals.length < 2) return null
@@ -1304,17 +1315,22 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 )
               }
               return (
-                <div key={pl.id} onClick={() => { setTabyUser(prev => ({ ...prev, statsViewPid: pl.id })); setTabyView('stats') }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: idx === 0 ? 'none' : '0.5px solid rgba(147,197,253,0.06)', cursor: 'pointer', transition: 'background 0.2s' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(147,197,253,0.04)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <div key={pl.id}
+                  onClick={() => isMe
+                    ? (setTabyUser(prev => ({ ...prev, statsViewPid: pl.id })), setTabyView('stats'))
+                    : setTabySpectatePid(pl.id)
+                  }
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: idx === 0 ? 'none' : '0.5px solid rgba(147,197,253,0.06)', cursor: 'pointer', transition: 'background 0.2s', background: activeRound ? 'rgba(74,222,128,0.04)' : 'transparent' }}
+                  onMouseEnter={e => e.currentTarget.style.background = activeRound ? 'rgba(74,222,128,0.08)' : 'rgba(147,197,253,0.04)'}
+                  onMouseLeave={e => e.currentTarget.style.background = activeRound ? 'rgba(74,222,128,0.04)' : 'transparent'}>
                   <div style={{ fontFamily: 'var(--serif)', fontSize: idx === 0 ? 20 : 16, color: idx === 0 ? '#D4A017' : 'rgba(240,244,255,0.4)', width: 24 }}>{idx + 1}</div>
-                  {pl.image_url ? <img src={pl.image_url} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: `1.5px solid ${idx === 0 ? '#D4A017' : 'rgba(147,197,253,0.15)'}` }} /> : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', border: `1.5px solid ${idx === 0 ? '#D4A017' : 'rgba(147,197,253,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD', fontWeight: 500 }}>{pl.name?.charAt(0)}{pl.name?.split(' ')[1]?.charAt(0)}</div>}
+                  {pl.image_url ? <img src={pl.image_url} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: `1.5px solid ${activeRound ? '#4ADE80' : idx === 0 ? '#D4A017' : 'rgba(147,197,253,0.15)'}` }} /> : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', border: `1.5px solid ${idx === 0 ? '#D4A017' : 'rgba(147,197,253,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD', fontWeight: 500 }}>{pl.name?.charAt(0)}{pl.name?.split(' ')[1]?.charAt(0)}</div>}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 13, color: '#F0F4FF', fontWeight: idx === 0 ? 600 : 400 }}>{pl.nickname}</span>
-                      <TrendArrow />
-                      {sparkVals.length >= 2 && <Sparkline values={sparkVals} width={50} height={14} color={idx === 0 ? '#D4A017' : '#93C5FD'} />}
+                      {activeRound && <span style={{ fontSize: 8, color: '#4ADE80', fontFamily: 'var(--mono)', fontWeight: 700, letterSpacing: 1 }}>🔴 {activeHoles}/18 · {activeStab}p</span>}
+                      {!activeRound && <TrendArrow />}
+                      {!activeRound && sparkVals.length >= 2 && <Sparkline values={sparkVals} width={50} height={14} color={idx === 0 ? '#D4A017' : '#93C5FD'} />}
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>HCP {pl.taby_hcp || pl.hcp} · {st.fullRounds}R</span>
