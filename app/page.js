@@ -152,8 +152,8 @@ function PushSubscribeButton({ playerId }) {
 
 function Av({ p, size = 36 }) {
   if (!p) return null
-  const bg = p.team === 'green' ? '#1A3A2A' : '#1A3550'
-  const c = p.team === 'green' ? '#6BBF7F' : '#8AB4D6'
+  const bg = ['green','Gaylords'].includes(p.team) ? '#1A3A2A' : '#1A3550'
+  const c = ['green','Gaylords'].includes(p.team) ? '#6BBF7F' : '#8AB4D6'
   return p.image_url
     ? <img src={p.image_url} alt={p.name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--card-border)', flexShrink: 0 }} />
     : <div style={{ width: size, height: size, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size*0.38, fontWeight: 500, color: c, border: '2px solid var(--card-border)', flexShrink: 0 }}>{p.name?.charAt(0)}</div>
@@ -4275,23 +4275,38 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         const d = new Date().getDate()
         const briefings = {
           22: {
-            title: 'God morgon, gentlemen 🏌️',
-            sub: 'Dag 1 · Torsdag 22 maj',
-            items: ['Incheckning & uppvärmning', 'Runda 1 — kl 09:00 (check admin)', 'Boll A: Filip · Matthis · Marcus', 'Boll B: Martin · Magnus · Fredrik', 'Middag + Even Steven-start ikväll'],
+            title: 'God morgon. Det börjar nu. 🏌️',
+            sub: 'Dag 1 · Torsdag 22 maj · Skogsbanan',
+            teeOff: '12:15 & 12:24',
+            bana: 'Skogsbanan',
+            runda: 'Runda 1',
+            bollar: [['Filip', 'Matthis', 'Marcus'], ['Martin', 'Magnus', 'Fredrik']],
+            items: ['Incheckning & uppvärmning', 'Tee-off 12:15 (boll 1) & 12:24 (boll 2)', 'Middag + Even Steven-start ikväll', '⚠️ Kolla ditt HCP i Admin innan start'],
+            hcpWarning: true,
             quote: 'Välkommen till Hooks Herrgård. Bucklan väntar. Skulden likaså.',
             color: '#4ADE80',
           },
           23: {
-            title: 'Dag 2. Fortfarande i spel?',
-            sub: 'Fredag 23 maj',
-            items: ['Runda 2 + Runda 3', 'Bollindelning byts — kolla INFO', 'LD och NP avgörs idag', 'Even Steven uppdateras automatiskt', 'Betting: alla bets räknas fortfarande'],
+            title: 'Dag 2. Fortfarande i spel? 🔥',
+            sub: 'Fredag 23 maj · Parkbanan · Dubbla rundor',
+            bana: 'Parkbanan',
+            runda: 'Runda 2 + Runda 3',
+            teeOff: 'R2: 08:30 & 08:39  ·  R3: 14:12 & 14:21',
+            bollar: [['R2: Martin', 'Marcus', 'Fredrik'], ['R2: Filip', 'Matthis', 'Magnus']],
+            items: ['R2 Tee-off 08:30 & 08:39', 'R3 Tee-off 14:12 & 14:21 (extra greenfee)', 'LD & NP avgörs idag — Even Steven auto', 'Betting: alla bets räknas fortfarande'],
+            hcpWarning: false,
             quote: 'Halva turneringen spelad. Du vet redan hur det slutar. Ändå fortsätter du.',
             color: '#D4AF37',
           },
           24: {
-            title: 'Sista dagen. Nu eller aldrig.',
-            sub: 'Lördag 24 maj · Avgörande',
-            items: ['Runda 4 — Resultatbaserad gruppering', 'Prisutdelning efter sista putten', 'Even Steven görs upp IDAG', 'Le Douche de Golf utses', 'Hemresa — tider kollas lokalt'],
+            title: 'Sista dagen. Nu eller aldrig. 🏆',
+            sub: 'Lördag 24 maj · Parkbanan · Avgörande',
+            bana: 'Parkbanan',
+            runda: 'Runda 4 — Resultatbaserad',
+            teeOff: '11:30 & 11:39',
+            bollar: [['Top 3 spelar'], ['Bottom 3 sliter']],
+            items: ['Tee-off 11:30 & 11:39 (extra greenfee)', 'Resultatbaserad bollindelning', 'Even Steven görs upp EFTER SISTA PUTTEN', 'Le Douche de Golf utses — The Grinder gnäller'],
+            hcpWarning: false,
             quote: 'Någon lyfter bucklan. Någon betalar skulden. Alla saknar varandra imorgon.',
             color: '#E8634A',
           },
@@ -4299,31 +4314,59 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         const b = briefings[d]
         if (!b) return null
         return (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(16px)', zIndex: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 24, maxWidth: 380, width: '100%', border: `1.5px solid ${b.color}33`, boxShadow: `0 0 40px ${b.color}22` }}>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(16px)', zIndex: 800, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 0 0' }}>
+            <div style={{ background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '24px 20px 36px', width: '100%', maxWidth: 480, border: `1px solid ${b.color}33`, maxHeight: '90vh', overflowY: 'auto' }}>
+              {/* Pull indicator */}
+              <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '0 auto 20px' }} />
               {/* Header */}
-              <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: b.color, letterSpacing: 2, marginBottom: 8 }}>{b.sub.toUpperCase()}</div>
-                <div style={{ fontFamily: 'var(--serif)', fontSize: 24, color: 'var(--cream)', marginBottom: 4 }}>{b.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--cream-muted)', fontStyle: 'italic', lineHeight: 1.5 }}>"{b.quote}"</div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: b.color, letterSpacing: 2, marginBottom: 6 }}>{b.sub.toUpperCase()}</div>
+                <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--cream)' }}>{b.title}</div>
+              </div>
+              {/* Tee-off highlight */}
+              <div style={{ background: `${b.color}15`, border: `1px solid ${b.color}33`, borderRadius: 12, padding: '12px 14px', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: b.color, letterSpacing: 1.5, marginBottom: 4 }}>TEE-OFF · {b.bana?.toUpperCase()}</div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--cream)', letterSpacing: 0.5 }}>{b.teeOff}</div>
+                </div>
+                <div style={{ fontSize: 28 }}>⏱️</div>
+              </div>
+              {/* Bollar */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'var(--cream-muted)', letterSpacing: 1.5, marginBottom: 8 }}>BOLLINDELNING</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {b.bollar.map((boll, bi) => (
+                    <div key={bi} style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '8px 10px', border: '0.5px solid var(--card-border)' }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'var(--cream-muted)', letterSpacing: 1, marginBottom: 4 }}>BOLL {bi + 1}</div>
+                      {boll.map(n => <div key={n} style={{ fontSize: 12, color: 'var(--cream-dim)', lineHeight: 1.5 }}>{n}</div>)}
+                    </div>
+                  ))}
+                </div>
               </div>
               {/* Items */}
-              <div style={{ marginBottom: 20 }}>
+              <div style={{ marginBottom: 16 }}>
                 {b.items.map((item, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: i < b.items.length - 1 ? '0.5px solid var(--card-border)' : 'none' }}>
-                    <div style={{ color: b.color, fontFamily: 'var(--mono)', fontSize: 12, flexShrink: 0 }}>{i + 1}.</div>
-                    <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.4 }}>{item}</div>
+                  <div key={i} style={{ display: 'flex', gap: 10, padding: '7px 0', borderBottom: i < b.items.length - 1 ? '0.5px solid var(--card-border)' : 'none' }}>
+                    <div style={{ color: item.startsWith('⚠️') ? '#E8634A' : b.color, fontFamily: 'var(--mono)', fontSize: 11, flexShrink: 0 }}>{item.startsWith('⚠️') ? '⚠️' : `${i+1}.`}</div>
+                    <div style={{ fontSize: 12, color: item.startsWith('⚠️') ? '#E8634A' : 'var(--cream-dim)', lineHeight: 1.4 }}>{item.replace('⚠️ ', '')}</div>
                   </div>
                 ))}
               </div>
+              {/* HCP-påminnelse dag 1 */}
+              {b.hcpWarning && (
+                <div style={{ background: 'rgba(232,99,74,0.1)', border: '0.5px solid rgba(232,99,74,0.3)', borderRadius: 10, padding: '10px 12px', marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, color: '#E8634A', lineHeight: 1.5 }}>⚠️ <strong>Kolla ditt HCP i Admin innan första rundan.</strong> Vi har ingen GIT-synk — om ditt index ändrats sedan sist, uppdatera manuellt via ⚙️ Admin → HCP-justering.</div>
+                </div>
+              )}
+              {/* Quote */}
+              <div style={{ fontSize: 11, color: 'var(--cream-muted)', fontStyle: 'italic', textAlign: 'center', marginBottom: 16, lineHeight: 1.5 }}>"{b.quote}"</div>
               {/* CTA */}
               <button onClick={() => {
                 localStorage.setItem('dio_morning_' + new Date().toDateString(), '1')
                 setShowMorningPopup(false)
-              }} style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: `linear-gradient(135deg, ${b.color}, ${b.color}cc)`, color: '#0A0A08', fontSize: 16, fontWeight: 900, cursor: 'pointer', letterSpacing: 0.3 }}>
+              }} style={{ width: '100%', padding: '15px', borderRadius: 14, border: 'none', background: `linear-gradient(135deg, ${b.color}, ${b.color}bb)`, color: '#0A0A08', fontSize: 16, fontWeight: 900, cursor: 'pointer' }}>
                 Le Douche de Golf 🏆
               </button>
-              <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--cream-muted)', marginTop: 8, fontFamily: 'var(--mono)' }}>EST. 2021 · HOOKS HERRGÅRD</div>
             </div>
           </div>
         )
@@ -5104,7 +5147,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         name: p.name,
         nick: p.nickname,
         img: p.image_url || `https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/${p.key}.jpg`,
-        team: p.team === 'green' ? 'green' : 'blue'
+        team: ['green','Gaylords'].includes(p.team) ? 'green' : 'blue'
       }))
     : [
         { name: 'Marcus Ullholm', nick: 'Five o\'Clock', img: 'https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/players/marcus.jpg', team: 'blue' },
@@ -5627,7 +5670,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               const movement = lastPlayed > 0 && prevTotal(p.id) > 0 ? prevPos - i : 0
               return (
                 <div className="lb-row" key={p.id} style={p.id === user?.id ? { background: 'rgba(201,168,76,0.06)' } : {}}>
-                  <div className="lb-team-indicator" style={{ background: p.team === 'green' ? '#6BBF7F' : '#8AB4D6' }} />
+                  <div className="lb-team-indicator" style={{ background: ['green','Gaylords'].includes(p.team) ? '#6BBF7F' : '#8AB4D6' }} />
                   <div className="lb-pos">{i === 0 && tot > 0 ? '👑' : i + 1}</div>
                   {movement !== 0 && <div style={{ fontSize: 10, color: movement > 0 ? 'var(--green)' : 'var(--coral)', minWidth: 14 }}>{movement > 0 ? '▲' : '▼'}</div>}
                   <Av p={p} size={38} />
@@ -5937,14 +5980,14 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           {['green', 'blue'].map(team => {
             const tot = teamTotal(team)
             const tp = activePlayers.filter(p => p.team === team)
-            const c = team === 'green' ? '#6BBF7F' : '#8AB4D6'
-            const otherTotal = teamTotal(team === 'green' ? 'blue' : 'green')
+            const c = ['green','Gaylords'].includes(team) ? '#6BBF7F' : '#8AB4D6'
+            const otherTotal = teamTotal(['green','Gaylords'].includes(team) ? 'blue' : 'green')
             const diff = tot - otherTotal
             return (
-              <div key={team} className={`team-card ${team === 'green' ? 'team-green-bg' : 'team-blue-bg'}`}>
+              <div key={team} className={`team-card ${['green','Gaylords'].includes(team) ? 'team-green-bg' : 'team-blue-bg'}`}>
                 <div className="team-header">
                   <div>
-                    <div className="team-title" style={{ color: c }}>{team === 'green' ? 'Gaylords' : 'Stjärtmesarna'}</div>
+                    <div className="team-title" style={{ color: c }}>{['green','Gaylords'].includes(team) ? 'Gaylords' : 'Stjärtmesarna'}</div>
                     {diff !== 0 && tot > 0 && <div style={{ fontSize: 11, color: diff > 0 ? c : 'var(--cream-muted)' }}>{diff > 0 ? `+${diff} ledning` : `${diff}`}</div>}
                   </div>
                   <div className="team-total" style={{ color: c }}>{tot || '-'}</div>
@@ -6425,8 +6468,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <div key={p.id} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--card-border)' }}>
               <Av p={p} size={40} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>{p.name} <span style={{ fontSize: 11, color: p.team === 'green' ? 'var(--green)' : 'var(--blue)', fontFamily: 'var(--mono)' }}>{p.hcp}</span></div>
-                <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>{p.nickname} · {p.team === 'green' ? 'Gaylords' : 'Stjärtmesarna'}</div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>{p.name} <span style={{ fontSize: 11, color: ['green','Gaylords'].includes(p.team) ? 'var(--green)' : 'var(--blue)', fontFamily: 'var(--mono)' }}>{p.hcp}</span></div>
+                <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>{p.nickname} · {['green','Gaylords'].includes(p.team) ? 'Gaylords' : 'Stjärtmesarna'}</div>
                 <div style={{ fontSize: 11, color: 'var(--cream-dim)', fontStyle: 'italic', marginTop: 2 }}>"{getRandomRoast(p.key)}"</div>
               </div>
             </div>
@@ -7240,7 +7283,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <Av p={user} size={80} />
             <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--gold)', marginTop: 8 }}>{user.nickname}</div>
             <div style={{ fontSize: 12, color: 'var(--cream-muted)' }}>{user.name}</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)', marginTop: 4 }}>HCP {user.hcp} · {user.team === 'green' ? '🟢 Gaylords' : '🔵 Stjärtmesarna'}</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)', marginTop: 4 }}>HCP {user.hcp} · {['green','Gaylords'].includes(user.team) ? '🟢 Gaylords' : '🔵 Stjärtmesarna'}</div>
           </div>
 
           {/* HCP-påminnelse om >21 dagar sedan senaste update */}
