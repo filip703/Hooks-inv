@@ -6452,8 +6452,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               { k: 'GREEN JACKET', v: 'Stableford 72 hål. Fullt hcp.', c: 'var(--gold)' },
               { k: 'TEAM BATTLE', v: '2 bästa/runda. 2x poäng hål 16-18.', c: 'var(--green)' },
               { k: 'DAILY LOSER', v: 'Sämst per runda köper runda.', c: 'var(--coral)' },
-              { k: 'HOT HAND', v: '3 birdies i rad = +2 bonus.', c: 'var(--green)' },
-              { k: 'COLD TURKEY', v: '3 nollor i rad = -1 poäng.', c: 'var(--coral)' },
+              { k: 'HOT HAND', v: '2 birdies i rad = +2 bonus.', c: 'var(--green)' },
+              { k: 'COLD TURKEY', v: '2 nollor i rad = -1 poäng.', c: 'var(--coral)' },
               { k: 'ROOKIE RULE', v: 'Martin capped på 36 hcp.', c: 'var(--cream-muted)' },
               { k: 'NOLLPOÄNGAREN', v: 'Hatt + tacktal + runda nästa år.', c: 'var(--coral)' },
             ].map((r, i) => (
