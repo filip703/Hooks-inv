@@ -302,6 +302,13 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [showEventResultModal, setShowEventResultModal] = useState(null)
   const [eventResultDraft, setEventResultDraft] = useState({})
   const [showEndRoundModal, setShowEndRoundModal] = useState(false)
+  const [showMorningPopup, setShowMorningPopup] = useState(() => {
+    // Visa morgonbriefing en gång per dag under DIO-veckan (22-24 maj)
+    const today = new Date().toDateString()
+    const seen = localStorage.getItem('dio_morning_' + today)
+    const d = new Date().getDate()
+    return !seen && d >= 22 && d <= 24
+  })
   const [ldNpModal, setLdNpModal] = useState(null) // { type: 'ld'|'np', hole: number }
   const [pendingScore, setPendingScore] = useState({}) // { [playerId_hole]: strokes }
   const [tabyTeams, setTabyTeams] = useState([])
@@ -4262,6 +4269,67 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       })()}
 
       {/* ======================================== */}
+      {/* MORNING BRIEFING POPUP                    */}
+      {/* ======================================== */}
+      {showMorningPopup && (() => {
+        const d = new Date().getDate()
+        const briefings = {
+          22: {
+            title: 'God morgon, gentlemen 🏌️',
+            sub: 'Dag 1 · Torsdag 22 maj',
+            items: ['Incheckning & uppvärmning', 'Runda 1 — kl 09:00 (check admin)', 'Boll A: Filip · Matthis · Marcus', 'Boll B: Martin · Magnus · Fredrik', 'Middag + Even Steven-start ikväll'],
+            quote: 'Välkommen till Hooks Herrgård. Bucklan väntar. Skulden likaså.',
+            color: '#4ADE80',
+          },
+          23: {
+            title: 'Dag 2. Fortfarande i spel?',
+            sub: 'Fredag 23 maj',
+            items: ['Runda 2 + Runda 3', 'Bollindelning byts — kolla INFO', 'LD och NP avgörs idag', 'Even Steven uppdateras automatiskt', 'Betting: alla bets räknas fortfarande'],
+            quote: 'Halva turneringen spelad. Du vet redan hur det slutar. Ändå fortsätter du.',
+            color: '#D4AF37',
+          },
+          24: {
+            title: 'Sista dagen. Nu eller aldrig.',
+            sub: 'Lördag 24 maj · Avgörande',
+            items: ['Runda 4 — Resultatbaserad gruppering', 'Prisutdelning efter sista putten', 'Even Steven görs upp IDAG', 'Le Douche de Golf utses', 'Hemresa — tider kollas lokalt'],
+            quote: 'Någon lyfter bucklan. Någon betalar skulden. Alla saknar varandra imorgon.',
+            color: '#E8634A',
+          },
+        }
+        const b = briefings[d]
+        if (!b) return null
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(16px)', zIndex: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 24, maxWidth: 380, width: '100%', border: `1.5px solid ${b.color}33`, boxShadow: `0 0 40px ${b.color}22` }}>
+              {/* Header */}
+              <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: b.color, letterSpacing: 2, marginBottom: 8 }}>{b.sub.toUpperCase()}</div>
+                <div style={{ fontFamily: 'var(--serif)', fontSize: 24, color: 'var(--cream)', marginBottom: 4 }}>{b.title}</div>
+                <div style={{ fontSize: 12, color: 'var(--cream-muted)', fontStyle: 'italic', lineHeight: 1.5 }}>"{b.quote}"</div>
+              </div>
+              {/* Items */}
+              <div style={{ marginBottom: 20 }}>
+                {b.items.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: i < b.items.length - 1 ? '0.5px solid var(--card-border)' : 'none' }}>
+                    <div style={{ color: b.color, fontFamily: 'var(--mono)', fontSize: 12, flexShrink: 0 }}>{i + 1}.</div>
+                    <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.4 }}>{item}</div>
+                  </div>
+                ))}
+              </div>
+              {/* CTA */}
+              <button onClick={() => {
+                localStorage.setItem('dio_morning_' + new Date().toDateString(), '1')
+                setShowMorningPopup(false)
+              }} style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: `linear-gradient(135deg, ${b.color}, ${b.color}cc)`, color: '#0A0A08', fontSize: 16, fontWeight: 900, cursor: 'pointer', letterSpacing: 0.3 }}>
+                Le Douche de Golf 🏆
+              </button>
+              <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--cream-muted)', marginTop: 8, fontFamily: 'var(--mono)' }}>EST. 2021 · HOOKS HERRGÅRD</div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ======================================== */}
       {/* AVSLUTA RUNDA MODAL                       */}
       {/* ======================================== */}
       {showEndRoundModal && newRound && (
@@ -6068,8 +6136,131 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         {/* ===== INFO ===== */}
         {view === 'info' && (<>
           <div className="section-title">Douche Invitational Only 2026</div>
-          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 16, marginBottom: 16, textAlign: 'center' }}>
-            <div style={{ fontSize: 13, color: 'var(--cream-dim)', fontStyle: 'italic', lineHeight: 1.6 }}>"{pep}"</div>
+
+          {/* HYPE QUOTE — roterande per dag */}
+          {(() => {
+            const dayQuotes = [
+              { day: 22, msg: "Välkommen till Hooks Herrgård. Någon av er lämnar med bucklan. Resten lämnar med skulder.", sub: "Le Douche de Golf · EST. 2021" },
+              { day: 23, msg: "Dag 2. Halva turneringen bakom dig. Du vet redan hur det går. Ändå spelar du vidare.", sub: "Respekt. Eller dumhet. Svårt att säga." },
+              { day: 24, msg: "Sista dagen. Allt avgörs. Någon lyfter bucklan. Någon betalar skulden. Alla saknar varandra imorgon.", sub: "Le Douche de Golf 2026" },
+            ]
+            const today = new Date().getDate()
+            const q = dayQuotes.find(d => d.day === today) || { msg: pep, sub: "Le Douche de Golf · EST. 2021" }
+            return (
+              <div style={{ background: 'linear-gradient(135deg, var(--surface), rgba(212,175,55,0.05))', borderRadius: 14, padding: 18, marginBottom: 16, textAlign: 'center', border: '0.5px solid rgba(212,175,55,0.15)' }}>
+                <div style={{ fontSize: 22, marginBottom: 8 }}>🏆</div>
+                <div style={{ fontSize: 14, color: 'var(--cream)', fontStyle: 'italic', lineHeight: 1.6, fontFamily: 'var(--serif)' }}>"{q.msg}"</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 2, marginTop: 10 }}>{q.sub}</div>
+              </div>
+            )
+          })()}
+
+          {/* 📋 PRAKTISK INFO */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10 }}>📋 PRAKTISK INFO</div>
+
+          {/* Schema */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 12, border: '0.5px solid var(--card-border)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 12 }}>📅 SCHEMA</div>
+            {[
+              { dag: 'Torsdag 22 maj', emoji: '🚗', items: ['Ankomst & incheckning', 'Runda 1 — Boll A + B', 'Middag & start Even Steven', 'Natt: Rum 1=Marcus+Fredrik / Rum 2=Magnus+Filip / Rum 3=Martin+Matthis 🥰'] },
+              { dag: 'Fredag 23 maj', emoji: '⛳', items: ['Frukost 08:00', 'Runda 2 — Boll byts', 'Runda 3 — Boll byts igen', 'Middag & betting-uppgörelse'] },
+              { dag: 'Lördag 24 maj', emoji: '🏆', items: ['Frukost 08:00', 'Runda 4 — Resultatbaserad gruppering', 'Prisutdelning & settlement', 'Le Douche de Golf utses'] },
+            ].map(({ dag, emoji, items }) => (
+              <div key={dag} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, color: 'var(--cream)', fontWeight: 600, marginBottom: 6 }}>{emoji} {dag}</div>
+                {items.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', flexShrink: 0 }}>·</div>
+                    <div style={{ fontSize: 12, color: 'var(--cream-dim)', lineHeight: 1.4 }}>{item}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {/* Bollindelning */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 12, border: '0.5px solid var(--card-border)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 12 }}>⛳ BOLLINDELNING</div>
+            {[
+              { runda: 'R1 + R2 (Dag 1)', bollar: [['Filip', 'Matthis', 'Marcus'], ['Martin', 'Magnus', 'Fredrik']] },
+              { runda: 'R3 (Dag 2)', bollar: [['Martin', 'Marcus', 'Fredrik'], ['Filip', 'Matthis', 'Magnus']] },
+              { runda: 'R4 (Dag 2/3)', bollar: [['Magnus', 'Marcus', 'Filip'], ['Fredrik', 'Matthis', 'Martin']] },
+              { runda: 'Runda 4 (Dag 3)', bollar: [['Top 3', 'Baserat på ställning']] },
+            ].map(({ runda, bollar }) => (
+              <div key={runda} style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--cream)', fontWeight: 600, marginBottom: 6, fontFamily: 'var(--mono)' }}>{runda}</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {bollar.map((boll, i) => (
+                    <div key={i} style={{ flex: 1, background: 'rgba(147,197,253,0.05)', borderRadius: 8, padding: '8px 10px', border: '0.5px solid rgba(147,197,253,0.1)' }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'var(--cream-muted)', letterSpacing: 1, marginBottom: 4 }}>BOLL {i + 1}</div>
+                      {boll.map(name => <div key={name} style={{ fontSize: 11, color: 'var(--cream-dim)' }}>{name}</div>)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Rumsfördelning */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 12, border: '0.5px solid var(--card-border)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 12 }}>🛏️ RUMSFÖRDELNING</div>
+            {[
+              { rum: 'Rum 1', spelare: 'Marcus & Fredrik', emoji: '🤝', kommentar: 'The Spreadsheet möter The Fossil. Sova tidigt.' },
+              { rum: 'Rum 2', spelare: 'Magnus & Filip', emoji: '🏌️', kommentar: 'Storebror och Mr Vain. Analysmöten nattetid.' },
+              { rum: 'Rum 3', spelare: 'Martin & Matthis', emoji: '😅', kommentar: '"ÄLSKAT!" — Filip H. Lycka till Martin.' },
+            ].map(({ rum, spelare, emoji, kommentar }) => (
+              <div key={rum} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: rum !== 'Rum 3' ? '0.5px solid var(--card-border)' : 'none' }}>
+                <div style={{ fontSize: 20, flexShrink: 0 }}>{emoji}</div>
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--cream)', fontWeight: 600 }}>{rum}: {spelare}</div>
+                  <div style={{ fontSize: 11, color: 'var(--cream-muted)', fontStyle: 'italic', marginTop: 2 }}>{kommentar}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Packlista */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 16, border: '0.5px solid var(--card-border)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 12 }}>🎒 PACKLISTA</div>
+            {[
+              { kat: 'Golf (obligatorisk)', items: ['Golfbag + klubbor', 'Golfskor (2 par — en torr dag för Matthis)', 'Golfhandskar (minst 2)', 'Bollar (minst 2 dussin — du vet varför)', 'Tees, pitch-reparation, scorecard-penna'] },
+              { kat: 'Kläder', items: ['Golfkläder 3-4 dagar', 'Regnkläder (detta är Småland)', 'Casual kläder kvällar', 'Skor för kvällarna'] },
+              { kat: 'Övrigt', items: ['Laddare + powerbank', 'Solkräm (optimistiskt)', 'Kontanter + Swish (Even Steven)', 'ID-handling', 'Gott humör (Martin — ta din)'] },
+            ].map(({ kat, items }) => (
+              <div key={kat} style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--cream)', fontWeight: 600, marginBottom: 6 }}>{kat}</div>
+                {items.map(item => (
+                  <div key={item} style={{ display: 'flex', gap: 8, marginBottom: 3, alignItems: 'flex-start' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--green)', flexShrink: 0, marginTop: 1 }}>✓</div>
+                    <div style={{ fontSize: 11, color: 'var(--cream-dim)' }}>{item}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10 }}>🔥 HYPE</div>
+
+          {/* Hype: player roast cards */}
+          <div style={{ marginBottom: 16 }}>
+            {activePlayers.map(p => {
+              const roast = getRandomRoast(p.key)
+              const totalPts = pTotal(p.id)
+              const pos = lb.findIndex(x => x.id === p.id) + 1
+              return (
+                <div key={p.id} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: '0.5px solid var(--card-border)', alignItems: 'center' }}>
+                  <Av p={p} size={36} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                      <span style={{ fontSize: 13, color: 'var(--cream)', fontWeight: 500 }}>{p.nickname}</span>
+                      {pos > 0 && <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: pos === 1 ? 'var(--gold)' : 'var(--cream-muted)' }}>#{pos}</span>}
+                      {totalPts > 0 && <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--green)' }}>{totalPts}p</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--cream-muted)', fontStyle: 'italic', marginTop: 2, lineHeight: 1.4 }}>"{roast}"</div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           {/* 🏆 PRISUTDELNING */}
