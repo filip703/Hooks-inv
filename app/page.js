@@ -4276,7 +4276,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         const briefings = {
           22: {
             title: 'God morgon. Det börjar nu. 🏌️',
-            sub: 'Dag 1 · Torsdag 22 maj · Skogsbanan',
+            sub: 'Dag 1 · Fredag 22 maj · Skogsbanan',
             teeOff: '12:15 & 12:24',
             bana: 'Skogsbanan',
             runda: 'Runda 1',
@@ -4288,7 +4288,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           },
           23: {
             title: 'Dag 2. Fortfarande i spel? 🔥',
-            sub: 'Fredag 23 maj · Parkbanan · Dubbla rundor',
+            sub: 'Lördag 23 maj · Parkbanan · Dubbla rundor',
             bana: 'Parkbanan',
             runda: 'Runda 2 + Runda 3',
             teeOff: 'R2: 08:30 & 08:39  ·  R3: 14:12 & 14:21',
@@ -4300,7 +4300,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           },
           24: {
             title: 'Sista dagen. Nu eller aldrig. 🏆',
-            sub: 'Lördag 24 maj · Parkbanan · Avgörande',
+            sub: 'Söndag 24 maj · Parkbanan · Avgörande',
             bana: 'Parkbanan',
             runda: 'Runda 4 — Resultatbaserad',
             teeOff: '11:30 & 11:39',
@@ -6177,65 +6177,222 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
         {/* ===== INFO ===== */}
         {view === 'info' && (<>
-          <div className="section-title">Douche Invitational Only 2026</div>
+          {/* ══════════════════════════════════════════ */}
+          {/* INFO PAGE — ALLT PÅ EN SIDA               */}
+          {/* ══════════════════════════════════════════ */}
 
-          {/* HYPE QUOTE — roterande per dag */}
+          {/* HYPE QUOTE */}
           {(() => {
             const dayQuotes = [
-              { day: 22, msg: "Välkommen till Hooks Herrgård. Någon av er lämnar med bucklan. Resten lämnar med skulder.", sub: "Le Douche de Golf · EST. 2021" },
-              { day: 23, msg: "Dag 2. Halva turneringen bakom dig. Du vet redan hur det går. Ändå spelar du vidare.", sub: "Respekt. Eller dumhet. Svårt att säga." },
-              { day: 24, msg: "Sista dagen. Allt avgörs. Någon lyfter bucklan. Någon betalar skulden. Alla saknar varandra imorgon.", sub: "Le Douche de Golf 2026" },
+              { day: 22, msg: "Välkommen till Hooks Herrgård. Bucklan väntar. Skulden likaså.", sub: "Le Douche de Golf · EST. 2021" },
+              { day: 23, msg: "Dag 2. Du vet redan hur det slutar. Ändå fortsätter du.", sub: "Respekt. Eller dumhet." },
+              { day: 24, msg: "Sista dagen. Sista chansen. Någon lyfter bucklan.", sub: "Le Douche de Golf 2026" },
             ]
             const today = new Date().getDate()
-            const q = dayQuotes.find(d => d.day === today) || { msg: pep, sub: "Le Douche de Golf · EST. 2021" }
+            const q = dayQuotes.find(d => d.day === today) || { msg: pep, sub: 'Le Douche de Golf · EST. 2021' }
             return (
-              <div style={{ background: 'linear-gradient(135deg, var(--surface), rgba(212,175,55,0.05))', borderRadius: 14, padding: 18, marginBottom: 16, textAlign: 'center', border: '0.5px solid rgba(212,175,55,0.15)' }}>
-                <div style={{ fontSize: 22, marginBottom: 8 }}>🏆</div>
-                <div style={{ fontSize: 14, color: 'var(--cream)', fontStyle: 'italic', lineHeight: 1.6, fontFamily: 'var(--serif)' }}>"{q.msg}"</div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 2, marginTop: 10 }}>{q.sub}</div>
+              <div style={{ background: 'linear-gradient(135deg, var(--surface), rgba(212,175,55,0.05))', borderRadius: 14, padding: 16, marginBottom: 16, textAlign: 'center', border: '0.5px solid rgba(212,175,55,0.15)' }}>
+                <div style={{ fontSize: 20, marginBottom: 6 }}>🏆</div>
+                <div style={{ fontSize: 13, color: 'var(--cream)', fontStyle: 'italic', lineHeight: 1.6, fontFamily: 'var(--serif)' }}>"{q.msg}"</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'var(--gold)', letterSpacing: 2, marginTop: 8 }}>{q.sub}</div>
               </div>
             )
           })()}
 
-          {/* 📋 PRAKTISK INFO */}
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10 }}>📋 PRAKTISK INFO</div>
-
-          {/* Schema */}
-          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 12, border: '0.5px solid var(--card-border)' }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 12 }}>📅 SCHEMA</div>
+          {/* ── SCHEMA ── */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 8 }}>📅 SCHEMA</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', marginBottom: 14, border: '0.5px solid var(--card-border)' }}>
             {[
-              { dag: 'Torsdag 22 maj', emoji: '🚗', items: ['Ankomst & incheckning', 'R1 Skogsbanan — Tee-off 12:15 (Boll 1) & 12:24 (Boll 2)', 'Middag & start Even Steven', 'Natt: Rum 1=Marcus+Fredrik / Rum 2=Magnus+Filip / Rum 3=Martin+Matthis 🥰'] },
-              { dag: 'Fredag 23 maj', emoji: '⛳', items: ['R2 Parkbanan — Tee-off 08:30 & 08:39', 'R3 Parkbanan — Tee-off 14:12 & 14:21 (extra greenfee)', 'Middag & betting-uppgörelse'] },
-              { dag: 'Lördag 24 maj', emoji: '🏆', items: ['R4 Parkbanan — Tee-off 11:30 & 11:39 (extra greenfee)', 'Prisutdelning & Even Steven-settlement', 'Le Douche de Golf utses — Grinder kommer inte vinna'] },
-            ].map(({ dag, emoji, items }) => (
-              <div key={dag} style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 12, color: 'var(--cream)', fontWeight: 600, marginBottom: 6 }}>{emoji} {dag}</div>
+              { dag: 'Fredag 22 maj', emoji: '🚗', color: '#4ADE80', items: [
+                '🏨 Ankomst & incheckning (från 15:00)',
+                '⛳ R1 Skogsbanan — Tee-off 12:15 & 12:24',
+                '🍽️ Middag 18:00–21:00 — boka bord vid ankomst',
+                '💰 Even Steven startar',
+                '🛏️ Rum 1: Marcus+Fredrik · Rum 2: Magnus+Filip · Rum 3: Martin+Matthis 🥰',
+              ]},
+              { dag: 'Lördag 23 maj', emoji: '⛳', color: '#D4AF37', items: [
+                '🍳 Frukost 07:00–10:30',
+                '⛳ R2 Parkbanan — Tee-off 08:30 & 08:39',
+                '🍽️ Lunch Bistron 11:30–14:00',
+                '⛳ R3 Parkbanan — Tee-off 14:12 & 14:21 ⚠️ extra greenfee',
+                '💰 LD & NP avgörs · Even Steven auto-uppdateras',
+                '🍽️ Middag & betting-uppgörelse',
+              ]},
+              { dag: 'Söndag 24 maj', emoji: '🏆', color: '#E8634A', items: [
+                '🍳 Frukost 07:00–10:30',
+                '⛳ R4 Parkbanan — Tee-off 11:30 & 11:39 ⚠️ extra greenfee',
+                '🏆 Prisutdelning & Le Douche de Golf utses',
+                '💰 Even Steven görs upp helt',
+                '🏨 Utcheckning senast 11:00',
+              ]},
+            ].map(({ dag, emoji, color, items }) => (
+              <div key={dag} style={{ borderBottom: '0.5px solid var(--card-border)', padding: '12px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div style={{ fontSize: 18 }}>{emoji}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color }}>🗓️ {dag}</div>
+                </div>
                 {items.map((item, i) => (
                   <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', flexShrink: 0 }}>·</div>
-                    <div style={{ fontSize: 12, color: 'var(--cream-dim)', lineHeight: 1.4 }}>{item}</div>
+                    <div style={{ width: 4, height: 4, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 7 }} />
+                    <div style={{ fontSize: 12, color: item.includes('⚠️') ? '#E8634A' : 'var(--cream-dim)', lineHeight: 1.5 }}>{item}</div>
                   </div>
                 ))}
               </div>
             ))}
           </div>
 
-          {/* Bollindelning */}
-          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 12, border: '0.5px solid var(--card-border)' }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 12 }}>⛳ BOLLINDELNING</div>
+          {/* ── BOLLINDELNING ── */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 8 }}>⛳ BOLLINDELNING</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', marginBottom: 14, border: '0.5px solid var(--card-border)' }}>
             {[
-              { runda: 'R1 — 22/5 Skog 12:15/12:24', bollar: [['Filip', 'Matthis*', 'Marcus'], ['Martin', 'Magnus', 'Fredrik']] },
-              { runda: 'R2 — 23/5 Park 08:30/08:39', bollar: [['Martin', 'Marcus', 'Fredrik'], ['Filip', 'Matthis*', 'Magnus']] },
-              { runda: 'R3 — 23/5 Park 14:12/14:21', bollar: [['Magnus', 'Marcus', 'Filip'], ['Fredrik', 'Matthis*', 'Martin']] },
-              { runda: 'R4 — 24/5 Park 11:30/11:39', bollar: [['Top 3 (resultat)', 'Bottom 3 (slit)'], ['', '']] },
+              { runda: 'R1 · Fre 22/5 · Skog 12:15/12:24', bollar: [['Filip','Matthis*','Marcus'],['Martin','Magnus','Fredrik']] },
+              { runda: 'R2 · Lör 23/5 · Park 08:30/08:39', bollar: [['Martin','Marcus','Fredrik'],['Filip','Matthis*','Magnus']] },
+              { runda: 'R3 · Lör 23/5 · Park 14:12/14:21', bollar: [['Magnus','Marcus','Filip'],['Fredrik','Matthis*','Martin']] },
+              { runda: 'R4 · Sön 24/5 · Park 11:30/11:39', bollar: [['Top 3 (resultat)'],['Bottom 3 (slit)']] },
             ].map(({ runda, bollar }) => (
-              <div key={runda} style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 11, color: 'var(--cream)', fontWeight: 600, marginBottom: 6, fontFamily: 'var(--mono)' }}>{runda}</div>
+              <div key={runda} style={{ padding: '10px 14px', borderBottom: '0.5px solid var(--card-border)' }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1, marginBottom: 6 }}>{runda}</div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  {bollar.map((boll, i) => (
-                    <div key={i} style={{ flex: 1, background: 'rgba(147,197,253,0.05)', borderRadius: 8, padding: '8px 10px', border: '0.5px solid rgba(147,197,253,0.1)' }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'var(--cream-muted)', letterSpacing: 1, marginBottom: 4 }}>BOLL {i + 1}</div>
-                      {boll.map(name => <div key={name} style={{ fontSize: 11, color: 'var(--cream-dim)' }}>{name}</div>)}
+                  {bollar.map((boll, bi) => (
+                    <div key={bi} style={{ flex: 1, background: 'rgba(147,197,253,0.04)', borderRadius: 8, padding: '6px 10px', border: '0.5px solid var(--card-border)' }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'var(--cream-muted)', letterSpacing: 1, marginBottom: 3 }}>BOLL {bi+1}</div>
+                      {boll.map(n => <div key={n} style={{ fontSize: 11, color: n.includes('*') ? '#E8634A' : 'var(--cream-dim)', lineHeight: 1.5 }}>{n}</div>)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div style={{ padding: '8px 14px' }}>
+              <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontStyle: 'italic' }}>* Matthis markerad för smidig ansvarsutkrävning</div>
+            </div>
+          </div>
+
+          {/* ── RUMSFÖRDELNING ── */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 8 }}>🛏️ RUMSFÖRDELNING</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', marginBottom: 14, border: '0.5px solid var(--card-border)' }}>
+            {[
+              { rum: 'Rum 1', spelare: 'Marcus & Fredrik', emoji: '🤝', komm: 'The Spreadsheet möter The Fossil. Sova tidigt.' },
+              { rum: 'Rum 2', spelare: 'Magnus & Filip', emoji: '🏌️', komm: 'Storebror + Mr Vain. Analysmöten nattetid.' },
+              { rum: 'Rum 3', spelare: 'Martin & Matthis', emoji: '😅', komm: '"ÄLSKAT!" — Filip H. Martin, vi ber för dig.' },
+            ].map(({ rum, spelare, emoji, komm }, i) => (
+              <div key={rum} style={{ display: 'flex', gap: 10, padding: '10px 14px', borderBottom: i < 2 ? '0.5px solid var(--card-border)' : 'none', alignItems: 'flex-start' }}>
+                <div style={{ fontSize: 22, flexShrink: 0 }}>{emoji}</div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--cream)' }}>{rum}: {spelare}</div>
+                  <div style={{ fontSize: 11, color: 'var(--cream-muted)', fontStyle: 'italic', marginTop: 2 }}>{komm}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── TÄVLINGSREGLER ── */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 8 }}>🏆 TÄVLINGSREGLER</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', marginBottom: 14, border: '0.5px solid var(--card-border)' }}>
+            {[
+              { title: 'Le Douche de Golf (individuellt)', icon: '🏆', color: '#D4AF37', items: ['72 hål stableford netto', 'Fullt HCP, slope-justerat per bana', 'Rookie Rule: Martin capped HCP 36', 'The Grinder vann 2025 — han har nämnt det 400 gånger'] },
+              { title: 'LIV Team Battle — Gaylords vs Stjärtmesarna', icon: '⚔️', color: '#4ADE80', items: ['2 bästa av 3 spelares poäng per runda räknas', 'Hål 16–18 = DUBBLA POÄNG ⚡'] },
+              { title: 'Daily Loser', icon: '🍺', color: '#E8634A', items: ['Sämst stableford per runda', 'Köper kvällens första dryck — inga undantag'] },
+              { title: 'Streak-bonusar', icon: '🔥', color: '#F59E0B', items: ['Hot Hand: 2 birdies i rad = +2 bonus', 'Cold Turkey: 2 nollor i rad = −1'] },
+              { title: 'Sidotävlingar', icon: '🎯', color: '#93C5FD', items: ['LD: Längst drive på fairway', 'NP: Närmast pin från tee (par 3)', 'Belopp sätts i admin inför varje runda'] },
+            ].map(({ title, icon, color, items }, i) => (
+              <div key={title} style={{ padding: '10px 14px', borderBottom: i < 4 ? '0.5px solid var(--card-border)' : 'none' }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 14 }}>{icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color }}>{title}</span>
+                </div>
+                {items.map((item, j) => (
+                  <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
+                    <div style={{ width: 4, height: 4, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 7 }} />
+                    <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.5 }}>{item}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {/* ── BETTING ── */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 8 }}>💰 BETTING — ALLT ÄR BETTINGBART</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', marginBottom: 14, border: '0.5px solid var(--card-border)' }}>
+            {[
+              { icon: '🏌️', type: 'Longest Drive (LD)', desc: 'Markerat hål. Längst drive på fairway. Vinnaren väljs i appen → Even Steven auto.', badge: 'AUTO' },
+              { icon: '🎯', type: 'Närmast Pin (NP)', desc: 'Par 3-hål. Närmast flaggan från tee. Auto → Even Steven.', badge: 'AUTO' },
+              { icon: '⚔️', type: 'H2H — Head to Head', desc: 'Utmana direkt. Välj spelare + runda + belopp. Bäst stableford vinner.', badge: 'MANUELL' },
+              { icon: '💣', type: 'Bounty Board', desc: 'Utmana på ett specifikt hål. 50/100/200/500 kr. Chat-accept.', badge: 'LIVE' },
+              { icon: '🎰', type: 'Odds Betting', desc: 'Admin sätter odds. Alla bettar. Auto-payout vid resultat.', badge: 'ODDS' },
+              { icon: '📋', type: 'Prop Bets', desc: `"Matthis gnäller på hål 1" / "Five o'Clock trillar av bilen" — guaranteed wins.`, badge: 'EGET' },
+            ].map(({ icon, type, desc, badge }, i) => (
+              <div key={type} style={{ display: 'flex', gap: 10, padding: '10px 14px', borderBottom: i < 5 ? '0.5px solid var(--card-border)' : 'none', alignItems: 'flex-start' }}>
+                <div style={{ fontSize: 18, flexShrink: 0, lineHeight: 1.3 }}>{icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 3 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--cream)' }}>{type}</span>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'var(--gold)', background: 'rgba(212,175,55,0.12)', padding: '1px 5px', borderRadius: 3 }}>{badge}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--cream-muted)', lineHeight: 1.5 }}>{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── HOOKS HERRGÅRD ── */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 8 }}>🏰 HOOKS HERRGÅRD</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', marginBottom: 14, border: '0.5px solid var(--card-border)' }}>
+            {/* Tider */}
+            <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--card-border)', background: 'rgba(212,175,55,0.04)' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 10 }}>🕐 TIDER ATT HÅLLA</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {[
+                  ['🔑','Incheckning','från 15:00'],
+                  ['🚪','Utcheckning','senast 11:00'],
+                  ['🍳','Frukost (helg)','07:00–10:30'],
+                  ['🍽️','Middag','18:00–21:00'],
+                  ['🥗','Lunch Bistron','11:30–14:00'],
+                  ['♨️','Spa','09:00–20:00'],
+                  ['📞','Reception','07:00–20:00'],
+                  ['💳','Betalning','Kontantfritt · Swish ok'],
+                ].map(([icon, label, val]) => (
+                  <div key={label} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: 12, flexShrink: 0, lineHeight: 1.4 }}>{icon}</span>
+                    <div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'var(--cream-muted)', letterSpacing: 0.5 }}>{label.toUpperCase()}</div>
+                      <div style={{ fontSize: 12, color: 'var(--cream)', fontWeight: 600, marginTop: 1 }}>{val}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Spa */}
+            <div style={{ padding: '10px 14px', borderBottom: '0.5px solid var(--card-border)' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 6 }}>♨️ SPA 1300 KVM VID HOKASJÖN</div>
+              <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.7 }}>20m pool · Varma & kalla källor · Bastulandskap · Kerstin Florian-behandlingar · Gym fritt för boende · Spaentré 100 kr/pers</div>
+            </div>
+            {/* Mat */}
+            <div style={{ padding: '10px 14px', borderBottom: '0.5px solid var(--card-border)' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 6 }}>🍽️ MAT</div>
+              <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.7 }}>Frukostbuffé: äggröra, bacon, pannkakor, juice, energishot · Trerätters middag med utsikt över Hokasjön · Boka middagstid vid ankomst</div>
+            </div>
+            {/* TV & Nonius */}
+            <div style={{ padding: '10px 14px' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 6 }}>📺 NONIUS TV</div>
+              <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.7 }}>Rummen drivs av <span style={{ color: 'var(--gold)', fontWeight: 600 }}>Nonius</span> — casting från mobilen (AirPlay/Chromecast). SVT1 · TV4 · Kanal 5 · CNN · Bloomberg · Eurosport 1&2 · MTV · Viasat Golf (Bistron)</div>
+            </div>
+          </div>
+
+          {/* ── PACKLISTA ── */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 8 }}>🎒 PACKLISTA</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 14, marginBottom: 14, border: '0.5px solid var(--card-border)' }}>
+            {[
+              { kat: 'Golf', items: ['Golfbag + klubbor','Golfskor (2 par)','Golfhandskar 2+','Bollar (2 dussin — du vet varför)','Tees + pitch-reparation'] },
+              { kat: 'Kläder', items: ['Golfkläder 3 dagar','Regnkläder (Småland)','Casual kläder kvällar'] },
+              { kat: 'Övrigt', items: ['Laddare + powerbank','Kontanter + Swish (Even Steven)','Gott humör — Matthis, ta med extra'] },
+            ].map(({ kat, items }) => (
+              <div key={kat} style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--cream)', marginBottom: 4, fontFamily: 'var(--mono)' }}>{kat}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
+                  {items.map(item => (
+                    <div key={item} style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                      <span style={{ color: 'var(--green)', fontSize: 9 }}>✓</span>
+                      <span style={{ fontSize: 11, color: 'var(--cream-dim)' }}>{item}</span>
                     </div>
                   ))}
                 </div>
@@ -6243,129 +6400,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             ))}
           </div>
 
-          {/* Rumsfördelning */}
-          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 12, border: '0.5px solid var(--card-border)' }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 12 }}>🛏️ RUMSFÖRDELNING</div>
-            {[
-              { rum: 'Rum 1', spelare: 'Marcus & Fredrik', emoji: '🤝', kommentar: 'The Spreadsheet möter The Fossil. Sova tidigt.' },
-              { rum: 'Rum 2', spelare: 'Magnus & Filip', emoji: '🏌️', kommentar: 'Storebror och Mr Vain. Analysmöten nattetid.' },
-              { rum: 'Rum 3', spelare: 'Martin & Matthis', emoji: '😅', kommentar: '"ÄLSKAT!" — Filip H. Lycka till Martin.' },
-            ].map(({ rum, spelare, emoji, kommentar }) => (
-              <div key={rum} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: rum !== 'Rum 3' ? '0.5px solid var(--card-border)' : 'none' }}>
-                <div style={{ fontSize: 20, flexShrink: 0 }}>{emoji}</div>
-                <div>
-                  <div style={{ fontSize: 12, color: 'var(--cream)', fontWeight: 600 }}>{rum}: {spelare}</div>
-                  <div style={{ fontSize: 11, color: 'var(--cream-muted)', fontStyle: 'italic', marginTop: 2 }}>{kommentar}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Packlista */}
-          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 16, border: '0.5px solid var(--card-border)' }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 12 }}>🎒 PACKLISTA</div>
-            {[
-              { kat: 'Golf (obligatorisk)', items: ['Golfbag + klubbor', 'Golfskor (2 par — en torr dag för Matthis)', 'Golfhandskar (minst 2)', 'Bollar (minst 2 dussin — du vet varför)', 'Tees, pitch-reparation, scorecard-penna'] },
-              { kat: 'Kläder', items: ['Golfkläder 3-4 dagar', 'Regnkläder (detta är Småland)', 'Casual kläder kvällar', 'Skor för kvällarna'] },
-              { kat: 'Övrigt', items: ['Laddare + powerbank', 'Solkräm (optimistiskt)', 'Kontanter + Swish (Even Steven)', 'ID-handling', 'Gott humör (Martin — ta din)'] },
-            ].map(({ kat, items }) => (
-              <div key={kat} style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 11, color: 'var(--cream)', fontWeight: 600, marginBottom: 6 }}>{kat}</div>
-                {items.map(item => (
-                  <div key={item} style={{ display: 'flex', gap: 8, marginBottom: 3, alignItems: 'flex-start' }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--green)', flexShrink: 0, marginTop: 1 }}>✓</div>
-                    <div style={{ fontSize: 11, color: 'var(--cream-dim)' }}>{item}</div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-
-          {/* ── HOOKS HERRGÅRD INFO ── */}
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10, marginTop: 8 }}>🏰 HOOKS HERRGÅRD</div>
-          <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', marginBottom: 16, border: '0.5px solid var(--card-border)' }}>
-
-            {/* Tider-sektion */}
-            <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--card-border)', background: 'rgba(212,175,55,0.05)' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 10 }}>🕐 TIDER ATT HÅLLA</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {[
-                  { label: 'Incheckning', val: 'från 15:00', icon: '🔑' },
-                  { label: 'Utcheckning', val: 'senast 11:00', icon: '🚪' },
-                  { label: 'Frukost vardagar', val: '07:00 – 09:30', icon: '🍳' },
-                  { label: 'Frukost helger', val: '07:00 – 10:30', icon: '🍳' },
-                  { label: 'Middag trerätters', val: '18:00 – 21:00', icon: '🍽️' },
-                  { label: 'Lunch Bistron', val: '11:30 – 14:00', icon: '🥗' },
-                  { label: 'Spa (bemannad)', val: '09:00 – 20:00', icon: '♨️' },
-                  { label: 'Reception', val: '07:00 – 20:00', icon: '📞' },
-                ].map(({ label, val, icon }) => (
-                  <div key={label} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: 12, flexShrink: 0, lineHeight: 1.3 }}>{icon}</span>
-                    <div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'var(--cream-muted)', letterSpacing: 0.5 }}>{label.toUpperCase()}</div>
-                      <div style={{ fontSize: 12, color: 'var(--cream)', fontWeight: 600, marginTop: 1 }}>{val}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Spa */}
-            <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--card-border)' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 8 }}>♨️ SPA — 1300 KVM VID HOKASJÖN</div>
-              {[
-                '20m swimmingpool längs sjökanten',
-                'Varma & kalla källor, bastulandskap',
-                'Upplevelseduschar, kneipp & fotbad',
-                'Behandlingar: massage, ansikts, kropp (Kerstin Florian)',
-                'Gym & yogasal — fritt för boende',
-                'Spaentré för boende: 100 kr/pers/dag',
-                'Åldersgräns 15 år — dvs inte Plus One om han beter sig som ett barn',
-              ].map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 5 }}>
-                  <span style={{ color: 'var(--gold)', fontSize: 10, flexShrink: 0, lineHeight: 1.6 }}>·</span>
-                  <span style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.5 }}>{item}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Restaurang */}
-            <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--card-border)' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 8 }}>🍽️ MAT & DRYCK</div>
-              {[
-                'Frukostbuffé: äggröra, bacon, pannkakor, yoghurt, müsli, juice, energishot',
-                'Trerätters middag 18:00–21:00 — boka tid när ni ankommer',
-                'Bistron: lunch under golfsäsongen, Viasat Golf på TV',
-                'Råvaror av hög kvalitet, utsikt över Hokasjön',
-                'Kontantfritt — VISA, Mastercard, AMEX, Swish',
-              ].map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 5 }}>
-                  <span style={{ color: 'var(--gold)', fontSize: 10, flexShrink: 0, lineHeight: 1.6 }}>·</span>
-                  <span style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.5 }}>{item}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Rummet & TV */}
-            <div style={{ padding: '12px 14px' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 8 }}>📺 RUMMET & NONIUS TV</div>
-              <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.6, marginBottom: 8 }}>
-                Rummen drivs av <span style={{ color: 'var(--gold)', fontWeight: 600 }}>Nonius</span> — hospitality entertainment system. Streaming, casting från mobilen och en komplett TV-guide i rummet.
-              </div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', marginBottom: 4 }}>TV-KANALER:</div>
-              <div style={{ fontSize: 10, color: 'var(--cream-muted)', lineHeight: 1.6 }}>
-                SVT1 · SVT2 · SVT24 · TV4 · Kanal 5 · Kanal 9 · CNN · Bloomberg · Eurosport 1&2 · MTV · TV12 · Nickelodeon
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 4 }}>
-                + Casting från din mobil (AirPlay/Chromecast) · WiFi gratis
-              </div>
-            </div>
-
-          </div>
-
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10 }}>🔥 HYPE</div>
-
-          {/* Hype: player roast cards */}
+          {/* ── HYPE ── */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 8 }}>🔥 HYPE</div>
           <div style={{ marginBottom: 16 }}>
             {activePlayers.map(p => {
               const roast = getRandomRoast(p.key)
@@ -6387,7 +6423,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             })}
           </div>
 
-          {/* 🏆 PRISUTDELNING */}
+                    {/* 🏆 PRISUTDELNING */}
           {isAdmin && (
             <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>🏆 PRISUTDELNING</div>
