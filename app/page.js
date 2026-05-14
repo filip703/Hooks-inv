@@ -6281,6 +6281,88 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             ))}
           </div>
 
+          {/* ── HOOKS HERRGÅRD INFO ── */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10, marginTop: 8 }}>🏰 HOOKS HERRGÅRD</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', marginBottom: 16, border: '0.5px solid var(--card-border)' }}>
+
+            {/* Tider-sektion */}
+            <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--card-border)', background: 'rgba(212,175,55,0.05)' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 10 }}>🕐 TIDER ATT HÅLLA</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {[
+                  { label: 'Incheckning', val: 'från 15:00', icon: '🔑' },
+                  { label: 'Utcheckning', val: 'senast 11:00', icon: '🚪' },
+                  { label: 'Frukost vardagar', val: '07:00 – 09:30', icon: '🍳' },
+                  { label: 'Frukost helger', val: '07:00 – 10:30', icon: '🍳' },
+                  { label: 'Middag trerätters', val: '18:00 – 21:00', icon: '🍽️' },
+                  { label: 'Lunch Bistron', val: '11:30 – 14:00', icon: '🥗' },
+                  { label: 'Spa (bemannad)', val: '09:00 – 20:00', icon: '♨️' },
+                  { label: 'Reception', val: '07:00 – 20:00', icon: '📞' },
+                ].map(({ label, val, icon }) => (
+                  <div key={label} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: 12, flexShrink: 0, lineHeight: 1.3 }}>{icon}</span>
+                    <div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'var(--cream-muted)', letterSpacing: 0.5 }}>{label.toUpperCase()}</div>
+                      <div style={{ fontSize: 12, color: 'var(--cream)', fontWeight: 600, marginTop: 1 }}>{val}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Spa */}
+            <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--card-border)' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 8 }}>♨️ SPA — 1300 KVM VID HOKASJÖN</div>
+              {[
+                '20m swimmingpool längs sjökanten',
+                'Varma & kalla källor, bastulandskap',
+                'Upplevelseduschar, kneipp & fotbad',
+                'Behandlingar: massage, ansikts, kropp (Kerstin Florian)',
+                'Gym & yogasal — fritt för boende',
+                'Spaentré för boende: 100 kr/pers/dag',
+                'Åldersgräns 15 år — dvs inte Plus One om han beter sig som ett barn',
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 5 }}>
+                  <span style={{ color: 'var(--gold)', fontSize: 10, flexShrink: 0, lineHeight: 1.6 }}>·</span>
+                  <span style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.5 }}>{item}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Restaurang */}
+            <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--card-border)' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 8 }}>🍽️ MAT & DRYCK</div>
+              {[
+                'Frukostbuffé: äggröra, bacon, pannkakor, yoghurt, müsli, juice, energishot',
+                'Trerätters middag 18:00–21:00 — boka tid när ni ankommer',
+                'Bistron: lunch under golfsäsongen, Viasat Golf på TV',
+                'Råvaror av hög kvalitet, utsikt över Hokasjön',
+                'Kontantfritt — VISA, Mastercard, AMEX, Swish',
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 5 }}>
+                  <span style={{ color: 'var(--gold)', fontSize: 10, flexShrink: 0, lineHeight: 1.6 }}>·</span>
+                  <span style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.5 }}>{item}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Rummet & TV */}
+            <div style={{ padding: '12px 14px' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 8 }}>📺 RUMMET & NONIUS TV</div>
+              <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.6, marginBottom: 8 }}>
+                Rummen drivs av <span style={{ color: 'var(--gold)', fontWeight: 600 }}>Nonius</span> — hospitality entertainment system. Streaming, casting från mobilen och en komplett TV-guide i rummet.
+              </div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', marginBottom: 4 }}>TV-KANALER:</div>
+              <div style={{ fontSize: 10, color: 'var(--cream-muted)', lineHeight: 1.6 }}>
+                SVT1 · SVT2 · SVT24 · TV4 · Kanal 5 · Kanal 9 · CNN · Bloomberg · Eurosport 1&2 · MTV · TV12 · Nickelodeon
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 4 }}>
+                + Casting från din mobil (AirPlay/Chromecast) · WiFi gratis
+              </div>
+            </div>
+
+          </div>
+
           <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10 }}>🔥 HYPE</div>
 
           {/* Hype: player roast cards */}
