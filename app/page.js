@@ -5341,20 +5341,39 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 const imgUrl = holeImages?.[courseName]?.[h.hole]
                 return (
                   <>
-                    {/* Banguide-bild — tryck för modal */}
+                    {/* Banguide-bild — tryck öppnar fullscreen-modal */}
                     {imgUrl && (
-                      <div style={{ marginBottom: 10, borderRadius: 12, overflow: 'hidden', position: 'relative', cursor: 'pointer' }} onClick={() => setGuideHole(h.hole)}>
-                        <img src={imgUrl} alt={`Hål ${h.hole}`} style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.7))', padding: '8px 12px' }}>
-                          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.7)', letterSpacing: 1 }}>BANGUIDE · TRYCK FÖR MER</span>
+                      <div onClick={() => setGuideHole(h.hole)} style={{ marginBottom: 12, borderRadius: 14, overflow: 'hidden', position: 'relative', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
+                        <img src={imgUrl} alt={`Hål ${h.hole}`} style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} />
+                        {/* Overlay gradient */}
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, transparent 40%, rgba(0,0,0,0.75) 100%)' }} />
+                        {/* Top badge */}
+                        <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.6)', borderRadius: 6, padding: '3px 8px', backdropFilter: 'blur(8px)' }}>
+                          <span style={{ fontSize: 9, color: '#D4AF37', fontFamily: 'var(--mono)', fontWeight: 700, letterSpacing: 1 }}>BANGUIDE · {courseName.toUpperCase()}</span>
+                        </div>
+                        {/* Tap hint */}
+                        <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.5)', borderRadius: 6, padding: '3px 8px', backdropFilter: 'blur(8px)' }}>
+                          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.8)', fontFamily: 'var(--mono)' }}>🔍 Tryck för mer</span>
+                        </div>
+                        {/* Bottom info bar */}
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                          <div>
+                            <div style={{ fontSize: 22, fontWeight: 900, color: 'white', fontFamily: 'var(--serif)' }}>Hål {h.hole}</div>
+                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>Par {h.par} · {h.meters}m · Index {h.hcp}</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            {isLD && <div style={{ fontSize: 9, color: '#D4AF37', fontWeight: 700, fontFamily: 'var(--mono)' }}>🏌️ LD</div>}
+                            {isNP && <div style={{ fontSize: 9, color: '#4ADE80', fontWeight: 700, fontFamily: 'var(--mono)' }}>🎯 NP</div>}
+                            {isDouble && <div style={{ fontSize: 9, color: '#E8634A', fontWeight: 700, fontFamily: 'var(--mono)' }}>⚡ 2×</div>}
+                          </div>
                         </div>
                       </div>
                     )}
                     {/* Flyover-video */}
                     {flyUrl && (
-                      <div style={{ marginBottom: 16 }}>
-                        <video src={flyUrl} controls playsInline muted style={{ width: '100%', borderRadius: 12, maxHeight: 180, background: '#000' }} />
-                        <div style={{ fontSize: 10, color: 'var(--cream-muted)', textAlign: 'center', marginTop: 4, fontFamily: 'var(--mono)' }}>3D Flyover · LiveCaddie</div>
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ fontSize: 9, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', letterSpacing: 1, marginBottom: 6, textAlign: 'center' }}>3D FLYOVER · LIVECADDIE</div>
+                        <video src={flyUrl} controls playsInline muted style={{ width: '100%', borderRadius: 12, maxHeight: 180, background: '#000', display: 'block' }} />
                       </div>
                     )}
                   </>
