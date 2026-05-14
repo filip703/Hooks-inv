@@ -5944,7 +5944,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <div key={team} className={`team-card ${team === 'green' ? 'team-green-bg' : 'team-blue-bg'}`}>
                 <div className="team-header">
                   <div>
-                    <div className="team-title" style={{ color: c }}>{team === 'green' ? 'Jägermeister' : 'Fernet'}</div>
+                    <div className="team-title" style={{ color: c }}>{team === 'green' ? 'Gaylords' : 'Stjärtmesarna'}</div>
                     {diff !== 0 && tot > 0 && <div style={{ fontSize: 11, color: diff > 0 ? c : 'var(--cream-muted)' }}>{diff > 0 ? `+${diff} ledning` : `${diff}`}</div>}
                   </div>
                   <div className="team-total" style={{ color: c }}>{tot || '-'}</div>
@@ -6161,9 +6161,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 12, border: '0.5px solid var(--card-border)' }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 12 }}>📅 SCHEMA</div>
             {[
-              { dag: 'Torsdag 22 maj', emoji: '🚗', items: ['Ankomst & incheckning', 'Runda 1 — Boll A + B', 'Middag & start Even Steven', 'Natt: Rum 1=Marcus+Fredrik / Rum 2=Magnus+Filip / Rum 3=Martin+Matthis 🥰'] },
-              { dag: 'Fredag 23 maj', emoji: '⛳', items: ['Frukost 08:00', 'Runda 2 — Boll byts', 'Runda 3 — Boll byts igen', 'Middag & betting-uppgörelse'] },
-              { dag: 'Lördag 24 maj', emoji: '🏆', items: ['Frukost 08:00', 'Runda 4 — Resultatbaserad gruppering', 'Prisutdelning & settlement', 'Le Douche de Golf utses'] },
+              { dag: 'Torsdag 22 maj', emoji: '🚗', items: ['Ankomst & incheckning', 'R1 Skogsbanan — Tee-off 12:15 (Boll 1) & 12:24 (Boll 2)', 'Middag & start Even Steven', 'Natt: Rum 1=Marcus+Fredrik / Rum 2=Magnus+Filip / Rum 3=Martin+Matthis 🥰'] },
+              { dag: 'Fredag 23 maj', emoji: '⛳', items: ['R2 Parkbanan — Tee-off 08:30 & 08:39', 'R3 Parkbanan — Tee-off 14:12 & 14:21 (extra greenfee)', 'Middag & betting-uppgörelse'] },
+              { dag: 'Lördag 24 maj', emoji: '🏆', items: ['R4 Parkbanan — Tee-off 11:30 & 11:39 (extra greenfee)', 'Prisutdelning & Even Steven-settlement', 'Le Douche de Golf utses — Grinder kommer inte vinna'] },
             ].map(({ dag, emoji, items }) => (
               <div key={dag} style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--cream)', fontWeight: 600, marginBottom: 6 }}>{emoji} {dag}</div>
@@ -6181,10 +6181,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 12, border: '0.5px solid var(--card-border)' }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 12 }}>⛳ BOLLINDELNING</div>
             {[
-              { runda: 'R1 + R2 (Dag 1)', bollar: [['Filip', 'Matthis', 'Marcus'], ['Martin', 'Magnus', 'Fredrik']] },
-              { runda: 'R3 (Dag 2)', bollar: [['Martin', 'Marcus', 'Fredrik'], ['Filip', 'Matthis', 'Magnus']] },
-              { runda: 'R4 (Dag 2/3)', bollar: [['Magnus', 'Marcus', 'Filip'], ['Fredrik', 'Matthis', 'Martin']] },
-              { runda: 'Runda 4 (Dag 3)', bollar: [['Top 3', 'Baserat på ställning']] },
+              { runda: 'R1 — 22/5 Skog 12:15/12:24', bollar: [['Filip', 'Matthis*', 'Marcus'], ['Martin', 'Magnus', 'Fredrik']] },
+              { runda: 'R2 — 23/5 Park 08:30/08:39', bollar: [['Martin', 'Marcus', 'Fredrik'], ['Filip', 'Matthis*', 'Magnus']] },
+              { runda: 'R3 — 23/5 Park 14:12/14:21', bollar: [['Magnus', 'Marcus', 'Filip'], ['Fredrik', 'Matthis*', 'Martin']] },
+              { runda: 'R4 — 24/5 Park 11:30/11:39', bollar: [['Top 3 (resultat)', 'Bottom 3 (slit)'], ['', '']] },
             ].map(({ runda, bollar }) => (
               <div key={runda} style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 11, color: 'var(--cream)', fontWeight: 600, marginBottom: 6, fontFamily: 'var(--mono)' }}>{runda}</div>
@@ -6426,7 +6426,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <Av p={p} size={40} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 500 }}>{p.name} <span style={{ fontSize: 11, color: p.team === 'green' ? 'var(--green)' : 'var(--blue)', fontFamily: 'var(--mono)' }}>{p.hcp}</span></div>
-                <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>{p.nickname} · {p.team === 'green' ? 'Jägermeister' : 'Fernet'}</div>
+                <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>{p.nickname} · {p.team === 'green' ? 'Gaylords' : 'Stjärtmesarna'}</div>
                 <div style={{ fontSize: 11, color: 'var(--cream-dim)', fontStyle: 'italic', marginTop: 2 }}>"{getRandomRoast(p.key)}"</div>
               </div>
             </div>
@@ -7240,7 +7240,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <Av p={user} size={80} />
             <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--gold)', marginTop: 8 }}>{user.nickname}</div>
             <div style={{ fontSize: 12, color: 'var(--cream-muted)' }}>{user.name}</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)', marginTop: 4 }}>HCP {user.hcp} · {user.team === 'green' ? '🟢 Jägermeister' : '🔵 Fernet'}</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--cream-muted)', marginTop: 4 }}>HCP {user.hcp} · {user.team === 'green' ? '🟢 Gaylords' : '🔵 Stjärtmesarna'}</div>
           </div>
 
           {/* HCP-påminnelse om >21 dagar sedan senaste update */}
@@ -7676,10 +7676,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   onChange={async (e) => {
                     await supabase.from('inv_players').update({ team: e.target.value }).eq('id', p.id)
                     fetchAll()
-                    showToast(`${p.nickname} → ${e.target.value === 'green' ? 'Jägermeister' : 'Fernet'}`, 'birdie')
+                    showToast(`${p.nickname} → ${e.target.value === 'green' ? 'Gaylords' : 'Stjärtmesarna'}`, 'birdie')
                   }}>
-                  <option value="green">Jägermeister</option>
-                  <option value="blue">Fernet</option>
+                  <option value="green">Gaylords</option>
+                  <option value="blue">Stjärtmesarna</option>
                 </select>
               </div>
             ))}
@@ -7873,7 +7873,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             {/* Menu items */}
             <div style={{ padding: 12 }}>
               {[
-                { key: 'teams', icon: <IconSwords size={16} />, label: 'Lag-battle', desc: 'Jägermeister vs Fernet' },
+                { key: 'teams', icon: <IconSwords size={16} />, label: 'Lag-battle', desc: 'Gaylords vs Stjärtmesarna' },
                 { key: 'inbox', icon: <IconBell size={16} />, label: 'Inkorg', desc: 'Utmaningar & mentions' },
                 { key: 'feed', icon: <IconChat size={16} />, label: 'Chat', desc: 'Trash talk i realtid' },
                 { key: 'expenses', icon: <IconWallet size={16} />, label: 'Even Steven', desc: 'Utgifter & settlement' },
