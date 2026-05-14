@@ -5412,39 +5412,29 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 const extra = getStrokesGiven(getPlayingHcp(scoreForPlayer?.hcp || 0, course?.slope || 130), h.hcp)
                 return (
                   <>
-                    {/* Banguide-kort */}
+                    {/* Banguide-kort — rent info, ingen bild */}
                     <div onClick={() => setGuideHole(h.hole)} style={{ marginBottom: 12, borderRadius: 14, overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)', border: '0.5px solid var(--card-border)' }}>
                       {/* Header */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 14px', background: 'rgba(212,175,55,0.07)', borderBottom: '0.5px solid var(--card-border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(212,175,55,0.07)', borderBottom: '0.5px solid var(--card-border)' }}>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                           <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', fontWeight: 700, letterSpacing: 1.5 }}>BANGUIDE</span>
                           {isLD && <span style={{ fontSize: 8, background: 'rgba(212,175,55,0.18)', color: 'var(--gold)', padding: '2px 5px', borderRadius: 3, fontFamily: 'var(--mono)', fontWeight: 700 }}>LD</span>}
                           {isNP && <span style={{ fontSize: 8, background: 'rgba(74,222,128,0.12)', color: 'var(--green)', padding: '2px 5px', borderRadius: 3, fontFamily: 'var(--mono)', fontWeight: 700 }}>NP</span>}
                           {isDouble && <span style={{ fontSize: 8, background: 'rgba(232,99,74,0.12)', color: 'var(--coral)', padding: '2px 5px', borderRadius: 3, fontFamily: 'var(--mono)', fontWeight: 700 }}>2×</span>}
                         </div>
-                        <span style={{ fontSize: 9, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>Tryck för mer →</span>
+                        <span style={{ fontSize: 9, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>Flyover & tips →</span>
                       </div>
-                      {/* Bild med contain — visar hela hål-grafiken */}
-                      {imgUrl ? (
-                        <div style={{ background: '#071008', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 170, position: 'relative' }}>
-                          <img src={imgUrl} alt={`Hål ${h.hole}`} style={{ maxWidth: '100%', maxHeight: 170, objectFit: 'contain', display: 'block' }} />
-                          <div style={{ position: 'absolute', bottom: 4, right: 8, fontSize: 8, color: 'rgba(255,255,255,0.2)', fontFamily: 'var(--mono)' }}>LiveCaddie · Hooks GK</div>
-                        </div>
-                      ) : (
-                        <div style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>Ingen bild tillgänglig</span>
-                        </div>
-                      )}
-                      {/* Info-strip */}
-                      <div style={{ display: 'flex', borderTop: '0.5px solid var(--card-border)' }}>
+                      {/* Info-strip — fyra nyckeltal */}
+                      <div style={{ display: 'flex' }}>
                         {[['PAR', h.par, 'var(--cream)'], ['METER', h.meters, 'var(--cream)'], ['INDEX', h.hcp, 'var(--cream)'], ['EXTRASLAG', extra > 0 ? `+${extra}` : '–', extra > 0 ? 'var(--green)' : 'var(--cream-muted)']].map(([lbl, val, col], i) => (
-                          <div key={lbl} style={{ flex: 1, textAlign: 'center', padding: '7px 2px', borderRight: i < 3 ? '0.5px solid var(--card-border)' : 'none' }}>
+                          <div key={lbl} style={{ flex: 1, textAlign: 'center', padding: '12px 4px', borderRight: i < 3 ? '0.5px solid var(--card-border)' : 'none' }}>
                             <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'var(--cream-muted)', letterSpacing: 0.8 }}>{lbl}</div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: col, marginTop: 2 }}>{val}</div>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: col, marginTop: 4 }}>{val}</div>
                           </div>
                         ))}
                       </div>
-                      {tip && <div style={{ padding: '7px 12px', fontSize: 10, color: 'var(--cream-muted)', fontStyle: 'italic', lineHeight: 1.4, borderTop: '0.5px solid var(--card-border)' }}>💡 {tip}</div>}
+                      {/* Tips */}
+                      {tip && <div style={{ padding: '8px 14px', fontSize: 11, color: 'var(--cream-muted)', fontStyle: 'italic', lineHeight: 1.5, borderTop: '0.5px solid var(--card-border)' }}>💡 {tip}</div>}
                     </div>
                     {/* Flyover-video */}
                     {flyUrl && (
