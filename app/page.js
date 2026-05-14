@@ -5407,40 +5407,49 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               {(() => {
                 const courseName = course?.name?.includes('Skog') ? 'Skogsbanan' : 'Parkbanan'
                 const imgUrl = holeImages?.[courseName]?.[h.hole]
+                const tip = course?.holes?.find(x => x.hole === h.hole)?.tip
+                const scoreForPlayer = players.find(p => p.id === (adminPid || user?.id))
+                const extra = getStrokesGiven(getPlayingHcp(scoreForPlayer?.hcp || 0, course?.slope || 130), h.hcp)
                 return (
                   <>
-                    {/* Banguide-bild — tryck öppnar fullscreen-modal */}
-                    {imgUrl && (
-                      <div onClick={() => setGuideHole(h.hole)} style={{ marginBottom: 12, borderRadius: 14, overflow: 'hidden', position: 'relative', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
-                        <img src={imgUrl} alt={`Hål ${h.hole}`} style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} />
-                        {/* Overlay gradient */}
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, transparent 40%, rgba(0,0,0,0.75) 100%)' }} />
-                        {/* Top badge */}
-                        <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.6)', borderRadius: 6, padding: '3px 8px', backdropFilter: 'blur(8px)' }}>
-                          <span style={{ fontSize: 9, color: '#D4AF37', fontFamily: 'var(--mono)', fontWeight: 700, letterSpacing: 1 }}>BANGUIDE · {courseName.toUpperCase()}</span>
+                    {/* Banguide-kort */}
+                    <div onClick={() => setGuideHole(h.hole)} style={{ marginBottom: 12, borderRadius: 14, overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)', border: '0.5px solid var(--card-border)' }}>
+                      {/* Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 14px', background: 'rgba(212,175,55,0.07)', borderBottom: '0.5px solid var(--card-border)' }}>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', fontWeight: 700, letterSpacing: 1.5 }}>BANGUIDE</span>
+                          {isLD && <span style={{ fontSize: 8, background: 'rgba(212,175,55,0.18)', color: 'var(--gold)', padding: '2px 5px', borderRadius: 3, fontFamily: 'var(--mono)', fontWeight: 700 }}>LD</span>}
+                          {isNP && <span style={{ fontSize: 8, background: 'rgba(74,222,128,0.12)', color: 'var(--green)', padding: '2px 5px', borderRadius: 3, fontFamily: 'var(--mono)', fontWeight: 700 }}>NP</span>}
+                          {isDouble && <span style={{ fontSize: 8, background: 'rgba(232,99,74,0.12)', color: 'var(--coral)', padding: '2px 5px', borderRadius: 3, fontFamily: 'var(--mono)', fontWeight: 700 }}>2×</span>}
                         </div>
-                        {/* Tap hint */}
-                        <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.5)', borderRadius: 6, padding: '3px 8px', backdropFilter: 'blur(8px)' }}>
-                          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.8)', fontFamily: 'var(--mono)' }}>🔍 Tryck för mer</span>
-                        </div>
-                        {/* Bottom info bar */}
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                          <div>
-                            <div style={{ fontSize: 22, fontWeight: 900, color: 'white', fontFamily: 'var(--serif)' }}>Hål {h.hole}</div>
-                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>Par {h.par} · {h.meters}m · Index {h.hcp}</div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            {isLD && <div style={{ fontSize: 9, color: '#D4AF37', fontWeight: 700, fontFamily: 'var(--mono)' }}>🏌️ LD</div>}
-                            {isNP && <div style={{ fontSize: 9, color: '#4ADE80', fontWeight: 700, fontFamily: 'var(--mono)' }}>🎯 NP</div>}
-                            {isDouble && <div style={{ fontSize: 9, color: '#E8634A', fontWeight: 700, fontFamily: 'var(--mono)' }}>⚡ 2×</div>}
-                          </div>
-                        </div>
+                        <span style={{ fontSize: 9, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>Tryck för mer →</span>
                       </div>
-                    )}
+                      {/* Bild med contain — visar hela hål-grafiken */}
+                      {imgUrl ? (
+                        <div style={{ background: '#071008', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 170, position: 'relative' }}>
+                          <img src={imgUrl} alt={`Hål ${h.hole}`} style={{ maxWidth: '100%', maxHeight: 170, objectFit: 'contain', display: 'block' }} />
+                          <div style={{ position: 'absolute', bottom: 4, right: 8, fontSize: 8, color: 'rgba(255,255,255,0.2)', fontFamily: 'var(--mono)' }}>LiveCaddie · Hooks GK</div>
+                        </div>
+                      ) : (
+                        <div style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>Ingen bild tillgänglig</span>
+                        </div>
+                      )}
+                      {/* Info-strip */}
+                      <div style={{ display: 'flex', borderTop: '0.5px solid var(--card-border)' }}>
+                        {[['PAR', h.par, 'var(--cream)'], ['METER', h.meters, 'var(--cream)'], ['INDEX', h.hcp, 'var(--cream)'], ['EXTRASLAG', extra > 0 ? `+${extra}` : '–', extra > 0 ? 'var(--green)' : 'var(--cream-muted)']].map(([lbl, val, col], i) => (
+                          <div key={lbl} style={{ flex: 1, textAlign: 'center', padding: '7px 2px', borderRight: i < 3 ? '0.5px solid var(--card-border)' : 'none' }}>
+                            <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'var(--cream-muted)', letterSpacing: 0.8 }}>{lbl}</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: col, marginTop: 2 }}>{val}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {tip && <div style={{ padding: '7px 12px', fontSize: 10, color: 'var(--cream-muted)', fontStyle: 'italic', lineHeight: 1.4, borderTop: '0.5px solid var(--card-border)' }}>💡 {tip}</div>}
+                    </div>
                     {/* Flyover-video */}
                     {flyUrl && (
                       <div style={{ marginBottom: 14 }}>
-                        <div style={{ fontSize: 9, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', letterSpacing: 1, marginBottom: 6, textAlign: 'center' }}>3D FLYOVER · LIVECADDIE</div>
+                        <div style={{ fontSize: 9, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', letterSpacing: 1, marginBottom: 6, textAlign: 'center' }}>📹 3D FLYOVER · LIVECADDIE</div>
                         <video src={flyUrl} controls playsInline muted style={{ width: '100%', borderRadius: 12, maxHeight: 180, background: '#000', display: 'block' }} />
                       </div>
                     )}
