@@ -4837,6 +4837,42 @@ function DIOApp({ onSwitchMode }) {
     return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4); supabase.removeChannel(c5); supabase.removeChannel(c6); supabase.removeChannel(c7); supabase.removeChannel(c8); supabase.removeChannel(c9); supabase.removeChannel(c10); supabase.removeChannel(c11) }
   }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds, players])
 
+  const refreshAll = useCallback(async () => {
+    setIsRefreshing(true)
+    try {
+      await Promise.all([
+        fetchAll?.(), fetchChat?.(), fetchExpenses?.(), fetchH2h?.(),
+        fetchProps?.(), fetchPayments?.(), fetchOdds?.(), fetchHistoria?.()
+      ])
+    } catch (e) { console.warn('refresh error', e) }
+    setTimeout(() => { setIsRefreshing(false); setPullDistance(0) }, 400)
+  }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds, fetchHistoria])
+
+  const pullProps = {
+    onTouchStart: (e) => {
+      if (window.scrollY > 0 || isRefreshing) return
+      pullTouchStart.current = e.touches[0].clientY
+    },
+    onTouchMove: (e) => {
+      if (pullTouchStart.current == null || window.scrollY > 0 || isRefreshing) return
+      const delta = e.touches[0].clientY - pullTouchStart.current
+      if (delta > 0) {
+        setPullDistance(Math.min(delta * 0.5, 120))
+      } else {
+        setPullDistance(0)
+      }
+    },
+    onTouchEnd: () => {
+      if (pullTouchStart.current == null) return
+      pullTouchStart.current = null
+      if (pullDistance > 70 && !isRefreshing) {
+        refreshAll()
+      } else {
+        setPullDistance(0)
+      }
+    }
+  }
+
   const addNotif = (msg, type) => {
     const n = { id: Date.now(), msg, type, time: new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }) }
     setNotifications(prev => [n, ...prev].slice(0, 50))
@@ -5369,7 +5405,15 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
   // ===== APP =====
   return (
-    <div>
+    <div {...pullProps}>
+      {/* Pull-to-refresh indicator */}
+      <div style={{ position: 'fixed', top: 'env(safe-area-inset-top, 0px)', left: 0, right: 0, height: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 8, zIndex: 100, pointerEvents: 'none', transform: `translateY(${isRefreshing ? 0 : pullDistance - 60}px)`, opacity: isRefreshing ? 1 : Math.min(pullDistance / 70, 1), transition: pullTouchStart.current == null ? 'transform 0.25s ease, opacity 0.25s ease' : 'none' }}>
+        <div style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(10px)', borderRadius: 20, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, border: '0.5px solid rgba(212,175,55,0.3)' }}>
+          <div style={{ width: 16, height: 16, border: '2px solid rgba(212,175,55,0.2)', borderTopColor: 'var(--gold)', borderRadius: '50%', animation: isRefreshing ? 'spin 0.8s linear infinite' : 'none', transform: isRefreshing ? 'none' : `rotate(${pullDistance * 4}deg)` }} />
+          <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--gold)', letterSpacing: 1 }}>{isRefreshing ? 'UPPDATERAR…' : pullDistance > 70 ? 'SLÄPP FÖR UPPDATERING' : 'DRA NEDÅT'}</div>
+        </div>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       {toast && <div className={`shoutout-toast ${toast.type === 'eagle' ? 'eagle-toast' : toast.type === 'zero' ? 'zero-toast' : ''}`}><div style={{ fontSize: 15, fontWeight: 500 }}>{toast.msg}</div></div>}
 
       {/* BANGUIDE MODAL */}
