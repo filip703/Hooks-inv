@@ -6354,10 +6354,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   <div style={{ fontSize: 12, color: 'var(--cream-muted)', fontStyle: 'italic', marginBottom: 10, lineHeight: 1.5 }}>
                     Tävlingens officiella anthem. Komponerad av Suno. Texten är pompös. Sången är pompös. Allt är pompös.
                   </div>
-                  <audio controls preload="none" style={{ width: '100%', maxWidth: '100%' }} src="/audio/le-douche-de-golf.mp3">
+                  <audio controls preload="none" style={{ width: '100%', maxWidth: '100%' }} src="https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/audio/le-douche-de-golf.mp3">
                     Din webbläsare stödjer inte audio.
                   </audio>
-                  <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 6, textAlign: 'center', fontStyle: 'italic' }}>(MP3 läggs till av Filip — annars är spelaren här bara för dekoration)</div>
+                  <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 8, textAlign: 'center', fontFamily: 'var(--mono)', letterSpacing: 1 }}>🔥 LYSSNA · DELA · DÖM</div>
                 </div>
 
                 {/* Manual-länk */}
