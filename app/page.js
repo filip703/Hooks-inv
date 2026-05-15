@@ -7051,8 +7051,27 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
                   {(historia || []).filter(h => h.year === year).map(h => {
                     const p = activePlayers.find(x => x.id === h.player_id) || {}
+                    const canDel = isAdmin || (user && h.player_id === user.id)
                     return (
-                      <div key={h.id} style={{ background: 'var(--surface)', borderRadius: 10, overflow: 'hidden' }}>
+                      <div key={h.id} style={{ background: 'var(--surface)', borderRadius: 10, overflow: 'hidden', position: 'relative' }}>
+                        {canDel && (
+                          <button onClick={async (e) => {
+                            e.stopPropagation()
+                            if (!confirm('Ta bort detta minne permanent?')) return
+                            // 1. Ta bort från storage om det finns en media_url från Supabase
+                            if (h.media_url && h.media_url.includes('/storage/v1/object/public/')) {
+                              try {
+                                const path = h.media_url.split('/storage/v1/object/public/inv-images/')[1]
+                                if (path) await supabase.storage.from('inv-images').remove([path])
+                              } catch (err) { console.warn('Storage cleanup:', err) }
+                            }
+                            // 2. Ta bort DB-posten
+                            const { error } = await supabase.from('inv_historia').delete().eq('id', h.id)
+                            if (error) { alert('Fel: ' + error.message); return }
+                            await fetchHistoria()
+                            showToast('🗑️ Minnet borttaget', 'birdie')
+                          }} style={{ position: 'absolute', top: 6, right: 6, zIndex: 2, width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', color: '#fff', border: '0.5px solid rgba(255,255,255,0.2)', fontSize: 13, cursor: 'pointer', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} title="Ta bort">🗑️</button>
+                        )}
                         {h.media_url && h.media_type === 'video' ? (
                           <video src={h.media_url} playsInline muted style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover' }} onClick={e => { e.target.muted = false; e.target.controls = true; e.target.play() }} />
                         ) : h.media_url ? (
