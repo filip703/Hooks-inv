@@ -233,6 +233,11 @@ export default function Home() {
     }
     if (urlMode === 'taby' || urlMode === 'dio') {
       setAppMode(urlMode)
+      // Explicit mode-byte ska överrida taby_only-flaggan (annars fastnar man i Täby)
+      if (urlMode === 'dio') {
+        try { localStorage.removeItem('taby_only') } catch(e) {}
+        setTabyOnly(false)
+      }
       return
     }
     // Persistent taby_only (saved from earlier visit)
