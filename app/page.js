@@ -327,16 +327,29 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     year: '2026'
   })
 
-  // Pull-to-refresh
-  const refreshTabyAll = useCallback(async () => {
+  // Pull-to-refresh — direkt supabase-calls för att slippa beroenden
+  const refreshTabyAll = async () => {
     setTabyRefreshing(true)
     try {
-      await Promise.all([
-        fetchTabyPlayers?.(), fetchTabyRounds?.(), fetchTabyScores?.(), fetchTabyEvents?.()
+      const [players, rounds, scores, events, h2h, bets, chat] = await Promise.all([
+        supabase.from('inv_players').select('*').eq('taby_active', true).order('taby_hcp'),
+        supabase.from('taby_rounds').select('*').order('date', { ascending: false }),
+        supabase.from('taby_scores').select('*'),
+        supabase.from('taby_events').select('*').order('date'),
+        supabase.from('taby_h2h').select('*').order('created_at', { ascending: false }),
+        supabase.from('taby_bets').select('*').order('created_at', { ascending: false }),
+        supabase.from('inv_chat').select('*').order('created_at', { ascending: false }).limit(150)
       ])
+      if (players.data) setTabyPlayers(players.data)
+      if (rounds.data) setTabyRounds(rounds.data)
+      if (scores.data) setTabyScores(scores.data)
+      if (events.data) setTabyEvents(events.data)
+      if (h2h.data) setTabyH2H(h2h.data)
+      if (bets.data) setTabyBets(bets.data)
+      if (chat.data) setTabyChat(chat.data)
     } catch (e) { console.warn('taby refresh', e) }
     setTimeout(() => { setTabyRefreshing(false); setTabyPullDistance(0) }, 400)
-  }, [])
+  }
 
   const tabyPullProps = {
     onTouchStart: (e) => {
