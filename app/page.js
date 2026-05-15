@@ -243,9 +243,6 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [tabySplash, setTabySplash] = useState(true)
   const [tabySplashExit, setTabySplashExit] = useState(false)
   const [tabyView, setTabyView] = useState('leaderboard')
-  const [tabyPullDistance, setTabyPullDistance] = useState(0)
-  const [tabyRefreshing, setTabyRefreshing] = useState(false)
-  const tabyPullTouchStart = useRef(null)
   const [tabyHole, setTabyHole] = useState(1)
   const [tabyPlayers, setTabyPlayers] = useState([])
   const [tabyUser, setTabyUser] = useState(null)
@@ -326,49 +323,6 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     venue: 'HOOKS HERRGÅRD',
     year: '2026'
   })
-
-  // Pull-to-refresh — direkt supabase-calls för att slippa beroenden
-  const refreshTabyAll = async () => {
-    setTabyRefreshing(true)
-    try {
-      const [players, rounds, scores, events, h2h, bets, chat] = await Promise.all([
-        supabase.from('inv_players').select('*').eq('taby_active', true).order('taby_hcp'),
-        supabase.from('taby_rounds').select('*').order('date', { ascending: false }),
-        supabase.from('taby_scores').select('*'),
-        supabase.from('taby_events').select('*').order('date'),
-        supabase.from('taby_h2h').select('*').order('created_at', { ascending: false }),
-        supabase.from('taby_bets').select('*').order('created_at', { ascending: false }),
-        supabase.from('inv_chat').select('*').order('created_at', { ascending: false }).limit(150)
-      ])
-      if (players.data) setTabyPlayers(players.data)
-      if (rounds.data) setTabyRounds(rounds.data)
-      if (scores.data) setTabyScores(scores.data)
-      if (events.data) setTabyEvents(events.data)
-      if (h2h.data) setTabyH2H(h2h.data)
-      if (bets.data) setTabyBets(bets.data)
-      if (chat.data) setTabyChat(chat.data)
-    } catch (e) { console.warn('taby refresh', e) }
-    setTimeout(() => { setTabyRefreshing(false); setTabyPullDistance(0) }, 400)
-  }
-
-  const tabyPullProps = {
-    onTouchStart: (e) => {
-      if (window.scrollY > 0 || tabyRefreshing) return
-      tabyPullTouchStart.current = e.touches[0].clientY
-    },
-    onTouchMove: (e) => {
-      if (tabyPullTouchStart.current == null || window.scrollY > 0 || tabyRefreshing) return
-      const delta = e.touches[0].clientY - tabyPullTouchStart.current
-      if (delta > 0) setTabyPullDistance(Math.min(delta * 0.5, 120))
-      else setTabyPullDistance(0)
-    },
-    onTouchEnd: () => {
-      if (tabyPullTouchStart.current == null) return
-      tabyPullTouchStart.current = null
-      if (tabyPullDistance > 70 && !tabyRefreshing) refreshTabyAll()
-      else setTabyPullDistance(0)
-    }
-  }
 
   // Fetch helpers (for settings view actions)
   const fetchTabyPlayers = async () => {
@@ -983,15 +937,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
   // MAIN APP
   return (
-    <div {...tabyPullProps} style={{ minHeight: '100vh', background: '#0C1830', color: '#F0F4FF', paddingBottom: 80 }}>
-      {/* Pull-to-refresh indicator */}
-      <div style={{ position: 'fixed', top: 'env(safe-area-inset-top, 0px)', left: 0, right: 0, height: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 8, zIndex: 100, pointerEvents: 'none', transform: `translateY(${tabyRefreshing ? 0 : tabyPullDistance - 60}px)`, opacity: tabyRefreshing ? 1 : Math.min(tabyPullDistance / 70, 1), transition: tabyPullTouchStart.current == null ? 'transform 0.25s ease, opacity 0.25s ease' : 'none' }}>
-        <div style={{ background: 'rgba(12,24,48,0.85)', backdropFilter: 'blur(10px)', borderRadius: 20, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, border: '0.5px solid rgba(147,197,253,0.3)' }}>
-          <div style={{ width: 16, height: 16, border: '2px solid rgba(147,197,253,0.2)', borderTopColor: '#93C5FD', borderRadius: '50%', animation: tabyRefreshing ? 'spin 0.8s linear infinite' : 'none', transform: tabyRefreshing ? 'none' : `rotate(${tabyPullDistance * 4}deg)` }} />
-          <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: '#93C5FD', letterSpacing: 1 }}>{tabyRefreshing ? 'UPPDATERAR…' : tabyPullDistance > 70 ? 'SLÄPP FÖR UPPDATERING' : 'DRA NEDÅT'}</div>
-        </div>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    <div style={{ minHeight: '100vh', background: '#0C1830', color: '#F0F4FF', paddingBottom: 80 }}>
       {/* TOAST NOTIFICATIONS */}
       {tabyToast && (
         <div style={{
@@ -4891,42 +4837,6 @@ function DIOApp({ onSwitchMode }) {
     return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4); supabase.removeChannel(c5); supabase.removeChannel(c6); supabase.removeChannel(c7); supabase.removeChannel(c8); supabase.removeChannel(c9); supabase.removeChannel(c10); supabase.removeChannel(c11) }
   }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds, players])
 
-  const refreshAll = async () => {
-    setIsRefreshing(true)
-    try {
-      await Promise.all([
-        fetchAll?.(), fetchChat?.(), fetchExpenses?.(), fetchH2h?.(),
-        fetchProps?.(), fetchPayments?.(), fetchOdds?.(), fetchHistoria?.()
-      ])
-    } catch (e) { console.warn('refresh error', e) }
-    setTimeout(() => { setIsRefreshing(false); setPullDistance(0) }, 400)
-  }
-
-  const pullProps = {
-    onTouchStart: (e) => {
-      if (window.scrollY > 0 || isRefreshing) return
-      pullTouchStart.current = e.touches[0].clientY
-    },
-    onTouchMove: (e) => {
-      if (pullTouchStart.current == null || window.scrollY > 0 || isRefreshing) return
-      const delta = e.touches[0].clientY - pullTouchStart.current
-      if (delta > 0) {
-        setPullDistance(Math.min(delta * 0.5, 120))
-      } else {
-        setPullDistance(0)
-      }
-    },
-    onTouchEnd: () => {
-      if (pullTouchStart.current == null) return
-      pullTouchStart.current = null
-      if (pullDistance > 70 && !isRefreshing) {
-        refreshAll()
-      } else {
-        setPullDistance(0)
-      }
-    }
-  }
-
   const addNotif = (msg, type) => {
     const n = { id: Date.now(), msg, type, time: new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }) }
     setNotifications(prev => [n, ...prev].slice(0, 50))
@@ -5459,15 +5369,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
   // ===== APP =====
   return (
-    <div {...pullProps}>
-      {/* Pull-to-refresh indicator */}
-      <div style={{ position: 'fixed', top: 'env(safe-area-inset-top, 0px)', left: 0, right: 0, height: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 8, zIndex: 100, pointerEvents: 'none', transform: `translateY(${isRefreshing ? 0 : pullDistance - 60}px)`, opacity: isRefreshing ? 1 : Math.min(pullDistance / 70, 1), transition: pullTouchStart.current == null ? 'transform 0.25s ease, opacity 0.25s ease' : 'none' }}>
-        <div style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(10px)', borderRadius: 20, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, border: '0.5px solid rgba(212,175,55,0.3)' }}>
-          <div style={{ width: 16, height: 16, border: '2px solid rgba(212,175,55,0.2)', borderTopColor: 'var(--gold)', borderRadius: '50%', animation: isRefreshing ? 'spin 0.8s linear infinite' : 'none', transform: isRefreshing ? 'none' : `rotate(${pullDistance * 4}deg)` }} />
-          <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--gold)', letterSpacing: 1 }}>{isRefreshing ? 'UPPDATERAR…' : pullDistance > 70 ? 'SLÄPP FÖR UPPDATERING' : 'DRA NEDÅT'}</div>
-        </div>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    <div>
       {toast && <div className={`shoutout-toast ${toast.type === 'eagle' ? 'eagle-toast' : toast.type === 'zero' ? 'zero-toast' : ''}`}><div style={{ fontSize: 15, fontWeight: 500 }}>{toast.msg}</div></div>}
 
       {/* BANGUIDE MODAL */}
