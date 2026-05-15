@@ -1834,7 +1834,16 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         const scoreColor = !sc ? '#92400E' : stab === 0 ? '#dc2626' : stab >= 3 ? '#16a34a' : stab === 2 ? '#16a34a' : '#2563EB'
         const scoreBg = !sc ? '#FFF9E6' : stab === 0 ? '#FEF2F2' : stab >= 3 ? '#DCFCE7' : stab === 2 ? '#F0FDF4' : '#EFF6FF'
         const scoreBorder = !sc ? '#FDE68A' : stab === 0 ? '#FCA5A5' : stab >= 3 ? '#86EFAC' : stab === 2 ? '#86EFAC' : '#93C5FD'
-        const stabLabel = !sc ? null : stab === 0 ? 'NOLLA · 0p' : stab === 1 ? `BOGEY · 1p` : stab === 2 ? `PAR · 2p` : stab === 3 ? `BIRDIE 🐦 · 3p` : stab === 4 ? `EAGLE 🦅 · 4p` : `HIO 🎯 · ${stab}p`
+        // Label baseras på STROKES vs PAR (inte stableford-poäng) — annars visas BIRDIE fast det är PAR med extraslag för hög-HCP-spelare
+        const grossDiffT = sc?.strokes && h.par ? sc.strokes - h.par : null
+        const stabLabel = !sc ? null
+          : sc.strokes === 1 ? `HIO 🎯 · ${stab}p`
+          : grossDiffT <= -2 ? `EAGLE 🦅 · ${stab}p`
+          : grossDiffT === -1 ? `BIRDIE 🐦 · ${stab}p`
+          : grossDiffT === 0 ? `PAR · ${stab}p`
+          : grossDiffT === 1 ? `BOGEY · ${stab}p`
+          : stab === 0 ? `NOLLA · 0p`
+          : `+${grossDiffT} · ${stab}p`
 
         const CS = { card: { background: 'white', borderRadius: 14, padding: '10px 12px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', marginBottom: 8 } }
 
@@ -5868,31 +5877,46 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
           {/* Live Activity Feed */}
           {(() => {
+            // Använd STROKES vs PAR (inte stableford) för birdie/eagle-flagga
             const recentScores = []
             activePlayers.forEach(p => {
               const lastRound = [4,3,2,1].find(rn => pRoundRaw(p.id, rn) > 0)
               if (lastRound) {
-                const rid = rounds.find(r => r.round_number === lastRound)?.id
+                const r = rounds.find(rr => rr.round_number === lastRound)
+                const rid = r?.id
+                const cName = RC[lastRound]
+                const courseObj = courses[cName]
                 const sc = rid ? pSc(p.id, rid) : []
                 sc.slice(-3).forEach(s => {
-                  if (s.stableford_points >= 3) recentScores.push({ player: p, pts: s.stableford_points, hole: s.hole })
-                  else if (s.stableford_points === 0) recentScores.push({ player: p, pts: 0, hole: s.hole })
+                  const par = courseObj?.holes?.find(h => h.hole === s.hole)?.par
+                  if (!par || !s.strokes) return
+                  const grossDiff = s.strokes - par
+                  // Birdie/eagle/HIO baseras på STROKES vs PAR
+                  if (grossDiff <= -1) recentScores.push({ player: p, pts: s.stableford_points, hole: s.hole, grossDiff, strokes: s.strokes })
+                  else if (s.stableford_points === 0) recentScores.push({ player: p, pts: 0, hole: s.hole, grossDiff, strokes: s.strokes })
                 })
               }
             })
             if (recentScores.length === 0) return null
             return (
               <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '8px 0', marginBottom: 10, scrollbarWidth: 'none' }}>
-                {recentScores.sort((a,b) => b.pts - a.pts).slice(0, 4).map((s, i) => (
-                  <div key={i} style={{ flexShrink: 0, padding: '6px 10px', borderRadius: 10, fontSize: 11, fontFamily: 'var(--mono)',
-                    background: s.pts >= 4 ? 'rgba(212,175,55,0.12)' : s.pts >= 3 ? 'rgba(34,197,94,0.1)' : 'rgba(232,99,74,0.1)',
-                    color: s.pts >= 4 ? 'var(--gold)' : s.pts >= 3 ? 'var(--green)' : 'var(--coral)',
-                    border: '0.5px solid ' + (s.pts >= 4 ? 'rgba(212,175,55,0.2)' : s.pts >= 3 ? 'rgba(34,197,94,0.15)' : 'rgba(232,99,74,0.15)'),
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {s.pts >= 4 ? '🦅' : s.pts >= 3 ? '🐦' : '💀'} {s.player.nickname} H{s.hole}
-                  </div>
-                ))}
+                {recentScores.sort((a,b) => a.grossDiff - b.grossDiff).slice(0, 4).map((s, i) => {
+                  const isHIO = s.strokes === 1
+                  const isEagle = s.grossDiff <= -2
+                  const isBirdie = s.grossDiff === -1
+                  const isZero = s.pts === 0
+                  const icon = isHIO ? '⛳' : isEagle ? '🦅' : isBirdie ? '🐦' : '💀'
+                  const color = isHIO ? 'var(--coral)' : isEagle ? 'var(--gold)' : isBirdie ? 'var(--green)' : 'var(--coral)'
+                  const bg = isHIO ? 'rgba(232,99,74,0.12)' : isEagle ? 'rgba(212,175,55,0.12)' : isBirdie ? 'rgba(34,197,94,0.1)' : 'rgba(232,99,74,0.1)'
+                  const border = isHIO ? 'rgba(232,99,74,0.2)' : isEagle ? 'rgba(212,175,55,0.2)' : isBirdie ? 'rgba(34,197,94,0.15)' : 'rgba(232,99,74,0.15)'
+                  return (
+                    <div key={i} style={{ flexShrink: 0, padding: '6px 10px', borderRadius: 10, fontSize: 11, fontFamily: 'var(--mono)',
+                      background: bg, color, border: '0.5px solid ' + border, whiteSpace: 'nowrap'
+                    }}>
+                      {icon} {s.player.nickname} H{s.hole}
+                    </div>
+                  )
+                })}
               </div>
             )
           })()}
