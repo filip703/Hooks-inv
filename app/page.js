@@ -243,6 +243,9 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [tabySplash, setTabySplash] = useState(true)
   const [tabySplashExit, setTabySplashExit] = useState(false)
   const [tabyView, setTabyView] = useState('leaderboard')
+  const [tabyPullDistance, setTabyPullDistance] = useState(0)
+  const [tabyRefreshing, setTabyRefreshing] = useState(false)
+  const tabyPullTouchStart = useRef(null)
   const [tabyHole, setTabyHole] = useState(1)
   const [tabyPlayers, setTabyPlayers] = useState([])
   const [tabyUser, setTabyUser] = useState(null)
@@ -323,6 +326,36 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     venue: 'HOOKS HERRGÅRD',
     year: '2026'
   })
+
+  // Pull-to-refresh
+  const refreshTabyAll = useCallback(async () => {
+    setTabyRefreshing(true)
+    try {
+      await Promise.all([
+        fetchTabyPlayers?.(), fetchTabyRounds?.(), fetchTabyScores?.(), fetchTabyEvents?.()
+      ])
+    } catch (e) { console.warn('taby refresh', e) }
+    setTimeout(() => { setTabyRefreshing(false); setTabyPullDistance(0) }, 400)
+  }, [])
+
+  const tabyPullProps = {
+    onTouchStart: (e) => {
+      if (window.scrollY > 0 || tabyRefreshing) return
+      tabyPullTouchStart.current = e.touches[0].clientY
+    },
+    onTouchMove: (e) => {
+      if (tabyPullTouchStart.current == null || window.scrollY > 0 || tabyRefreshing) return
+      const delta = e.touches[0].clientY - tabyPullTouchStart.current
+      if (delta > 0) setTabyPullDistance(Math.min(delta * 0.5, 120))
+      else setTabyPullDistance(0)
+    },
+    onTouchEnd: () => {
+      if (tabyPullTouchStart.current == null) return
+      tabyPullTouchStart.current = null
+      if (tabyPullDistance > 70 && !tabyRefreshing) refreshTabyAll()
+      else setTabyPullDistance(0)
+    }
+  }
 
   // Fetch helpers (for settings view actions)
   const fetchTabyPlayers = async () => {
@@ -937,7 +970,15 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
   // MAIN APP
   return (
-    <div style={{ minHeight: '100vh', background: '#0C1830', color: '#F0F4FF', paddingBottom: 80 }}>
+    <div {...tabyPullProps} style={{ minHeight: '100vh', background: '#0C1830', color: '#F0F4FF', paddingBottom: 80 }}>
+      {/* Pull-to-refresh indicator */}
+      <div style={{ position: 'fixed', top: 'env(safe-area-inset-top, 0px)', left: 0, right: 0, height: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 8, zIndex: 100, pointerEvents: 'none', transform: `translateY(${tabyRefreshing ? 0 : tabyPullDistance - 60}px)`, opacity: tabyRefreshing ? 1 : Math.min(tabyPullDistance / 70, 1), transition: tabyPullTouchStart.current == null ? 'transform 0.25s ease, opacity 0.25s ease' : 'none' }}>
+        <div style={{ background: 'rgba(12,24,48,0.85)', backdropFilter: 'blur(10px)', borderRadius: 20, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, border: '0.5px solid rgba(147,197,253,0.3)' }}>
+          <div style={{ width: 16, height: 16, border: '2px solid rgba(147,197,253,0.2)', borderTopColor: '#93C5FD', borderRadius: '50%', animation: tabyRefreshing ? 'spin 0.8s linear infinite' : 'none', transform: tabyRefreshing ? 'none' : `rotate(${tabyPullDistance * 4}deg)` }} />
+          <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: '#93C5FD', letterSpacing: 1 }}>{tabyRefreshing ? 'UPPDATERAR…' : tabyPullDistance > 70 ? 'SLÄPP FÖR UPPDATERING' : 'DRA NEDÅT'}</div>
+        </div>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       {/* TOAST NOTIFICATIONS */}
       {tabyToast && (
         <div style={{
