@@ -163,6 +163,20 @@ function Badge({ text, color, bg }) {
   return <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color, background: bg, padding: '2px 6px', borderRadius: 4, letterSpacing: 1 }}>{text}</span>
 }
 
+// Säker JSON-parse helper — undviker whitescreen om DB returnerar korrupt data
+function safeParse(value, fallback = {}) {
+  if (value == null) return fallback
+  if (typeof value !== 'string') return value
+  try { return JSON.parse(value) } catch { return fallback }
+}
+
+// Fetch med timeout via AbortController — caddie/API-anrop hänger sig inte mer än 12s
+function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+  const ctrl = new AbortController()
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs)
+  return fetch(url, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(tid))
+}
+
 // Isolerad pull-to-refresh-komponent. Wrappar children, har egna hooks → inga TDZ-problem i parent.
 function PullToRefresh({ onRefresh, color = '#D4AF37', bg = 'rgba(0,0,0,0.7)', children }) {
   const [dist, setDist] = useState(0)
@@ -707,13 +721,16 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     const gpsShouldBeOn = (newRound || tabyActiveHole) && typeof navigator !== 'undefined' && navigator.geolocation
     if (gpsShouldBeOn) {
       if (tabyGpsWatchId.current == null) {
+        // BATTERI-FIX: enableHighAccuracy=false + 30s cache = ~10x mindre batteri
+        // Endast hög accuracy aktiveras i fullscreen scoring (när tabyActiveHole != null)
+        const wantHigh = tabyActiveHole != null
         tabyGpsWatchId.current = navigator.geolocation.watchPosition(
           pos => {
             setTabyUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy })
             setTabyGpsError(null)
           },
           err => { setTabyGpsError(err.message || 'GPS ej tillgänglig'); setTabyUserLoc(null) },
-          { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+          { enableHighAccuracy: wantHigh, maximumAge: wantHigh ? 5000 : 30000, timeout: 20000 }
         )
       }
     } else {
@@ -859,7 +876,7 @@ VIKTIGT: Repetera INTE hålbeskrivningen. Ge istället:
 2. Vad ska undvikas
 Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     try {
-      const res = await fetch('/api/caddie', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) })
+      const res = await fetchWithTimeout('/api/caddie', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) })
       const data = await res.json()
       setTabyCaddieMsg(data.text || 'Caddien är tyst...')
     } catch (e) { setTabyCaddieMsg('Caddien tappade signalen! Lita på magkänslan.') }
@@ -4055,7 +4072,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                                 return `${p?.nickname} (HCP ${p?.taby_hcp || p?.hcp})`
                               }).join(', ')
                               const prompt = `Hitta på ett lagnamn för varje lag i ett golfsällskap. Lag A: ${desc(lagA)}. Lag B: ${desc(lagB)}. Svenska, max 3 ord, lite humor. Svara ONLY med JSON: {"a":{"name":"...","taunt":"..."},"b":{"name":"...","taunt":"..."}}`
-                              const res = await fetch('/api/caddie', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ message: prompt, holeData: null, playerHcp: 0, roundContext: '' }) })
+                              const res = await fetchWithTimeout('/api/caddie', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ message: prompt, holeData: null, playerHcp: 0, roundContext: '' }) })
                               const { reply } = await res.json()
                               const gen = JSON.parse(reply.replace(/```json|```/g,'').trim())
 
@@ -4604,7 +4621,7 @@ Hitta på ett minnesvärt lagnamn för varje lag. Regler:
 
 Svara ONLY med valid JSON (inga backticks, inga kommentarer):
 {"a":{"name":"Lagnamn A","taunt":"Kort skämtsam mening om lag A (max 12 ord)"},"b":{"name":"Lagnamn B","taunt":"Kort skämtsam mening om lag B (max 12 ord)"}}`
-      const res = await fetch('/api/caddie', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: prompt, holeData: null, playerHcp: 0, roundContext: '' }) })
+      const res = await fetchWithTimeout('/api/caddie', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: prompt, holeData: null, playerHcp: 0, roundContext: '' }) })
       const { reply } = await res.json()
       setGenTeams(JSON.parse(reply.replace(/```json|```/g, '').trim()))
     } catch (e) { console.error(e) }
@@ -4679,6 +4696,9 @@ function DIOApp({ onSwitchMode }) {
   const [chat, setChat] = useState([])
   const [chatMsg, setChatMsg] = useState('')
   const [adminPid, setAdminPid] = useState(null)
+  // Pending scores för bekräfta-flowet — { playerId_hole: strokes }
+  // Score sparas inte direkt vid +/-, utan först när man trycker "Bekräfta & Nästa hål"
+  const [dioPendingScore, setDioPendingScore] = useState({})
   const [guideHole, setGuideHole] = useState(null)
   const [activeHole, setActiveHole] = useState(null)
   const [caddieMsg, setCaddieMsg] = useState(null)
@@ -4961,7 +4981,7 @@ VIKTIGT: Repetera INTE hålets beskrivning eller banguide. Spelaren ser redan de
 
 Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     try {
-      const res = await fetch('/api/caddie', {
+      const res = await fetchWithTimeout('/api/caddie', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt })
       })
@@ -5054,13 +5074,14 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
   const sp = specialHoles[selRound] || {}
   const nextHole = course ? course.holes.find(h => !hStr(h.hole))?.hole : null
 
-  const save = async (hole, strokes) => {
-    if (!roundId || !scoreFor || !strokes || !supabase) return
+  const save = async (hole, strokes, pidOverride = null) => {
+    const targetPlayer = pidOverride ? players.find(p => p.id === pidOverride) : scoreFor
+    if (!roundId || !targetPlayer || !strokes || !supabase) return
     const c = courses[RC[selRound]]
     const hd = c.holes.find(h => h.hole === hole)
-    const phcp = getPlayingHcp(Math.min(parseFloat(scoreFor.hcp), 36), c.slope)
+    const phcp = getPlayingHcp(Math.min(parseFloat(targetPlayer.hcp), 36), c.slope)
     const pts = calcStableford(parseInt(strokes), hd.par, phcp, hd.hcp)
-    await supabase.from('inv_scores').upsert({ player_id: scoreFor.id, round_id: roundId, hole, strokes: parseInt(strokes), stableford_points: pts }, { onConflict: 'player_id,round_id,hole' })
+    await supabase.from('inv_scores').upsert({ player_id: targetPlayer.id, round_id: roundId, hole, strokes: parseInt(strokes), stableford_points: pts }, { onConflict: 'player_id,round_id,hole' })
     // Sound + shoutout — based on REAL birdie/eagle (strokes vs par), NOT stableford
     const strokesInt = parseInt(strokes)
     const diffToPar = strokesInt - hd.par
@@ -5069,20 +5090,20 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     const isRealAlbatross = diffToPar <= -3
     const isHIO = strokesInt === 1
     if (isRealBirdie || isRealEagle || isRealAlbatross || isHIO) {
-      const m = getShoutout(scoreFor.name, scoreFor.nickname, strokesInt, hd.par)
-      if (m) { showToast(m.replace('{{hole}}', hole), (isRealEagle || isRealAlbatross || isHIO) ? 'eagle' : 'birdie'); supabase.from('inv_chat').insert({ player_id: scoreFor.id, message: m.replace('{{hole}}', hole), msg_type: 'shoutout' }) }
+      const m = getShoutout(targetPlayer.name, targetPlayer.nickname, strokesInt, hd.par)
+      if (m) { showToast(m.replace('{{hole}}', hole), (isRealEagle || isRealAlbatross || isHIO) ? 'eagle' : 'birdie'); supabase.from('inv_chat').insert({ player_id: targetPlayer.id, message: m.replace('{{hole}}', hole), msg_type: 'shoutout' }) }
       // Push notis till alla utom scoraren
       sendPush({
-        title: isHIO ? `⛳ HOLE-IN-ONE! ${scoreFor.nickname}` : (isRealEagle || isRealAlbatross) ? `🦅 EAGLE! ${scoreFor.nickname}` : `🐦 BIRDIE! ${scoreFor.nickname}`,
+        title: isHIO ? `⛳ HOLE-IN-ONE! ${targetPlayer.nickname}` : (isRealEagle || isRealAlbatross) ? `🦅 EAGLE! ${targetPlayer.nickname}` : `🐦 BIRDIE! ${targetPlayer.nickname}`,
         body: `Hål ${hole} · ${strokesInt} slag (par ${hd.par}) · ${c.name}`,
         type: 'score',
-        excludePlayerId: scoreFor.id,
+        excludePlayerId: targetPlayer.id,
         prefKey: 'notif_eagles'
       })
     } else if (pts === 0) {
-      const m = getZeroRoast(scoreFor.nickname).replace('{{hole}}', hole)
+      const m = getZeroRoast(targetPlayer.nickname).replace('{{hole}}', hole)
       showToast(m, 'zero')
-      supabase.from('inv_chat').insert({ player_id: scoreFor.id, message: m, msg_type: 'roast' })
+      supabase.from('inv_chat').insert({ player_id: targetPlayer.id, message: m, msg_type: 'roast' })
     } else {
       soundScore()
     }
@@ -5246,7 +5267,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     fetchChat()
     const fetchHist = async () => { const { data } = await supabase.from('inv_historia').select('*').order('created_at', { ascending: false }); if (data) setHistoria(data) }
     fetchHist()
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=57.72&longitude=14.83&current=temperature_2m,wind_speed_10m,weather_code&timezone=Europe/Stockholm')
+    fetchWithTimeout('https://api.open-meteo.com/v1/forecast?latitude=57.72&longitude=14.83&current=temperature_2m,wind_speed_10m,weather_code&timezone=Europe/Stockholm')
       .then(r => r.json()).then(d => {
         const wc = d.current.weather_code
         const icons = {0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌧️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',80:'🌦️',95:'⛈️'}
@@ -5492,7 +5513,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           {/* Flyover video */}
           {flyovers[RC[selRound]]?.[guideHole] && (
             <div style={{ padding: '8px 16px 0' }} onClick={e => e.stopPropagation()}>
-              <video src={flyovers[RC[selRound]][guideHole]} controls playsInline autoPlay muted
+              <video preload="none" src={flyovers[RC[selRound]][guideHole]} controls playsInline autoPlay muted
                 style={{ width: '100%', borderRadius: 12, maxHeight: '35vh', background: '#000' }} />
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', textAlign: 'center', marginTop: 4 }}>3D Flyover · LiveCaddie</div>
             </div>
@@ -5544,12 +5565,17 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               {players.filter(p => p.key !== 'spectator').map(p => {
                 const isSel = (adminPid || user?.id) === p.id
                 const pScore = roundId ? scores.find(s => s.player_id === p.id && s.round_id === roundId && s.hole === activeHole) : null
+                const pPending = dioPendingScore[`${p.id}_${activeHole}`]
+                const hasPending = pPending !== undefined
+                const displayStrokes = hasPending ? pPending : pScore?.strokes
+                const statusColor = hasPending ? 'var(--gold)' : (pScore?.stableford_points >= 3 ? 'var(--green)' : pScore?.stableford_points === 0 ? 'var(--coral)' : pScore ? 'var(--cream-dim)' : 'rgba(212,175,55,0.4)')
+                const borderColor = isSel ? 'rgba(212,175,55,0.4)' : hasPending ? 'rgba(212,175,55,0.3)' : 'var(--card-border)'
                 return (
-                  <button key={p.id} onClick={() => setAdminPid(p.id === user?.id ? null : p.id)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 8, cursor: 'pointer', background: isSel ? 'rgba(212,175,55,0.15)' : 'transparent', border: isSel ? '1px solid rgba(212,175,55,0.4)' : '1px solid var(--card-border)', transition: 'all 0.15s' }}>
+                  <button key={p.id} onClick={() => setAdminPid(p.id === user?.id ? null : p.id)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 8, cursor: 'pointer', background: isSel ? 'rgba(212,175,55,0.15)' : hasPending ? 'rgba(212,175,55,0.06)' : 'transparent', border: `1px solid ${borderColor}`, transition: 'all 0.15s' }}>
                     {p.image_url ? <img src={p.image_url} style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--surface-raised)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: 'var(--cream-muted)' }}>{p.name?.charAt(0)}</div>}
                     <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: isSel ? 'var(--gold)' : 'var(--cream-muted)', fontWeight: isSel ? 700 : 400 }}>{p.name.split(' ')[0]}</span>
-                    {pScore && <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: pScore.stableford_points >= 3 ? 'var(--green)' : pScore.stableford_points === 0 ? 'var(--coral)' : 'var(--cream-dim)', fontWeight: 600 }}>{pScore.strokes}</span>}
-                    {!pScore && <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,175,55,0.4)' }}>?</span>}
+                    {displayStrokes != null && <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: statusColor, fontWeight: 600 }}>{displayStrokes}{hasPending && '•'}</span>}
+                    {displayStrokes == null && <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,175,55,0.4)' }}>?</span>}
                   </button>
                 )
               })}
@@ -5616,7 +5642,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     {flyUrl && (
                       <div style={{ marginBottom: 14 }}>
                         <div style={{ fontSize: 9, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', letterSpacing: 1, marginBottom: 6, textAlign: 'center' }}>📹 3D FLYOVER · LIVECADDIE</div>
-                        <video src={flyUrl} controls playsInline muted style={{ width: '100%', borderRadius: 12, maxHeight: 180, background: '#000', display: 'block' }} />
+                        <video preload="none" src={flyUrl} controls playsInline muted style={{ width: '100%', borderRadius: 12, maxHeight: 180, background: '#000', display: 'block' }} />
                       </div>
                     )}
                   </>
@@ -5645,39 +5671,55 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 )}
               </div>
 
-              {/* BIG SCORE INPUT */}
-              <div className="glass-card" style={{ borderRadius: 16, padding: 24, marginBottom: 16 }}>
-                <div style={{ textAlign: 'center', marginBottom: 8 }}>
-                  <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', letterSpacing: 1 }}>SLAG</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-                  <button onClick={() => { if (currentVal > 1) save(h.hole, currentVal - 1) }}
-                    style={{ width: 64, height: 64, borderRadius: 16, background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                  <div onClick={() => { if (!strokes) save(h.hole, h.par) }}
-                    style={{ width: 80, height: 80, borderRadius: 20, background: strokes ? 'var(--surface2)' : 'rgba(201,168,76,0.1)', border: strokes ? '2px solid var(--card-border)' : '2px solid var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: strokes ? 'default' : 'pointer' }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 36, fontWeight: 500, color: strokes ? 'var(--cream)' : 'var(--gold)' }}>{strokes || h.par}</div>
-                    {!strokes && <div style={{ fontSize: 9, color: 'var(--gold)', marginTop: -4 }}>TRYCK</div>}
-                  </div>
-                  <button onClick={() => { if (currentVal < 15) save(h.hole, currentVal + 1) }}
-                    style={{ width: 64, height: 64, borderRadius: 16, background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                </div>
-                {/* Gross-label + poäng — label baseras på slag vs par (ej stablefordpoäng) */}
-                {strokes && pts !== null && (() => {
-                  const grossDiff = parseInt(strokes) - h.par
-                  const grossLabel = parseInt(strokes) === 1 ? 'HIO 🎯' : grossDiff <= -3 ? 'ALBATROSS 🦅🦅' : grossDiff === -2 ? 'EAGLE 🦅' : grossDiff === -1 ? 'BIRDIE 🐦' : grossDiff === 0 ? 'PAR' : grossDiff === 1 ? 'BOGEY' : grossDiff === 2 ? 'DOUBLE' : `+${grossDiff}`
-                  const labelColor = grossDiff <= -1 ? 'var(--green)' : grossDiff === 0 ? 'var(--cream-dim)' : grossDiff === 1 ? 'rgba(240,180,100,0.8)' : 'var(--coral)'
-                  const displayPts = isDouble ? pts * 2 : pts
-                  const ptsColor = pts === 0 ? 'var(--coral)' : pts >= 3 ? 'var(--green)' : pts >= 2 ? 'var(--cream)' : 'var(--cream-dim)'
-                  return (
-                    <div style={{ textAlign: 'center', marginTop: 14 }}>
-                      <span style={{ fontSize: 15, fontFamily: 'var(--mono)', fontWeight: 700, color: labelColor, letterSpacing: 0.5 }}>{grossLabel}</span>
-                      <span style={{ fontSize: 13, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', margin: '0 8px' }}>·</span>
-                      <span style={{ fontSize: 28, fontFamily: 'var(--mono)', fontWeight: 500, color: ptsColor }}>{displayPts}p</span>
-                      {isDouble && <span style={{ fontSize: 12, color: 'var(--coral)', marginLeft: 4 }}>2×</span>}
+              {/* BIG SCORE INPUT — med PENDING-flow (sparas vid bekräfta-knappen) */}
+              {(() => {
+                const pendingKey = `${scoreFor?.id}_${h.hole}`
+                const pendingVal = dioPendingScore[pendingKey]
+                const displayVal = pendingVal ?? (strokes ? parseInt(strokes) : h.par)
+                const isPending = pendingVal !== undefined
+                const isSaved = !isPending && strokes != null
+                const setPending = (val) => {
+                  const clamped = Math.max(1, Math.min(15, val))
+                  setDioPendingScore(prev => ({ ...prev, [pendingKey]: clamped }))
+                }
+                return (
+                  <div className="glass-card" style={{ borderRadius: 16, padding: 24, marginBottom: 16, border: isPending ? '2px solid var(--gold)' : isSaved ? '2px solid var(--green)' : '1px solid var(--card-border)', background: isPending ? 'rgba(212,175,55,0.05)' : isSaved ? 'rgba(74,222,128,0.04)' : undefined }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: isPending ? 'var(--gold)' : isSaved ? 'var(--green)' : 'var(--cream-muted)', letterSpacing: 1, fontWeight: isPending ? 700 : 500 }}>
+                        {isPending ? '✏️ INTE SPARAT ÄN' : isSaved ? '✓ SPARAT' : 'SLAG'}
+                      </div>
+                      {isSaved && <button onClick={() => setDioPendingScore(prev => ({ ...prev, [pendingKey]: parseInt(strokes) }))} style={{ fontSize: 10, color: 'var(--gold-dim)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--mono)', padding: 0 }}>Ändra</button>}
                     </div>
-                  )
-                })()}
-              </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                      <button onClick={() => setPending(displayVal - 1)}
+                        style={{ width: 64, height: 64, borderRadius: 16, background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                      <div style={{ width: 80, height: 80, borderRadius: 20, background: isPending ? 'rgba(212,175,55,0.1)' : 'var(--surface2)', border: isPending ? '2px solid var(--gold)' : isSaved ? '2px solid var(--green)' : '2px solid var(--card-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 36, fontWeight: 500, color: isPending ? 'var(--gold)' : 'var(--cream)' }}>{displayVal}</div>
+                      </div>
+                      <button onClick={() => setPending(displayVal + 1)}
+                        style={{ width: 64, height: 64, borderRadius: 16, background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                    </div>
+                    {/* Gross-label på pending eller saved */}
+                    {(isPending || isSaved) && (() => {
+                      const phcp2 = getPlayingHcp(Math.min(parseFloat(scoreFor?.hcp || 0), 36), course.slope)
+                      const dispPts = calcStableford(displayVal, h.par, phcp2, h.hcp) ?? 0
+                      const grossDiff = displayVal - h.par
+                      const grossLabel = displayVal === 1 ? 'HIO 🎯' : grossDiff <= -3 ? 'ALBATROSS 🦅🦅' : grossDiff === -2 ? 'EAGLE 🦅' : grossDiff === -1 ? 'BIRDIE 🐦' : grossDiff === 0 ? 'PAR' : grossDiff === 1 ? 'BOGEY' : grossDiff === 2 ? 'DOUBLE' : `+${grossDiff}`
+                      const labelColor = grossDiff <= -1 ? 'var(--green)' : grossDiff === 0 ? 'var(--cream-dim)' : grossDiff === 1 ? 'rgba(240,180,100,0.8)' : 'var(--coral)'
+                      const displayPts = isDouble ? dispPts * 2 : dispPts
+                      const ptsColor = dispPts === 0 ? 'var(--coral)' : dispPts >= 3 ? 'var(--green)' : dispPts >= 2 ? 'var(--cream)' : 'var(--cream-dim)'
+                      return (
+                        <div style={{ textAlign: 'center', marginTop: 14 }}>
+                          <span style={{ fontSize: 15, fontFamily: 'var(--mono)', fontWeight: 700, color: labelColor, letterSpacing: 0.5 }}>{grossLabel}</span>
+                          <span style={{ fontSize: 13, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', margin: '0 8px' }}>·</span>
+                          <span style={{ fontSize: 28, fontFamily: 'var(--mono)', fontWeight: 500, color: ptsColor }}>{displayPts}p</span>
+                          {isDouble && <span style={{ fontSize: 12, color: 'var(--coral)', marginLeft: 4 }}>2×</span>}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )
+              })()}
 
               {/* Others on this hole */}
               <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 12 }}>
@@ -5720,13 +5762,46 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               )
             })()}
 
-            {/* Bottom nav: prev / next */}
-            <div style={{ display: 'flex', gap: 8, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0))', background: 'var(--surface)', borderTop: '1px solid var(--card-border)' }}>
-              <button onClick={() => prevHole && (setActiveHole(prevHole), setCaddieMsg(null))} disabled={!prevHole}
-                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'var(--surface2)' : 'transparent', border: '1px solid var(--card-border)', color: prevHole ? 'var(--cream)' : 'var(--cream-muted)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← Hål {prevHole || ''}</button>
-              <button onClick={() => nextH ? (setActiveHole(nextH), setCaddieMsg(null)) : setActiveHole(null)}
-                style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: 'var(--gold)', border: 'none', color: '#0A0A08', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{nextH ? `Hål ${nextH} →` : '✓ Klar'}</button>
-            </div>
+            {/* Bottom nav: prev / next med BEKRÄFTA-flow */}
+            {(() => {
+              // Pending count för aktuellt hål
+              const pendingKeys = Object.keys(dioPendingScore).filter(k => k.endsWith(`_${h.hole}`) && dioPendingScore[k] !== undefined)
+              const hasPending = pendingKeys.length > 0
+              const myPendingKey = `${scoreFor?.id}_${h.hole}`
+              const iHavePending = dioPendingScore[myPendingKey] !== undefined
+              const iHaveSaved = strokes != null
+              const canProceed = iHavePending || iHaveSaved
+              const nextLabel = hasPending
+                ? (nextH ? `✓ Bekräfta & Hål ${nextH} →` : '✓ Bekräfta & Klar')
+                : (nextH ? `Hål ${nextH} →` : '✓ Klar')
+
+              const handleNext = async () => {
+                // Spara alla pending för hålet (kan vara flera spelare om man reggat för andra)
+                if (hasPending) {
+                  await Promise.all(pendingKeys.map(k => {
+                    const pid = k.split('_')[0]
+                    return save(h.hole, dioPendingScore[k], pid)
+                  }))
+                  // Rensa pending för hålet
+                  setDioPendingScore(prev => {
+                    const n = { ...prev }
+                    pendingKeys.forEach(k => delete n[k])
+                    return n
+                  })
+                }
+                // Navigera
+                if (nextH) { setActiveHole(nextH); setCaddieMsg(null) }
+                else setActiveHole(null)
+              }
+              return (
+                <div style={{ display: 'flex', gap: 8, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0))', background: 'var(--surface)', borderTop: '1px solid var(--card-border)' }}>
+                  <button onClick={() => prevHole && (setActiveHole(prevHole), setCaddieMsg(null))} disabled={!prevHole}
+                    style={{ flex: 1, padding: '14px 0', borderRadius: 12, background: prevHole ? 'var(--surface2)' : 'transparent', border: '1px solid var(--card-border)', color: prevHole ? 'var(--cream)' : 'var(--cream-muted)', fontSize: 14, cursor: prevHole ? 'pointer' : 'default', opacity: prevHole ? 1 : 0.3 }}>← Hål {prevHole || ''}</button>
+                  <button onClick={handleNext} disabled={!canProceed}
+                    style={{ flex: hasPending ? 1.5 : 1, padding: '14px 0', borderRadius: 12, background: canProceed ? (hasPending ? 'var(--green)' : 'var(--gold)') : 'var(--surface2)', border: 'none', color: canProceed ? '#0A0A08' : 'var(--cream-muted)', fontSize: 14, fontWeight: 600, cursor: canProceed ? 'pointer' : 'default', opacity: canProceed ? 1 : 0.5 }}>{nextLabel}</button>
+                </div>
+              )
+            })()}
           </div>
         )
       })()}
@@ -6173,9 +6248,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               .forEach(m => items.push({ type: 'bounty', msg: m, label: 'UTMANING', icon: '⚔️', color: 'var(--coral)' }))
             chat.filter(m => m.player_id !== myId && m.msg_type === 'chat' && myFirst && m.message?.toLowerCase().includes('@' + myFirst))
               .forEach(m => items.push({ type: 'mention', msg: m, label: 'OMNÄMND', icon: '💬', color: 'var(--gold)' }))
-            chat.filter(m => m.player_id === myId && m.reactions && Object.keys(typeof m.reactions === 'string' ? JSON.parse(m.reactions) : m.reactions).length > 0)
+            chat.filter(m => m.player_id === myId && m.reactions && Object.keys(safeParse(m.reactions, {})).length > 0)
               .forEach(m => {
-                const rxns = typeof m.reactions === 'string' ? JSON.parse(m.reactions) : m.reactions
+                const rxns = safeParse(m.reactions, {})
                 const total = Object.values(rxns).reduce((s, arr) => s + arr.length, 0)
                 items.push({ type: 'reaction', msg: m, label: total + ' REAKTIONER', icon: '🔥', color: 'var(--green)' })
               })
@@ -6239,12 +6314,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   {!sys && m.id && !String(m.id).startsWith('tmp') && (
                     <div style={{ display: 'flex', gap: 2, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                       {['🔥','😂','👏','💀','🗑️'].map(emoji => {
-                        const rxns = m.reactions ? (typeof m.reactions === 'string' ? JSON.parse(m.reactions) : m.reactions) : {}
+                        const rxns = m.reactions ? (safeParse(m.reactions, {})) : {}
                         const users = rxns[emoji] || []
                         const myR = users.includes(user?.key)
                         return (
                           <button key={emoji} onClick={async () => {
-                            const curr = m.reactions ? (typeof m.reactions === 'string' ? JSON.parse(m.reactions) : m.reactions) : {}
+                            const curr = m.reactions ? (safeParse(m.reactions, {})) : {}
                             const list = curr[emoji] || []
                             if (list.includes(user?.key)) { curr[emoji] = list.filter(k => k !== user.key) }
                             else { curr[emoji] = [...list, user.key] }
@@ -6264,7 +6339,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     </div>
                   )}
                   <div style={{ fontSize: 13, lineHeight: 1.5, color: sys ? 'var(--cream-dim)' : 'var(--cream)' }}>{renderMsg(m.message)}</div>
-                  {m.image_url && (m.msg_type === 'video' ? <video src={m.image_url} controls playsInline style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} /> : <img src={m.image_url} alt="" style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} loading="lazy" />)}
+                  {m.image_url && (m.msg_type === 'video' ? <video preload="none" src={m.image_url} controls playsInline style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} /> : <img src={m.image_url} alt="" style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} loading="lazy" />)}
                   <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', marginTop: 3 }}>{new Date(m.created_at).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</div>
                 </div>
               )
@@ -7106,7 +7181,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 {historiaQueue.map((item, idx) => (
                   <div key={item.id} style={{ background: 'var(--surface2)', borderRadius: 10, overflow: 'hidden', border: item.status === 'done' ? '1px solid var(--green)' : item.status === 'error' ? '1px solid var(--coral)' : '1px solid var(--card-border)', position: 'relative' }}>
                     {item.file.type.startsWith('video/') ? (
-                      <video src={item.preview} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} muted />
+                      <video preload="none" src={item.preview} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} muted />
                     ) : (
                       <img src={item.preview} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }} />
                     )}
@@ -7210,7 +7285,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                           }} style={{ position: 'absolute', top: 6, right: 6, zIndex: 2, width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', color: '#fff', border: '0.5px solid rgba(255,255,255,0.2)', fontSize: 13, cursor: 'pointer', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} title="Ta bort">🗑️</button>
                         )}
                         {h.media_url && h.media_type === 'video' ? (
-                          <video src={h.media_url} playsInline muted style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover' }} onClick={e => { e.target.muted = false; e.target.controls = true; e.target.play() }} />
+                          <video preload="none" src={h.media_url} playsInline muted style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover' }} onClick={e => { e.target.muted = false; e.target.controls = true; e.target.play() }} />
                         ) : h.media_url ? (
                           <img src={h.media_url} alt="" style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover' }} loading="lazy" />
                         ) : null}
@@ -7244,7 +7319,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   return (
                     <div key={m.id} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', aspectRatio: '1', background: 'var(--surface)' }}>
                       {m.msg_type === 'video' ? (
-                        <video src={m.image_url} playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={e => { e.target.muted = false; e.target.controls = true; e.target.play() }} />
+                        <video preload="none" src={m.image_url} playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={e => { e.target.muted = false; e.target.controls = true; e.target.play() }} />
                       ) : (
                         <img src={m.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                       )}
