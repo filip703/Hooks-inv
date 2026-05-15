@@ -4891,7 +4891,7 @@ function DIOApp({ onSwitchMode }) {
     return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4); supabase.removeChannel(c5); supabase.removeChannel(c6); supabase.removeChannel(c7); supabase.removeChannel(c8); supabase.removeChannel(c9); supabase.removeChannel(c10); supabase.removeChannel(c11) }
   }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds, players])
 
-  const refreshAll = useCallback(async () => {
+  const refreshAll = async () => {
     setIsRefreshing(true)
     try {
       await Promise.all([
@@ -4900,7 +4900,7 @@ function DIOApp({ onSwitchMode }) {
       ])
     } catch (e) { console.warn('refresh error', e) }
     setTimeout(() => { setIsRefreshing(false); setPullDistance(0) }, 400)
-  }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds, fetchHistoria])
+  }
 
   const pullProps = {
     onTouchStart: (e) => {
