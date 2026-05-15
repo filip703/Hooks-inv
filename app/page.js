@@ -5010,8 +5010,11 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
   // Individual total = raw pts + streak bonuses
   const pTotal = pid => [1,2,3,4].reduce((s, r) => s + pRoundRaw(pid, r) + pRoundBonus(pid, r), 0)
   // Team uses double-pts scoring
+  // Team-matcher: hanterar både nya namn (Gaylords/Stjärtmesarna) och legacy (green/blue)
+  const isTeamGaylords = (t) => t === 'Gaylords' || t === 'green'
+  const isTeamStjart = (t) => t === 'Stjärtmesarna' || t === 'blue'
   const teamRound = (team, rn) => {
-    const ps = players.filter(p => p.team === team).map(p => ({ id: p.id, pts: pRoundTeamPts(p.id, rn) })).sort((a,b) => b.pts - a.pts)
+    const ps = players.filter(p => team === 'Gaylords' ? isTeamGaylords(p.team) : isTeamStjart(p.team)).map(p => ({ id: p.id, pts: pRoundTeamPts(p.id, rn) })).sort((a,b) => b.pts - a.pts)
     return { total: ps.slice(0,2).reduce((s,p) => s + p.pts, 0), counted: ps.slice(0,2).map(p => p.id) }
   }
   const teamTotal = team => [1,2,3,4].reduce((s, r) => s + teamRound(team, r).total, 0)
@@ -6121,17 +6124,18 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <div className="section-title">LIV Team Battle</div>
             <div className="section-sub">2 bästa per runda · Hål 16-18 = dubbla poäng</div>
           </div>
-          {['green', 'blue'].map(team => {
+          {['Gaylords', 'Stjärtmesarna'].map(team => {
             const tot = teamTotal(team)
-            const tp = activePlayers.filter(p => p.team === team)
-            const c = ['green','Gaylords'].includes(team) ? '#6BBF7F' : '#8AB4D6'
-            const otherTotal = teamTotal(['green','Gaylords'].includes(team) ? 'blue' : 'green')
+            const isGay = team === 'Gaylords'
+            const tp = activePlayers.filter(p => isGay ? isTeamGaylords(p.team) : isTeamStjart(p.team))
+            const c = isGay ? '#6BBF7F' : '#8AB4D6'
+            const otherTotal = teamTotal(isGay ? 'Stjärtmesarna' : 'Gaylords')
             const diff = tot - otherTotal
             return (
-              <div key={team} className={`team-card ${['green','Gaylords'].includes(team) ? 'team-green-bg' : 'team-blue-bg'}`}>
+              <div key={team} className={`team-card ${isGay ? 'team-green-bg' : 'team-blue-bg'}`}>
                 <div className="team-header">
                   <div>
-                    <div className="team-title" style={{ color: c }}>{['green','Gaylords'].includes(team) ? 'Gaylords' : 'Stjärtmesarna'}</div>
+                    <div className="team-title" style={{ color: c }}>{team}</div>
                     {diff !== 0 && tot > 0 && <div style={{ fontSize: 11, color: diff > 0 ? c : 'var(--cream-muted)' }}>{diff > 0 ? `+${diff} ledning` : `${diff}`}</div>}
                   </div>
                   <div className="team-total" style={{ color: c }}>{tot || '-'}</div>
@@ -8266,10 +8270,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   onChange={async (e) => {
                     await supabase.from('inv_players').update({ team: e.target.value }).eq('id', p.id)
                     fetchAll()
-                    showToast(`${p.nickname} → ${e.target.value === 'green' ? 'Gaylords' : 'Stjärtmesarna'}`, 'birdie')
+                    showToast(`${p.nickname} → ${e.target.value}`, 'birdie')
                   }}>
-                  <option value="green">Gaylords</option>
-                  <option value="blue">Stjärtmesarna</option>
+                  <option value="Gaylords">Gaylords</option>
+                  <option value="Stjärtmesarna">Stjärtmesarna</option>
                 </select>
               </div>
             ))}
