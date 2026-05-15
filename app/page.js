@@ -8050,12 +8050,16 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <div style={{ fontSize: 9, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', letterSpacing: 1.5, marginBottom: 6 }}>SNABBVAL</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
               {[
+                { t: '🎉 Kolla in The Lounge!', b: 'Ny flik: musik, achievements, hype, sociala väggen. Manualen finns där också. Tryck 🎉 LOUNGE i botten.' },
+                { t: '📖 Läs manualen', b: 'Manual finns i Lounge-fliken. Installera appen via Safari → Lägg till på hemskärmen. Frågor? Filip eller Marcus.' },
                 { t: '⏰ Tee-off om 30 min', b: 'Dags att värma upp på rangen!' },
                 { t: '🍺 Möts i baren', b: 'Samling i baren nu – dags för drinkar' },
                 { t: '🧖 Spa kl 20:00', b: 'Dags att slappna av – spa öppnar nu' },
                 { t: '🍽️ Middag serveras', b: 'Kom till matsalen – middagen är serverad' },
                 { t: '🏆 Prisutdelning!', b: 'Samling för Le Douche de Golf-ceremonin' },
                 { t: '📸 Grupp-foto', b: 'Alla till first tee för gruppfoto' },
+                { t: '🎤 Suno-låten är ute', b: 'Le Douche de Golf-sången är uppe i Lounge → Musik. Skarpt. Pompös. Lyssna.' },
+                { t: '⭐ Glöm inte 500kr-prylen', b: 'Påminnelse: alla tar med ett pris värt ~500 kr till prisbordet. Vinnaren plockar först.' },
               ].map((q, i) => (
                 <button key={i} onClick={() => setBroadcastForm(f => ({ ...f, title: q.t, body: q.b }))}
                   style={{ fontSize: 10, padding: '6px 10px', background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream-dim)', borderRadius: 6, cursor: 'pointer' }}>
