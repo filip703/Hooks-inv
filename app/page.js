@@ -302,6 +302,12 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [showEventResultModal, setShowEventResultModal] = useState(null)
   const [eventResultDraft, setEventResultDraft] = useState({})
   const [showEndRoundModal, setShowEndRoundModal] = useState(false)
+  const [showLoungeOnboarding, setShowLoungeOnboarding] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return !localStorage.getItem('dio_lounge_seen_v1')
+  })
+  const [loungeTab, setLoungeTab] = useState('musik')
+  const [loungePosts, setLoungePosts] = useState([])
   const [showMorningPopup, setShowMorningPopup] = useState(() => {
     // Visa morgonbriefing en gång per dag under DIO-veckan (22-24 maj)
     const today = new Date().toDateString()
@@ -4271,6 +4277,63 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {/* ======================================== */}
       {/* MORNING BRIEFING POPUP                    */}
       {/* ======================================== */}
+      {/* LOUNGE ONBOARDING — visas första gången användaren öppnar appen */}
+      {showLoungeOnboarding && user && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(20px)', zIndex: 900, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0' }}>
+          <div style={{ background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '24px 20px 36px', width: '100%', maxWidth: 480, border: '1px solid rgba(212,175,55,0.3)', maxHeight: '92vh', overflowY: 'auto' }}>
+            <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '0 auto 24px' }} />
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ fontSize: 48, marginBottom: 8 }}>🏆</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 6 }}>VÄLKOMMEN TILL</div>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 28, color: 'var(--cream)', marginBottom: 4 }}>Le Douche de Golf</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-muted)', letterSpacing: 2 }}>DOUCHE INVITATIONAL ONLY 2026</div>
+            </div>
+            <div style={{ background: 'rgba(212,175,55,0.05)', borderRadius: 12, padding: '14px 16px', marginBottom: 16, border: '0.5px solid rgba(212,175,55,0.15)' }}>
+              <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.6 }}>
+                Den här appen är ditt hem under helgen. Här gör du allt: registrerar scores, kollar ledartavlan, chattar, bettar, splittar utgifter, lyssnar på musiken, sågar Matthis.
+              </div>
+            </div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>KORTVERSIONEN</div>
+            {[
+              ['🏆 LEDARE', 'Vem leder, lagstatus, statistik'],
+              ['📝 SCORE', 'Tryck − och + → GRÖN knapp = spara'],
+              ['⚔️ LAG', 'Gaylords vs Stjärtmesarna live'],
+              ['🎉 LOUNGE', 'Musik, achievements, hype, sociala väggen'],
+              ['☰ MENY', 'Chat, Even Steven, betting, foton, profil, admin'],
+            ].map(([icon, desc]) => (
+              <div key={icon} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '0.5px solid var(--card-border)' }}>
+                <div style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 700, width: 90, fontFamily: 'var(--mono)' }}>{icon}</div>
+                <div style={{ fontSize: 12, color: 'var(--cream-dim)', flex: 1, lineHeight: 1.4 }}>{desc}</div>
+              </div>
+            ))}
+            <div style={{ background: 'rgba(74,222,128,0.08)', border: '0.5px solid rgba(74,222,128,0.25)', borderRadius: 10, padding: '10px 12px', marginTop: 14 }}>
+              <div style={{ fontSize: 11, color: '#4ADE80', lineHeight: 1.5 }}>💡 <strong>Tips:</strong> Aktivera push-notiser via Min Profil — du missar inga birdies, skulder eller chatt.</div>
+            </div>
+            <a href="https://docs.google.com/document/d/1QfOTn9ZjmSAk6sEpG0rY0Ylw_YqDrkRM78iKH-AR-uU/edit" target="_blank" rel="noreferrer"
+              style={{ display: 'block', padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '0.5px solid var(--card-border)', textDecoration: 'none', marginTop: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ fontSize: 20 }}>📖</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: 'var(--cream)', fontWeight: 600 }}>Hela manualen (Google Doc)</div>
+                  <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 2 }}>Installera, regler, betting, felsökning, allt</div>
+                </div>
+                <div style={{ color: 'var(--gold)', fontSize: 14 }}>→</div>
+              </div>
+            </a>
+            <div style={{ fontSize: 11, color: 'var(--cream-muted)', fontStyle: 'italic', textAlign: 'center', marginTop: 18, lineHeight: 1.5 }}>
+              "Den här appen heter DIO. Inte 'golf-grejen'. Inte 'den där'. DIO. — För Matthis."
+            </div>
+            <button onClick={() => {
+              localStorage.setItem('dio_lounge_seen_v1', '1')
+              setShowLoungeOnboarding(false)
+              setView('lounge')
+            }} style={{ width: '100%', padding: '15px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, var(--gold), #b8932f)', color: '#0A0A08', fontSize: 16, fontWeight: 900, cursor: 'pointer', marginTop: 18, letterSpacing: 0.3 }}>
+              KÖR! 🏌️
+            </button>
+          </div>
+        </div>
+      )}
+
       {showMorningPopup && (() => {
         const d = new Date().getDate()
         const briefings = {
@@ -6176,6 +6239,198 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         </>)}
 
         {/* ===== INFO ===== */}
+        {view === 'lounge' && (<>
+          <div className="section-title">🎉 The Lounge</div>
+
+          {/* Tab-switcher */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 4 }}>
+            {[
+              { key: 'musik', label: '🎵 MUSIK' },
+              { key: 'achievements', label: '🏆 PRESTATIONER' },
+              { key: 'hype', label: '🔥 HYPE' },
+              { key: 'wall', label: '📸 VÄGGEN' },
+            ].map(tab => (
+              <button key={tab.key} onClick={() => setLoungeTab(tab.key)}
+                style={{ flex: 1, padding: '8px 4px', borderRadius: 8, border: 'none', cursor: 'pointer', background: loungeTab === tab.key ? 'rgba(212,175,55,0.15)' : 'transparent', color: loungeTab === tab.key ? 'var(--gold)' : 'var(--cream-muted)', fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, letterSpacing: 0.5, transition: 'all 0.2s' }}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* === MUSIK === */}
+          {loungeTab === 'musik' && (() => {
+            const songs = []
+            activePlayers.forEach(p => {
+              const ws = walkupMusic?.[p.key] || []
+              ws.forEach(s => songs.push({ ...s, player: p }))
+            })
+            return (
+              <>
+                {/* Suno-låten — placeholder */}
+                <div style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(232,99,74,0.08))', borderRadius: 16, padding: 18, marginBottom: 16, border: '1px solid rgba(212,175,55,0.25)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <div style={{ fontSize: 28 }}>🎤</div>
+                    <div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5 }}>DIO 2026 · ORIGINAL</div>
+                      <div style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--cream)' }}>Le Douche de Golf</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--cream-muted)', fontStyle: 'italic', marginBottom: 10, lineHeight: 1.5 }}>
+                    Tävlingens officiella anthem. Komponerad av Suno. Texten är pompös. Sången är pompös. Allt är pompös.
+                  </div>
+                  <audio controls preload="none" style={{ width: '100%', maxWidth: '100%' }} src="/audio/le-douche-de-golf.mp3">
+                    Din webbläsare stödjer inte audio.
+                  </audio>
+                  <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 6, textAlign: 'center', fontStyle: 'italic' }}>(MP3 läggs till av Filip — annars är spelaren här bara för dekoration)</div>
+                </div>
+
+                {/* Walk-up music per spelare */}
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10 }}>🎧 WALK-UP MUSIC</div>
+                {activePlayers.map(p => {
+                  const ws = (walkupMusic?.[p.key] || [])
+                  if (!ws.length) return null
+                  return (
+                    <div key={p.id} style={{ marginBottom: 14, background: 'var(--surface)', borderRadius: 12, padding: 12, border: '0.5px solid var(--card-border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                        <Av p={p} size={32} />
+                        <div>
+                          <div style={{ fontSize: 13, color: 'var(--cream)', fontWeight: 600 }}>{p.nickname}</div>
+                          <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>{ws.length} låtar</div>
+                        </div>
+                      </div>
+                      {ws.map((s, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderTop: i > 0 ? '0.5px solid var(--card-border)' : 'none' }}>
+                          <a href={`https://open.spotify.com/track/${s.id}`} target="_blank" rel="noreferrer" style={{ flex: 1, color: 'var(--cream-dim)', fontSize: 11, textDecoration: 'none', lineHeight: 1.4 }}>
+                            <div style={{ fontWeight: 600 }}>{s.title}</div>
+                            <div style={{ color: 'var(--cream-muted)', fontSize: 10 }}>{s.artist} · {s.day}</div>
+                          </a>
+                          <a href={`https://open.spotify.com/track/${s.id}`} target="_blank" rel="noreferrer" style={{ color: '#1DB954', fontSize: 10, fontFamily: 'var(--mono)', textDecoration: 'none' }}>SPOTIFY →</a>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })}
+              </>
+            )
+          })()}
+
+          {/* === ACHIEVEMENTS === */}
+          {loungeTab === 'achievements' && (
+            <>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10 }}>🏆 PRESTATIONER LIVE</div>
+              {(() => {
+                const events = []
+                activePlayers.forEach(p => {
+                  ;[1,2,3,4].forEach(rn => {
+                    const r = rid(rn); if (!r) return
+                    const myScores = pSc(p.id, r)
+                    myScores.forEach(s => {
+                      const hole = course?.holes?.find(h => h.hole === s.hole)
+                      if (!hole) return
+                      const diff = s.strokes - hole.par
+                      if (diff <= -2) events.push({ p, type: 'eagle', hole: s.hole, rn, when: s.created_at })
+                      else if (diff === -1) events.push({ p, type: 'birdie', hole: s.hole, rn, when: s.created_at })
+                      else if (s.strokes === 1) events.push({ p, type: 'hio', hole: s.hole, rn, when: s.created_at })
+                    })
+                  })
+                })
+                events.sort((a, b) => new Date(b.when) - new Date(a.when))
+                if (!events.length) return (
+                  <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 30, textAlign: 'center', border: '0.5px solid var(--card-border)' }}>
+                    <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.5 }}>🏌️</div>
+                    <div style={{ fontSize: 13, color: 'var(--cream-muted)' }}>Inga prestationer än. Spela!</div>
+                    <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginTop: 6, fontStyle: 'italic' }}>(Matthis kommer aldrig synas här)</div>
+                  </div>
+                )
+                const labels = { eagle: { txt: 'EAGLE 🦅', color: '#FFD700' }, birdie: { txt: 'BIRDIE 🐦', color: '#4ADE80' }, hio: { txt: 'HOLE-IN-ONE ⛳', color: '#E8634A' } }
+                return events.map((e, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--surface)', borderRadius: 12, marginBottom: 8, border: `0.5px solid ${labels[e.type].color}33` }}>
+                    <Av p={e.p} size={38} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, color: 'var(--cream)', fontWeight: 600 }}>{e.p.nickname}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: labels[e.type].color, fontWeight: 700, marginTop: 2 }}>{labels[e.type].txt}</div>
+                      <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>Runda {e.rn} · Hål {e.hole}</div>
+                    </div>
+                  </div>
+                ))
+              })()}
+            </>
+          )}
+
+          {/* === HYPE === */}
+          {loungeTab === 'hype' && (
+            <>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10 }}>🔥 ROAST CENTRAL</div>
+              {activePlayers.map(p => {
+                const roast = getRandomRoast(p.key)
+                const totalPts = pTotal(p.id)
+                const pos = lb.findIndex(x => x.id === p.id) + 1
+                const isMatthis = p.key === 'matthis'
+                return (
+                  <div key={p.id} style={{ background: 'var(--surface)', borderRadius: 14, padding: 14, marginBottom: 10, border: isMatthis ? '1px solid rgba(232,99,74,0.3)' : '0.5px solid var(--card-border)', position: 'relative' }}>
+                    {isMatthis && <div style={{ position: 'absolute', top: -8, right: 12, background: '#E8634A', color: 'white', fontFamily: 'var(--mono)', fontSize: 8, fontWeight: 700, letterSpacing: 1, padding: '3px 8px', borderRadius: 4 }}>HUVUDMÅL</div>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <Av p={p} size={40} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, color: 'var(--cream)', fontWeight: 600 }}>{p.nickname}</div>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                          {pos > 0 && <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: pos === 1 ? 'var(--gold)' : pos === 6 ? '#E8634A' : 'var(--cream-muted)', fontWeight: 700 }}>#{pos}</span>}
+                          {totalPts > 0 && <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--green)' }}>{totalPts}p</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--cream-dim)', fontStyle: 'italic', lineHeight: 1.5, padding: '8px 0 0', borderTop: '0.5px solid var(--card-border)' }}>"{roast}"</div>
+                  </div>
+                )
+              })}
+            </>
+          )}
+
+          {/* === SOCIAL WALL === */}
+          {loungeTab === 'wall' && (() => {
+            const posts = chat.filter(m => m.msg_type === 'lounge').sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            return (
+              <>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10 }}>📸 VÄGGEN — DELA HELGEN</div>
+
+                {/* Post-knapp */}
+                <button onClick={() => {
+                  const txt = prompt('Vad vill du dela med gruppen?')
+                  if (!txt || !user?.id) return
+                  supabase.from('inv_chat').insert({ player_id: user.id, message: txt, msg_type: 'lounge' })
+                }} style={{ width: '100%', padding: '14px', borderRadius: 12, border: '1px dashed var(--gold-dim)', background: 'rgba(212,175,55,0.04)', color: 'var(--gold)', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', marginBottom: 14 }}>
+                  ✏️  DELA NÅGOT KUL
+                </button>
+
+                {!posts.length && (
+                  <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 30, textAlign: 'center', border: '0.5px solid var(--card-border)' }}>
+                    <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.5 }}>📸</div>
+                    <div style={{ fontSize: 13, color: 'var(--cream-muted)' }}>Tomt här — bli första att posta!</div>
+                    <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginTop: 6, fontStyle: 'italic' }}>Foton, kommentarer, allt</div>
+                  </div>
+                )}
+
+                {posts.map(p => {
+                  const player = activePlayers.find(x => x.id === p.player_id) || { nickname: 'Okänd', image_url: null }
+                  return (
+                    <div key={p.id} style={{ background: 'var(--surface)', borderRadius: 14, padding: 14, marginBottom: 10, border: '0.5px solid var(--card-border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                        <Av p={player} size={32} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, color: 'var(--cream)', fontWeight: 600 }}>{player.nickname}</div>
+                          <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>{new Date(p.created_at).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{p.message}</div>
+                    </div>
+                  )
+                })}
+              </>
+            )
+          })()}
+
+        </>)}
+
         {view === 'info' && (<>
           {/* ══════════════════════════════════════════ */}
           {/* INFO PAGE — ALLT PÅ EN SIDA               */}
@@ -6378,11 +6633,65 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             </div>
           </div>
 
+          {/* ── PRISER ── */}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 8 }}>🏆 PRISER & PRISBORD</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', marginBottom: 14, border: '0.5px solid var(--card-border)' }}>
+            {/* Bucklan */}
+            <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--card-border)', background: 'rgba(212,175,55,0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <div style={{ fontSize: 24 }}>🏆</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--gold)' }}>Le Douche de Golf</div>
+                  <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>Bucklan · 1:a totalpoäng (individuell)</div>
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.5 }}>Roterande pokal. Vinnaren tar hem den och graverar sitt namn. Återlämnas vid 2027 års turnering.</div>
+            </div>
+            {/* Prisbordet */}
+            <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--card-border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <div style={{ fontSize: 22 }}>⭐</div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--cream)' }}>Prisbordet — alla bidrar</div>
+                  <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>~500 kr-pryl per spelare</div>
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.6 }}>
+                Alla 6 tar med en pris-pryl värd ungefär 500 kr. På prisutdelningen plockar <span style={{ color: 'var(--gold)', fontWeight: 600 }}>vinnaren först</span>, sen ner i ranking. Sista plockar det som finns kvar.
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 6, fontStyle: 'italic' }}>Förslag: golf-relaterat, whisky, kläder, gadgets — fritt fram. Matthis: ingen begagnad träklubba från 1987.</div>
+            </div>
+            {/* Lagtävlingen */}
+            <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--card-border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <div style={{ fontSize: 22 }}>⚔️</div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--cream)' }}>Lagtävlingen (Gaylords vs Stjärtmesarna)</div>
+                  <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>Förlorande laget Swishar</div>
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.6 }}>Förlorande lagets spelare Swishar ett belopp per person till vinnarlaget. <span style={{ color: 'var(--gold)' }}>Belopp bestäms innan första rundan</span> — förslag 200-500 kr/person.</div>
+            </div>
+            {/* Sidobets */}
+            <div style={{ padding: '12px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <div style={{ fontSize: 22 }}>💰</div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--cream)' }}>Sidobets & Daily Loser</div>
+                  <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>Allt via Swish</div>
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.6 }}>LD, NP, H2H, Bounty, Props — auto-Swish via Even Steven. Daily Loser köper kvällens första dryck.</div>
+            </div>
+          </div>
+
           {/* ── PACKLISTA ── */}
           <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 8 }}>🎒 PACKLISTA</div>
           <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 14, marginBottom: 14, border: '0.5px solid var(--card-border)' }}>
             {[
               { kat: 'Golf', items: ['Golfbag + klubbor','Golfskor (2 par)','Golfhandskar 2+','Bollar (2 dussin — du vet varför)','Tees + pitch-reparation'] },
+              { kat: 'Prisbordet ⭐', items: ['1× pris ~500 kr (alla tar med en pryl)','Vinnaren plockar först — sen ner i ranking','Förslag: golf-relaterat, whisky, kläder, prylar — fritt fram'] },
+              { kat: 'Ljud 🔊', items: ['JBL Boombox 3 (stor — Bistron/middag)','JBL Charge 6 (portabel — på banan)','Powerbank till båda','Filip ansvarar — säg till om någon glömt'] },
               { kat: 'Kläder', items: ['Golfkläder 3 dagar','Regnkläder (Småland)','Casual kläder kvällar'] },
               { kat: 'Övrigt', items: ['Laddare + powerbank','Kontanter + Swish (Even Steven)','Gott humör — Matthis, ta med extra'] },
             ].map(({ kat, items }) => (
@@ -8034,6 +8343,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             {/* Menu items */}
             <div style={{ padding: 12 }}>
               {[
+                { key: 'lounge', icon: <span style={{ fontSize: 14 }}>🎉</span>, label: 'The Lounge', desc: 'Musik · Achievements · Hype · Vägg' },
                 { key: 'teams', icon: <IconSwords size={16} />, label: 'Lag-battle', desc: 'Gaylords vs Stjärtmesarna' },
                 { key: 'inbox', icon: <IconBell size={16} />, label: 'Inkorg', desc: 'Utmaningar & mentions' },
                 { key: 'feed', icon: <IconChat size={16} />, label: 'Chat', desc: 'Trash talk i realtid' },
@@ -8082,9 +8392,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {/* ===== BOTTOM NAV - iOS 26 Liquid Glass + Team Scores ===== */}
       <nav className="bottom-nav">
         <div className="nav-teams-strip">
-          <span className={`nav-team green ${teamTotal('green') > teamTotal('blue') ? 'leading' : ''}`}>JÄGER {teamTotal('green') || '–'}p</span>
+          <span className={`nav-team green ${teamTotal('green') > teamTotal('blue') ? 'leading' : ''}`}>GAYLORDS {teamTotal('green') || '–'}p</span>
           <span className="nav-team-vs">vs</span>
-          <span className={`nav-team blue ${teamTotal('blue') > teamTotal('green') ? 'leading' : ''}`}>FERNET {teamTotal('blue') || '–'}p</span>
+          <span className={`nav-team blue ${teamTotal('blue') > teamTotal('green') ? 'leading' : ''}`}>STJÄRTMESARNA {teamTotal('blue') || '–'}p</span>
         </div>
         <div className="nav-buttons">
           <button className={`bottom-nav-btn ${view === 'leaderboard' ? 'active' : ''}`} onClick={() => setView('leaderboard')}>
@@ -8098,6 +8408,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           <button className={`bottom-nav-btn ${view === 'teams' ? 'active' : ''}`} onClick={() => setView('teams')}>
             <AugustaBadge size={28} active={view === 'teams'}><IconSwords size={13} color={view === 'teams' ? '#1B4332' : '#FAF8F0'} /></AugustaBadge>
             <span className="nav-label">LAG</span>
+          </button>
+          <button className={`bottom-nav-btn ${view === 'lounge' ? 'active' : ''}`} onClick={() => { setView('lounge'); localStorage.setItem('dio_lounge_seen_v1', '1') }}>
+            <AugustaBadge size={28} active={view === 'lounge'}><span style={{ fontSize: 13 }}>🎉</span></AugustaBadge>
+            <span className="nav-label">LOUNGE</span>
           </button>
           <button className="bottom-nav-btn" onClick={() => setShowMenu(true)}>
             <AugustaBadge size={28}><IconMenu size={13} color="#FAF8F0" /></AugustaBadge>
