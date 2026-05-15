@@ -6259,11 +6259,6 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
           {/* === MUSIK === */}
           {loungeTab === 'musik' && (() => {
-            const songs = []
-            activePlayers.forEach(p => {
-              const ws = walkupMusic?.[p.key] || []
-              ws.forEach(s => songs.push({ ...s, player: p }))
-            })
             return (
               <>
                 {/* Suno-låten — placeholder */}
@@ -6299,13 +6294,13 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                         </div>
                       </div>
                       {ws.map((s, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderTop: i > 0 ? '0.5px solid var(--card-border)' : 'none' }}>
-                          <a href={`https://open.spotify.com/track/${s.id}`} target="_blank" rel="noreferrer" style={{ flex: 1, color: 'var(--cream-dim)', fontSize: 11, textDecoration: 'none', lineHeight: 1.4 }}>
-                            <div style={{ fontWeight: 600 }}>{s.title}</div>
+                        <a key={i} href={s.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderTop: i > 0 ? '0.5px solid var(--card-border)' : 'none', textDecoration: 'none' }}>
+                          <div style={{ flex: 1, color: 'var(--cream-dim)', fontSize: 11, lineHeight: 1.4 }}>
+                            <div style={{ fontWeight: 600 }}>{s.song}</div>
                             <div style={{ color: 'var(--cream-muted)', fontSize: 10 }}>{s.artist} · {s.day}</div>
-                          </a>
-                          <a href={`https://open.spotify.com/track/${s.id}`} target="_blank" rel="noreferrer" style={{ color: '#1DB954', fontSize: 10, fontFamily: 'var(--mono)', textDecoration: 'none' }}>SPOTIFY →</a>
-                        </div>
+                          </div>
+                          <div style={{ color: '#1DB954', fontSize: 10, fontFamily: 'var(--mono)' }}>SPOTIFY →</div>
+                        </a>
                       ))}
                     </div>
                   )
@@ -6326,7 +6321,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     const myScores = pSc(p.id, r)
                     myScores.forEach(s => {
                       const hole = course?.holes?.find(h => h.hole === s.hole)
-                      if (!hole) return
+                      if (!hole || !hole.par) return
                       const diff = s.strokes - hole.par
                       if (diff <= -2) events.push({ p, type: 'eagle', hole: s.hole, rn, when: s.created_at })
                       else if (diff === -1) events.push({ p, type: 'birdie', hole: s.hole, rn, when: s.created_at })
@@ -6388,7 +6383,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
           {/* === SOCIAL WALL === */}
           {loungeTab === 'wall' && (() => {
-            const posts = chat.filter(m => m.msg_type === 'lounge').sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            const posts = (chat || []).filter(m => m.msg_type === 'lounge').sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
             return (
               <>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10 }}>📸 VÄGGEN — DELA HELGEN</div>
