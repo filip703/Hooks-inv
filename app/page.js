@@ -163,6 +163,59 @@ function Badge({ text, color, bg }) {
   return <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color, background: bg, padding: '2px 6px', borderRadius: 4, letterSpacing: 1 }}>{text}</span>
 }
 
+// Isolerad pull-to-refresh-komponent. Wrappar children, har egna hooks → inga TDZ-problem i parent.
+function PullToRefresh({ onRefresh, color = '#D4AF37', bg = 'rgba(0,0,0,0.7)', children }) {
+  const [dist, setDist] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const touchStart = useRef(null)
+  const isPulling = useRef(false)
+
+  const handleStart = (e) => {
+    if (typeof window === 'undefined') return
+    if (window.scrollY > 0 || refreshing) return
+    touchStart.current = e.touches[0].clientY
+    isPulling.current = false
+  }
+  const handleMove = (e) => {
+    if (touchStart.current == null) return
+    if (typeof window !== 'undefined' && window.scrollY > 0) return
+    if (refreshing) return
+    const delta = e.touches[0].clientY - touchStart.current
+    if (delta > 0) {
+      isPulling.current = true
+      setDist(Math.min(delta * 0.5, 120))
+    } else {
+      setDist(0)
+    }
+  }
+  const handleEnd = async () => {
+    if (touchStart.current == null) return
+    const wasPulling = isPulling.current
+    touchStart.current = null
+    isPulling.current = false
+    if (wasPulling && dist > 70 && !refreshing) {
+      setRefreshing(true)
+      try { await onRefresh?.() } catch (e) { console.warn('refresh', e) }
+      setTimeout(() => { setRefreshing(false); setDist(0) }, 400)
+    } else {
+      setDist(0)
+    }
+  }
+
+  return (
+    <div onTouchStart={handleStart} onTouchMove={handleMove} onTouchEnd={handleEnd} onTouchCancel={handleEnd}>
+      <div style={{ position: 'fixed', top: 'env(safe-area-inset-top, 0px)', left: 0, right: 0, height: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 8, zIndex: 100, pointerEvents: 'none', transform: `translateY(${refreshing ? 0 : dist - 60}px)`, opacity: refreshing ? 1 : Math.min(dist / 70, 1), transition: (dist === 0 && !refreshing) ? 'transform 0.25s ease, opacity 0.25s ease' : 'none' }}>
+        <div style={{ background: bg, backdropFilter: 'blur(10px)', borderRadius: 20, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, border: `0.5px solid ${color}55` }}>
+          <div style={{ width: 16, height: 16, border: `2px solid ${color}33`, borderTopColor: color, borderRadius: '50%', animation: refreshing ? 'p2r-spin 0.8s linear infinite' : 'none', transform: refreshing ? 'none' : `rotate(${dist * 4}deg)` }} />
+          <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color, letterSpacing: 1 }}>{refreshing ? 'UPPDATERAR…' : dist > 70 ? 'SLÄPP FÖR UPPDATERING' : 'DRA NEDÅT'}</div>
+        </div>
+      </div>
+      <style>{`@keyframes p2r-spin { to { transform: rotate(360deg) } }`}</style>
+      {children}
+    </div>
+  )
+}
+
 export default function Home() {
   const [appMode, setAppMode] = useState(null)
   const [tabyOnly, setTabyOnly] = useState(false) // true = lås mode till Täby (för delning till nya spelare)
@@ -937,6 +990,24 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
   // MAIN APP
   return (
+    <PullToRefresh color="#93C5FD" bg="rgba(12,24,48,0.85)" onRefresh={async () => {
+      const [players, rounds, scores, events, h2h, bets, chat] = await Promise.all([
+        supabase.from('inv_players').select('*').eq('taby_active', true).order('taby_hcp'),
+        supabase.from('taby_rounds').select('*').order('date', { ascending: false }),
+        supabase.from('taby_scores').select('*'),
+        supabase.from('taby_events').select('*').order('date'),
+        supabase.from('taby_h2h').select('*').order('created_at', { ascending: false }),
+        supabase.from('taby_bets').select('*').order('created_at', { ascending: false }),
+        supabase.from('inv_chat').select('*').order('created_at', { ascending: false }).limit(150)
+      ])
+      if (players.data) setTabyPlayers(players.data)
+      if (rounds.data) setTabyRounds(rounds.data)
+      if (scores.data) setTabyScores(scores.data)
+      if (events.data) setTabyEvents(events.data)
+      if (h2h.data) setTabyH2H(h2h.data)
+      if (bets.data) setTabyBets(bets.data)
+      if (chat.data) setTabyChat(chat.data)
+    }}>
     <div style={{ minHeight: '100vh', background: '#0C1830', color: '#F0F4FF', paddingBottom: 80 }}>
       {/* TOAST NOTIFICATIONS */}
       {tabyToast && (
@@ -4489,6 +4560,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         </div>
       )}
     </div>
+    </PullToRefresh>
   )
 }
 
@@ -5369,6 +5441,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
   // ===== APP =====
   return (
+    <PullToRefresh color="#D4AF37" bg="rgba(0,0,0,0.7)" onRefresh={async () => {
+      await Promise.all([
+        fetchAll?.(), fetchChat?.(), fetchExpenses?.(), fetchH2h?.(),
+        fetchProps?.(), fetchPayments?.(), fetchOdds?.(), fetchHistoria?.()
+      ])
+    }}>
     <div>
       {toast && <div className={`shoutout-toast ${toast.type === 'eagle' ? 'eagle-toast' : toast.type === 'zero' ? 'zero-toast' : ''}`}><div style={{ fontSize: 15, fontWeight: 500 }}>{toast.msg}</div></div>}
 
@@ -6632,43 +6710,40 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               </div>
               <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.5 }}>Roterande pokal. Vinnaren tar hem den och graverar sitt namn. Återlämnas vid 2027 års turnering.</div>
             </div>
-            {/* Prisbordet */}
             <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--card-border)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                 <div style={{ fontSize: 22 }}>⭐</div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--cream)' }}>Prisbordet — 12 priser totalt</div>
-                  <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>{prizeConfig.perPlayer} kr/person fördelat {prizeConfig.splitTop}/{prizeConfig.splitBottom}</div>
+                  <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>{prizeConfig.perPlayer} kr/person · 3 kategorier</div>
                 </div>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.6, marginBottom: 8 }}>
-                Alla 6 tar med <span style={{ color: 'var(--gold)', fontWeight: 600 }}>2 priser var</span> till bordet — totalt 12 priser. Budgeten är {prizeConfig.perPlayer} kr per person fördelat enligt {prizeConfig.splitTop}/{prizeConfig.splitBottom}-regeln:
+              <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.6, marginBottom: 12, fontStyle: 'italic' }}>
+                "Vi hade tänkt köra lönebaserad prislista, men då måste Mange ge en Ferrari medan Matthis kommer undan med fickludd… så kan inte ha det… vi är ju ändå inte kommunister (fast man vet ju inte riktigt med Plus One 😏)"
               </div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                <div style={{ flex: 1, background: 'rgba(212,175,55,0.08)', borderRadius: 8, padding: '8px 10px', border: '0.5px solid rgba(212,175,55,0.2)' }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'var(--gold)', letterSpacing: 1, marginBottom: 2 }}>FINPRIS {prizeConfig.splitTop}%</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--cream)' }}>{Math.round(prizeConfig.perPlayer * prizeConfig.splitTop / 100)} kr</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 10 }}>
+                <div style={{ background: 'rgba(212,175,55,0.1)', borderRadius: 8, padding: '8px', border: '0.5px solid rgba(212,175,55,0.25)', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'var(--gold)', letterSpacing: 1, marginBottom: 4 }}>INDIVIDUELLT</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gold)', lineHeight: 1 }}>6</div>
+                  <div style={{ fontSize: 9, color: 'var(--cream-muted)', marginTop: 4 }}>Rank 1–6</div>
                 </div>
-                <div style={{ flex: 1, background: 'rgba(147,197,253,0.06)', borderRadius: 8, padding: '8px 10px', border: '0.5px solid rgba(147,197,253,0.15)' }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: '#93C5FD', letterSpacing: 1, marginBottom: 2 }}>STODPRIS {prizeConfig.splitBottom}%</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--cream)' }}>{Math.round(prizeConfig.perPlayer * prizeConfig.splitBottom / 100)} kr</div>
+                <div style={{ background: 'rgba(74,222,128,0.08)', borderRadius: 8, padding: '8px', border: '0.5px solid rgba(74,222,128,0.2)', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: '#4ADE80', letterSpacing: 1, marginBottom: 4 }}>LAG</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#4ADE80', lineHeight: 1 }}>3</div>
+                  <div style={{ fontSize: 9, color: 'var(--cream-muted)', marginTop: 4 }}>Vinnande lag</div>
+                </div>
+                <div style={{ background: 'rgba(232,99,74,0.08)', borderRadius: 8, padding: '8px', border: '0.5px solid rgba(232,99,74,0.2)', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: '#E8634A', letterSpacing: 1, marginBottom: 4 }}>TRÖST</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#E8634A', lineHeight: 1 }}>3</div>
+                  <div style={{ fontSize: 9, color: 'var(--cream-muted)', marginTop: 4 }}>Förtjänat det</div>
                 </div>
               </div>
               <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.6 }}>
-                På prisutdelningen plockar <span style={{ color: 'var(--gold)', fontWeight: 600 }}>vinnaren först</span>, sen ner i ranking. Den med rang 12 (sista plocket) får det som finns kvar.
+                <strong style={{ color: 'var(--cream)' }}>Individuellt (6 priser):</strong> 1:an plockar först, sen ner i ranking till 6:an.<br/>
+                <strong style={{ color: '#4ADE80' }}>Lag (3 priser):</strong> Vinnande lagets spelare delar 3 priser.<br/>
+                <strong style={{ color: '#E8634A' }}>Tröstpriser (3):</strong> För de som "förtjänat det" — daily losers, mest blowups, värsta swing, etc. Bestäms på söndagen.
               </div>
-              <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 6, fontStyle: 'italic' }}>Förslag: golf-relaterat, whisky, kläder, gadgets — fritt fram. Matthis: ingen begagnad träklubba från 1987.</div>
-            </div>
-            {/* Lagtävlingen */}
-            <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--card-border)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <div style={{ fontSize: 22 }}>⚔️</div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--cream)' }}>Lagtävlingen (Gaylords vs Stjärtmesarna)</div>
-                  <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>Förlorande laget Swishar {prizeConfig.teamStake} kr/person</div>
-                </div>
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.6 }}>När lagtävlingen är avgjord Swishar varje spelare på förlorande laget <span style={{ color: 'var(--gold)', fontWeight: 600 }}>{prizeConfig.teamStake} kr till varje motståndare i vinnarlaget</span>. Auto-läggs in i Even Steven när admin avgör. Belopp justerbart i Admin → Inställningar.</div>
+              <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 8, fontStyle: 'italic' }}>Förslag: golf-prylar, whisky, kläder, gadgets. Matthis: ingen begagnad träklubba från 1987.</div>
             </div>
             {/* Sidobets */}
             <div style={{ padding: '12px 14px' }}>
@@ -6688,7 +6763,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 14, marginBottom: 14, border: '0.5px solid var(--card-border)' }}>
             {[
               { kat: 'Golf', items: ['Golfbag + klubbor','Golfskor (2 par)','Golfhandskar 2+','Bollar (2 dussin — du vet varför)','Tees + pitch-reparation'] },
-              { kat: 'Prisbordet ⭐', items: ['2× priser till bordet (350 kr finpris + 150 kr stödpris)','Total budget 500 kr/person, 12 priser totalt','Vinnaren plockar först — sen ner i ranking','Förslag: golf, whisky, kläder, gadgets — fritt fram'] },
+              { kat: 'Prisbordet ⭐', items: ['2× priser per person till bordet (12 totalt)','Budget ~500 kr/person','6 individuella · 3 till lag-vinnare · 3 tröstpriser','Förslag: golf, whisky, kläder, gadgets — fritt fram'] },
               { kat: 'Ljud 🔊', items: ['JBL Boombox 3 (stor — Bistron/middag)','JBL Charge 6 (portabel — på banan)','Powerbank till båda','Filip ansvarar — säg till om någon glömt'] },
               { kat: 'Kläder', items: ['Golfkläder 3 dagar','Regnkläder (Småland)','Casual kläder kvällar'] },
               { kat: 'Övrigt', items: ['Laddare + powerbank','Kontanter + Swish (Even Steven)','Gott humör — Matthis, ta med extra'] },
@@ -8081,7 +8156,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 { t: '🏆 Prisutdelning!', b: 'Samling för Le Douche de Golf-ceremonin' },
                 { t: '📸 Grupp-foto', b: 'Alla till first tee för gruppfoto' },
                 { t: '🎤 Suno-låten är ute', b: 'Le Douche de Golf-sången är uppe i Lounge → Musik. Skarpt. Pompös. Lyssna.' },
-                { t: '⭐ Glöm inte 2 prisbordet', b: 'Påminnelse: alla tar med 2 priser till bordet — 350 kr finpris + 150 kr stödpris. 12 priser totalt. Vinnaren plockar först.' },
+                { t: '⭐ Glöm inte 2 prisbordet', b: 'Påminnelse: 2 priser per person, ~500 kr budget. 12 priser totalt fördelat på individuellt (6), lag (3) och tröstpriser (3).' },
               ].map((q, i) => (
                 <button key={i} onClick={() => setBroadcastForm(f => ({ ...f, title: q.t, body: q.b }))}
                   style={{ fontSize: 10, padding: '6px 10px', background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream-dim)', borderRadius: 6, cursor: 'pointer' }}>
@@ -8232,57 +8307,11 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               Med {prizeConfig.perPlayer} kr/person = <strong style={{ color: 'var(--gold)' }}>{Math.round(prizeConfig.perPlayer * prizeConfig.splitTop / 100)} kr finpris</strong> + <strong style={{ color: 'var(--cream)' }}>{Math.round(prizeConfig.perPlayer * prizeConfig.splitBottom / 100)} kr stödpris</strong>. Totalt {12} priser (12 prylar i bordet).
             </div>
 
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginBottom: 4 }}>LAGTÄVLING SWISH/PERSON (KR)</div>
-              <input type="number" value={prizeConfig.teamStake} onChange={e => setPrizeConfig(p => ({ ...p, teamStake: Number(e.target.value) || 0 }))}
-                onBlur={async e => { await supabase.from('inv_settings').upsert({ key: 'team_stake_per_player', value: Number(e.target.value) || 200, updated_by: user.nickname }) }}
-                style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream)', padding: '10px', fontSize: 14 }} />
-              <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 4 }}>Förlorande lagets spelare Swishar detta belopp till varje motståndare i vinnarlaget.</div>
-            </div>
-
-            {/* Avgör lagtävling */}
-            <div style={{ background: 'rgba(212,175,55,0.05)', borderRadius: 10, padding: 12, border: '0.5px solid rgba(212,175,55,0.2)' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 8 }}>⚔️ AVGÖR LAGTÄVLING → AUTO-SETTLEMENT</div>
-              <div style={{ fontSize: 11, color: 'var(--cream-muted)', lineHeight: 1.5, marginBottom: 10 }}>
-                Skapar Even Steven-poster för alla förlorare → varje vinnare i andra laget.
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {[
-                  { winner: 'Gaylords', desc: 'Stjärtmesarna förlorade', color: '#4ADE80' },
-                  { winner: 'Stjärtmesarna', desc: 'Gaylords förlorade', color: '#93C5FD' },
-                ].map(({ winner, desc, color }) => (
-                  <button key={winner} onClick={async () => {
-                    if (!confirm(`Bekräfta: ${winner} vinner lagtävlingen.\n\nDetta skapar Even Steven-poster för förlorarna (${prizeConfig.teamStake} kr/person × motståndare i vinnarlaget).`)) return
-                    const winnerKey = winner === 'Gaylords' ? 'Gaylords' : 'Stjärtmesarna'
-                    const loserKey = winner === 'Gaylords' ? 'Stjärtmesarna' : 'Gaylords'
-                    const winners = players.filter(p => ['green','Gaylords'].includes(p.team) === (winner === 'Gaylords') && p.key !== 'spectator')
-                    const losers = players.filter(p => ['green','Gaylords'].includes(p.team) === (winner !== 'Gaylords') && p.key !== 'spectator')
-                    const inserts = []
-                    losers.forEach(L => {
-                      winners.forEach(W => {
-                        inserts.push({
-                          paid_by: L.key,
-                          amount: prizeConfig.teamStake,
-                          tag: 'bet',
-                          description: `Lagtävling: ${L.nickname} → ${W.nickname}`,
-                          target_player: W.key,
-                          split_between: [W.key],
-                          bet_type: 'team',
-                          created_by: user.key
-                        })
-                      })
-                    })
-                    if (inserts.length === 0) { alert('Inga spelare hittade'); return }
-                    const { error } = await supabase.from('inv_expenses').insert(inserts)
-                    if (error) { alert('Fel: ' + error.message); return }
-                    alert(`✅ ${inserts.length} poster skapade. Kolla Even Steven för settlement.`)
-                    fetchExpenses?.()
-                  }} style={{ flex: 1, padding: '10px', background: `${color}22`, color, border: `1px solid ${color}66`, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                    🏆 {winner} vinner
-                  </button>
-                ))}
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 8, textAlign: 'center', fontStyle: 'italic' }}>Kan köras igen — men kollar inte dubletter. Använd när lagvinnaren är klar.</div>
+            <div style={{ background: 'rgba(212,175,55,0.05)', borderRadius: 10, padding: 12, border: '0.5px solid rgba(212,175,55,0.15)', fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.6 }}>
+              <strong style={{ color: 'var(--gold)' }}>📋 12 priser fördelas så här:</strong><br/>
+              · 6 individuella (rank 1–6)<br/>
+              · 3 till vinnande laget<br/>
+              · 3 tröstpriser (förtjänade)
             </div>
           </div>
 
@@ -8597,5 +8626,6 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         </div>
       </nav>
     </div>
+    </PullToRefresh>
   )
 }
