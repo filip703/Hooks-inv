@@ -302,12 +302,6 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [showEventResultModal, setShowEventResultModal] = useState(null)
   const [eventResultDraft, setEventResultDraft] = useState({})
   const [showEndRoundModal, setShowEndRoundModal] = useState(false)
-  const [showLoungeOnboarding, setShowLoungeOnboarding] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return !localStorage.getItem('dio_lounge_seen_v1')
-  })
-  const [loungeTab, setLoungeTab] = useState('musik')
-  const [loungePosts, setLoungePosts] = useState([])
   const [showMorningPopup, setShowMorningPopup] = useState(() => {
     // Visa morgonbriefing en gång per dag under DIO-veckan (22-24 maj)
     const today = new Date().toDateString()
@@ -4277,62 +4271,6 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {/* ======================================== */}
       {/* MORNING BRIEFING POPUP                    */}
       {/* ======================================== */}
-      {/* LOUNGE ONBOARDING — visas första gången användaren öppnar appen */}
-      {showLoungeOnboarding && user && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(20px)', zIndex: 900, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0' }}>
-          <div style={{ background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '24px 20px 36px', width: '100%', maxWidth: 480, border: '1px solid rgba(212,175,55,0.3)', maxHeight: '92vh', overflowY: 'auto' }}>
-            <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '0 auto 24px' }} />
-            <div style={{ textAlign: 'center', marginBottom: 20 }}>
-              <div style={{ fontSize: 48, marginBottom: 8 }}>🏆</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 6 }}>VÄLKOMMEN TILL</div>
-              <div style={{ fontFamily: 'var(--serif)', fontSize: 28, color: 'var(--cream)', marginBottom: 4 }}>Le Douche de Golf</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-muted)', letterSpacing: 2 }}>DOUCHE INVITATIONAL ONLY 2026</div>
-            </div>
-            <div style={{ background: 'rgba(212,175,55,0.05)', borderRadius: 12, padding: '14px 16px', marginBottom: 16, border: '0.5px solid rgba(212,175,55,0.15)' }}>
-              <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.6 }}>
-                Den här appen är ditt hem under helgen. Här gör du allt: registrerar scores, kollar ledartavlan, chattar, bettar, splittar utgifter, lyssnar på musiken, sågar Matthis.
-              </div>
-            </div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>KORTVERSIONEN</div>
-            {[
-              ['🏆 LEDARE', 'Vem leder, lagstatus, statistik'],
-              ['📝 SCORE', 'Tryck − och + → GRÖN knapp = spara'],
-              ['⚔️ LAG', 'Gaylords vs Stjärtmesarna live'],
-              ['🎉 LOUNGE', 'Musik, achievements, hype, sociala väggen'],
-              ['☰ MENY', 'Chat, Even Steven, betting, foton, profil, admin'],
-            ].map(([icon, desc]) => (
-              <div key={icon} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '0.5px solid var(--card-border)' }}>
-                <div style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 700, width: 90, fontFamily: 'var(--mono)' }}>{icon}</div>
-                <div style={{ fontSize: 12, color: 'var(--cream-dim)', flex: 1, lineHeight: 1.4 }}>{desc}</div>
-              </div>
-            ))}
-            <div style={{ background: 'rgba(74,222,128,0.08)', border: '0.5px solid rgba(74,222,128,0.25)', borderRadius: 10, padding: '10px 12px', marginTop: 14 }}>
-              <div style={{ fontSize: 11, color: '#4ADE80', lineHeight: 1.5 }}>💡 <strong>Tips:</strong> Aktivera push-notiser via Min Profil — du missar inga birdies, skulder eller chatt.</div>
-            </div>
-            <a href="https://docs.google.com/document/d/1QfOTn9ZjmSAk6sEpG0rY0Ylw_YqDrkRM78iKH-AR-uU/edit" target="_blank" rel="noreferrer"
-              style={{ display: 'block', padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '0.5px solid var(--card-border)', textDecoration: 'none', marginTop: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ fontSize: 20 }}>📖</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: 'var(--cream)', fontWeight: 600 }}>Hela manualen (Google Doc)</div>
-                  <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 2 }}>Installera, regler, betting, felsökning, allt</div>
-                </div>
-                <div style={{ color: 'var(--gold)', fontSize: 14 }}>→</div>
-              </div>
-            </a>
-            <div style={{ fontSize: 11, color: 'var(--cream-muted)', fontStyle: 'italic', textAlign: 'center', marginTop: 18, lineHeight: 1.5 }}>
-              "Den här appen heter DIO. Inte 'golf-grejen'. Inte 'den där'. DIO. — För Matthis."
-            </div>
-            <button onClick={() => {
-              localStorage.setItem('dio_lounge_seen_v1', '1')
-              setShowLoungeOnboarding(false)
-              setView('lounge')
-            }} style={{ width: '100%', padding: '15px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, var(--gold), #b8932f)', color: '#0A0A08', fontSize: 16, fontWeight: 900, cursor: 'pointer', marginTop: 18, letterSpacing: 0.3 }}>
-              KÖR! 🏌️
-            </button>
-          </div>
-        </div>
-      )}
 
       {showMorningPopup && (() => {
         const d = new Date().getDate()
@@ -4662,6 +4600,11 @@ function DIOApp({ onSwitchMode }) {
   const [notifications, setNotifications] = useState([])
   const [showNotifs, setShowNotifs] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
+  const [showLoungeOnboarding, setShowLoungeOnboarding] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return !localStorage.getItem('dio_lounge_seen_v1')
+  })
+  const [loungeTab, setLoungeTab] = useState('musik')
   const [darkMode, setDarkMode] = useState(false)
   useEffect(() => {
     const saved = typeof window !== 'undefined' && localStorage?.getItem('dio_theme')
@@ -8389,6 +8332,64 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         }} />
 
       {/* ===== BOTTOM NAV - iOS 26 Liquid Glass + Team Scores ===== */}
+      
+      {/* LOUNGE ONBOARDING — visas första gången användaren öppnar appen */}
+      {showLoungeOnboarding && user && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(20px)', zIndex: 900, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0' }}>
+          <div style={{ background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: '24px 20px 36px', width: '100%', maxWidth: 480, border: '1px solid rgba(212,175,55,0.3)', maxHeight: '92vh', overflowY: 'auto' }}>
+            <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '0 auto 24px' }} />
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ fontSize: 48, marginBottom: 8 }}>🏆</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 6 }}>VÄLKOMMEN TILL</div>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 28, color: 'var(--cream)', marginBottom: 4 }}>Le Douche de Golf</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-muted)', letterSpacing: 2 }}>DOUCHE INVITATIONAL ONLY 2026</div>
+            </div>
+            <div style={{ background: 'rgba(212,175,55,0.05)', borderRadius: 12, padding: '14px 16px', marginBottom: 16, border: '0.5px solid rgba(212,175,55,0.15)' }}>
+              <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.6 }}>
+                Den här appen är ditt hem under helgen. Här gör du allt: registrerar scores, kollar ledartavlan, chattar, bettar, splittar utgifter, lyssnar på musiken, sågar Matthis.
+              </div>
+            </div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>KORTVERSIONEN</div>
+            {[
+              ['🏆 LEDARE', 'Vem leder, lagstatus, statistik'],
+              ['📝 SCORE', 'Tryck − och + → GRÖN knapp = spara'],
+              ['⚔️ LAG', 'Gaylords vs Stjärtmesarna live'],
+              ['🎉 LOUNGE', 'Musik, achievements, hype, sociala väggen'],
+              ['☰ MENY', 'Chat, Even Steven, betting, foton, profil, admin'],
+            ].map(([icon, desc]) => (
+              <div key={icon} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '0.5px solid var(--card-border)' }}>
+                <div style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 700, width: 90, fontFamily: 'var(--mono)' }}>{icon}</div>
+                <div style={{ fontSize: 12, color: 'var(--cream-dim)', flex: 1, lineHeight: 1.4 }}>{desc}</div>
+              </div>
+            ))}
+            <div style={{ background: 'rgba(74,222,128,0.08)', border: '0.5px solid rgba(74,222,128,0.25)', borderRadius: 10, padding: '10px 12px', marginTop: 14 }}>
+              <div style={{ fontSize: 11, color: '#4ADE80', lineHeight: 1.5 }}>💡 <strong>Tips:</strong> Aktivera push-notiser via Min Profil — du missar inga birdies, skulder eller chatt.</div>
+            </div>
+            <a href="https://docs.google.com/document/d/1QfOTn9ZjmSAk6sEpG0rY0Ylw_YqDrkRM78iKH-AR-uU/edit" target="_blank" rel="noreferrer"
+              style={{ display: 'block', padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '0.5px solid var(--card-border)', textDecoration: 'none', marginTop: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ fontSize: 20 }}>📖</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: 'var(--cream)', fontWeight: 600 }}>Hela manualen (Google Doc)</div>
+                  <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 2 }}>Installera, regler, betting, felsökning, allt</div>
+                </div>
+                <div style={{ color: 'var(--gold)', fontSize: 14 }}>→</div>
+              </div>
+            </a>
+            <div style={{ fontSize: 11, color: 'var(--cream-muted)', fontStyle: 'italic', textAlign: 'center', marginTop: 18, lineHeight: 1.5 }}>
+              "Den här appen heter DIO. Inte 'golf-grejen'. Inte 'den där'. DIO. — För Matthis."
+            </div>
+            <button onClick={() => {
+              localStorage.setItem('dio_lounge_seen_v1', '1')
+              setShowLoungeOnboarding(false)
+              setView('lounge')
+            }} style={{ width: '100%', padding: '15px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, var(--gold), #b8932f)', color: '#0A0A08', fontSize: 16, fontWeight: 900, cursor: 'pointer', marginTop: 18, letterSpacing: 0.3 }}>
+              KÖR! 🏌️
+            </button>
+          </div>
+        </div>
+      )}
+
       <nav className="bottom-nav">
         <div className="nav-teams-strip">
           <span className={`nav-team green ${teamTotal('green') > teamTotal('blue') ? 'leading' : ''}`}>GAYLORDS {teamTotal('green') || '–'}p</span>
