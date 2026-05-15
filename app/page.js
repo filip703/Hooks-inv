@@ -4635,6 +4635,15 @@ function DIOApp({ onSwitchMode }) {
   const [wagerInputs, setWagerInputs] = useState({})
   const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', tag: 'mat' })
   const [h2hPlayers, setH2hPlayers] = useState([])
+  // Wrapper: spara h2h-pairs till inv_settings så alla ser samma
+  const setH2hPlayersShared = useCallback((updater) => {
+    setH2hPlayers(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      // Persist async
+      supabase.from('inv_settings').upsert({ key: 'dio_h2h_pairs', value: JSON.stringify(next), updated_by: 'h2h' }).then(() => {})
+      return next
+    })
+  }, [])
   const [h2hMatches, setH2hMatches] = useState([])
   const [expenseTarget, setExpenseTarget] = useState('')
   const [propBets, setPropBets] = useState([])
@@ -4689,7 +4698,7 @@ function DIOApp({ onSwitchMode }) {
       supabase.from('inv_rounds').select('*').order('round_number'),
       supabase.from('inv_scores').select('*'),
       supabase.from('inv_expenses').select('*').order('created_at', { ascending: false }),
-      supabase.from('inv_settings').select('key, value').in('key', ['dio_start_date', 'dio_end_date', 'dio_dates_label', 'dio_venue', 'dio_year', 'prize_per_player', 'prize_split_top', 'prize_split_bottom', 'team_stake_per_player'])
+      supabase.from('inv_settings').select('key, value').in('key', ['dio_start_date', 'dio_end_date', 'dio_dates_label', 'dio_venue', 'dio_year', 'prize_per_player', 'prize_split_top', 'prize_split_bottom', 'team_stake_per_player', 'dio_h2h_pairs'])
     ])
     if (p.data) setPlayers(p.data); if (r.data) setRounds(r.data); if (s.data) setScores(s.data); if (ex.data) setExpenses(ex.data)
     if (set.data) {
@@ -4700,6 +4709,13 @@ function DIOApp({ onSwitchMode }) {
         if (typeof v === 'string' && v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1)
         cfg[row.key] = v
       })
+      // Sync h2h-pairs från DB
+      if (cfg.dio_h2h_pairs) {
+        try {
+          const parsed = typeof cfg.dio_h2h_pairs === 'string' ? JSON.parse(cfg.dio_h2h_pairs) : cfg.dio_h2h_pairs
+          if (Array.isArray(parsed)) setH2hPlayers(parsed)
+        } catch (e) { console.warn('h2h_pairs parse error', e) }
+      }
       setPrizeConfig(prev => ({
         perPlayer: cfg.prize_per_player != null ? Number(cfg.prize_per_player) : prev.perPlayer,
         splitTop: cfg.prize_split_top != null ? Number(cfg.prize_split_top) : prev.splitTop,
@@ -4809,7 +4825,16 @@ function DIOApp({ onSwitchMode }) {
     const c4 = supabase.channel('h2h1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_h2h_matches' }, () => fetchH2h()).subscribe()
     const c5 = supabase.channel('prop1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_prop_bets' }, () => fetchProps()).subscribe()
     const c10 = supabase.channel('hist1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_historia' }, () => fetchHistoria()).subscribe()
-    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4); supabase.removeChannel(c5); supabase.removeChannel(c6); supabase.removeChannel(c7); supabase.removeChannel(c8); supabase.removeChannel(c9); supabase.removeChannel(c10) }
+    // RT-sync för delade settings (h2h-pairs, prize-config, etc.)
+    const c11 = supabase.channel('set1').on('postgres_changes', { event: '*', schema: 'public', table: 'inv_settings', filter: 'key=eq.dio_h2h_pairs' }, (payload) => {
+      const v = payload.new?.value
+      if (!v) return
+      try {
+        const parsed = typeof v === 'string' ? JSON.parse(v) : v
+        if (Array.isArray(parsed)) setH2hPlayers(parsed)
+      } catch (e) {}
+    }).subscribe()
+    return () => { supabase.removeChannel(c1); supabase.removeChannel(c2); supabase.removeChannel(c3); supabase.removeChannel(c4); supabase.removeChannel(c5); supabase.removeChannel(c6); supabase.removeChannel(c7); supabase.removeChannel(c8); supabase.removeChannel(c9); supabase.removeChannel(c10); supabase.removeChannel(c11) }
   }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds, players])
 
   const addNotif = (msg, type) => {
@@ -5715,16 +5740,20 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 400 }}></th>
               {[1,2,3,4].map(r => <th key={r} style={{ padding: '6px 2px', fontWeight: 400, fontSize: 9 }}>{RL[r]}</th>)}
               <th style={{ padding: '6px 4px', fontWeight: 500 }}>Tot</th>
+              <th style={{ padding: '6px 4px', color: 'var(--gold)', fontSize: 8 }}>vs HCP</th>
               <th style={{ padding: '6px 4px', color: 'var(--cream-muted)', fontSize: 8 }}>Slag</th>
               <th style={{ padding: '6px 4px', color: 'var(--coral)' }}>💀</th>
             </tr></thead>
             <tbody>{lb.map(p => {
               const totalStr = scores.filter(s => s.player_id === p.id && s.strokes > 0).reduce((sum, s) => sum + s.strokes, 0)
+              const playedHoles = scores.filter(s => s.player_id === p.id && s.strokes > 0).length
+              const vsHcp = playedHoles > 0 ? (pTotal(p.id) - 2 * playedHoles) : null
               return (
               <tr key={p.id} style={{ borderBottom: '1px solid var(--card-border)' }}>
                 <td style={{ padding: '5px 4px', color: 'var(--cream-dim)' }}>{p.name.split(' ')[0]}</td>
                 {[1,2,3,4].map(r => <td key={r} style={{ textAlign: 'center', padding: '5px 2px', color: 'var(--cream-muted)' }}>{pRoundRaw(p.id, r) || '-'}</td>)}
                 <td style={{ textAlign: 'center', padding: '5px 4px', fontWeight: 500, color: 'var(--gold-bright)' }}>{pTotal(p.id) || '-'}</td>
+                <td style={{ textAlign: 'center', padding: '5px 4px', fontWeight: 500, color: vsHcp == null ? 'var(--cream-muted)' : vsHcp > 0 ? '#4ADE80' : vsHcp < 0 ? '#E8634A' : 'var(--cream-dim)', fontSize: 10 }}>{vsHcp == null ? '-' : (vsHcp > 0 ? '+' : '') + vsHcp}</td>
                 <td style={{ textAlign: 'center', padding: '5px 4px', color: 'var(--cream-muted)', fontSize: 10 }}>{totalStr || '-'}</td>
                 <td style={{ textAlign: 'center', padding: '5px 4px', color: zeros(p.id) > 5 ? 'var(--coral)' : 'var(--cream-muted)' }}>{zeros(p.id) || '-'}</td>
               </tr>
@@ -5837,7 +5866,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                         <div style={{ fontSize: 10, fontWeight: 500, marginTop: 2 }}>{h.p2.nickname}</div>
                         <div style={{ fontFamily: 'var(--mono)', fontSize: 18, color: h.t2 >= h.t1 ? 'var(--green)' : 'var(--cream-muted)' }}>{h.t2}</div>
                       </div>
-                      <button onClick={() => setH2hPlayers(prev => prev.filter((_, i) => i !== idx))}
+                      <button onClick={() => setH2hPlayersShared(prev => prev.filter((_, i) => i !== idx))}
                         style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 14, cursor: 'pointer', padding: '0 4px', marginLeft: 4 }}>✕</button>
                     </div>
                   )
@@ -5857,7 +5886,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     const p1 = document.getElementById('h2h-add-p1').value
                     const p2 = document.getElementById('h2h-add-p2').value
                     if (p1 && p2 && p1 !== p2) {
-                      setH2hPlayers(prev => [...prev, [p1, p2]])
+                      setH2hPlayersShared(prev => [...prev, [p1, p2]])
                       document.getElementById('h2h-add-p1').value = ''
                       document.getElementById('h2h-add-p2').value = ''
                     }
