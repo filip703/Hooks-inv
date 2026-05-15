@@ -6191,7 +6191,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               { key: 'musik', label: '🎵 MUSIK' },
               { key: 'achievements', label: '🏆 PRESTATIONER' },
               { key: 'hype', label: '🔥 HYPE' },
-              { key: 'wall', label: '📸 VÄGGEN' },
+              { key: 'wall', label: '💬 CHAT' },
             ].map(tab => (
               <button key={tab.key} onClick={() => setLoungeTab(tab.key)}
                 style={{ flex: 1, padding: '8px 4px', borderRadius: 8, border: 'none', cursor: 'pointer', background: loungeTab === tab.key ? 'rgba(212,175,55,0.15)' : 'transparent', color: loungeTab === tab.key ? 'var(--gold)' : 'var(--cream-muted)', fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, letterSpacing: 0.5, transition: 'all 0.2s' }}>
@@ -6221,6 +6221,19 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   </audio>
                   <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 6, textAlign: 'center', fontStyle: 'italic' }}>(MP3 läggs till av Filip — annars är spelaren här bara för dekoration)</div>
                 </div>
+
+                {/* Manual-länk */}
+                <a href="https://docs.google.com/document/d/1QfOTn9ZjmSAk6sEpG0rY0Ylw_YqDrkRM78iKH-AR-uU/edit" target="_blank" rel="noreferrer"
+                  style={{ display: 'block', padding: '14px 16px', borderRadius: 14, background: 'var(--surface)', border: '0.5px solid var(--card-border)', textDecoration: 'none', marginBottom: 18 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ fontSize: 24 }}>📖</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, color: 'var(--cream)', fontWeight: 600 }}>Hela manualen</div>
+                      <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginTop: 2 }}>Installation · Regler · Betting · Felsökning</div>
+                    </div>
+                    <div style={{ color: 'var(--gold)', fontSize: 16 }}>→</div>
+                  </div>
+                </a>
 
                 {/* Walk-up music per spelare */}
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10 }}>🎧 WALK-UP MUSIC</div>
@@ -6325,47 +6338,45 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           )}
 
           {/* === SOCIAL WALL === */}
-          {loungeTab === 'wall' && (() => {
-            const posts = (chat || []).filter(m => m.msg_type === 'lounge').sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-            return (
-              <>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10 }}>📸 VÄGGEN — DELA HELGEN</div>
-
-                {/* Post-knapp */}
-                <button onClick={() => {
-                  const txt = prompt('Vad vill du dela med gruppen?')
-                  if (!txt || !user?.id) return
-                  supabase.from('inv_chat').insert({ player_id: user.id, message: txt, msg_type: 'lounge' })
-                }} style={{ width: '100%', padding: '14px', borderRadius: 12, border: '1px dashed var(--gold-dim)', background: 'rgba(212,175,55,0.04)', color: 'var(--gold)', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', marginBottom: 14 }}>
-                  ✏️  DELA NÅGOT KUL
-                </button>
-
-                {!posts.length && (
-                  <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 30, textAlign: 'center', border: '0.5px solid var(--card-border)' }}>
-                    <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.5 }}>📸</div>
-                    <div style={{ fontSize: 13, color: 'var(--cream-muted)' }}>Tomt här — bli första att posta!</div>
-                    <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginTop: 6, fontStyle: 'italic' }}>Foton, kommentarer, allt</div>
+          {loungeTab === 'wall' && (
+            <>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 10 }}>📸 CHAT — DELA HELGEN</div>
+              <div style={{ background: 'rgba(212,175,55,0.05)', border: '0.5px solid rgba(212,175,55,0.15)', borderRadius: 10, padding: '10px 12px', marginBottom: 14 }}>
+                <div style={{ fontSize: 11, color: 'var(--cream-dim)', lineHeight: 1.5 }}>
+                  💬 All chat finns på en plats. Tryck nedan för att öppna chatten — posta foton, kommentarer, sågar.
+                </div>
+              </div>
+              <button onClick={() => setView('feed')} style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, var(--gold), #b8932f)', color: '#0A0A08', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginBottom: 14 }}>
+                💬  Öppna chatten
+              </button>
+              {/* Visa senaste 5 meddelanden som preview */}
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 2, marginBottom: 8 }}>SENASTE</div>
+              {(() => {
+                const recent = (chat || []).filter(m => m.msg_type === 'chat' || m.msg_type === 'shoutout' || !m.msg_type).slice(0, 5)
+                if (!recent.length) return (
+                  <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 24, textAlign: 'center', border: '0.5px solid var(--card-border)' }}>
+                    <div style={{ fontSize: 28, marginBottom: 6, opacity: 0.5 }}>💬</div>
+                    <div style={{ fontSize: 12, color: 'var(--cream-muted)' }}>Inga meddelanden än</div>
                   </div>
-                )}
-
-                {posts.map(p => {
+                )
+                return recent.map(p => {
                   const player = activePlayers.find(x => x.id === p.player_id) || { nickname: 'Okänd', image_url: null }
                   return (
-                    <div key={p.id} style={{ background: 'var(--surface)', borderRadius: 14, padding: 14, marginBottom: 10, border: '0.5px solid var(--card-border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                        <Av p={player} size={32} />
+                    <div key={p.id} onClick={() => setView('feed')} style={{ background: 'var(--surface)', borderRadius: 12, padding: 12, marginBottom: 8, border: '0.5px solid var(--card-border)', cursor: 'pointer' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                        <Av p={player} size={28} />
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, color: 'var(--cream)', fontWeight: 600 }}>{player.nickname}</div>
-                          <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>{new Date(p.created_at).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                          <div style={{ fontSize: 12, color: 'var(--cream)', fontWeight: 600 }}>{player.nickname}</div>
+                          <div style={{ fontSize: 9, color: 'var(--cream-muted)' }}>{new Date(p.created_at).toLocaleString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</div>
                         </div>
                       </div>
-                      <div style={{ fontSize: 13, color: 'var(--cream-dim)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{p.message}</div>
+                      <div style={{ fontSize: 12, color: 'var(--cream-dim)', lineHeight: 1.4, whiteSpace: 'pre-wrap', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p.message}</div>
                     </div>
                   )
-                })}
-              </>
-            )
-          })()}
+                })
+              })()}
+            </>
+          )}
 
         </>)}
 
@@ -8307,6 +8318,17 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 </button>
               ))}
             </div>
+
+            {/* Manual-länk */}
+            <a href="https://docs.google.com/document/d/1QfOTn9ZjmSAk6sEpG0rY0Ylw_YqDrkRM78iKH-AR-uU/edit" target="_blank" rel="noreferrer"
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 14px', textDecoration: 'none', borderRadius: 12, background: 'rgba(212,175,55,0.05)', border: '0.5px solid rgba(212,175,55,0.15)', margin: '4px 12px 0' }}>
+              <AugustaBadge size={32}><span style={{ fontSize: 14 }}>📖</span></AugustaBadge>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--gold)' }}>Manualen</div>
+                <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginTop: 2 }}>Hela guiden i Google Doc</div>
+              </div>
+              <div style={{ color: 'var(--gold)', fontSize: 14 }}>↗</div>
+            </a>
 
             {/* Footer */}
             <div style={{ padding: '16px 20px', borderTop: '1px solid var(--card-border)', marginTop: 10 }}>
