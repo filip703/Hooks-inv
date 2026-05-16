@@ -6630,8 +6630,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             {chat.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--cream-muted)', fontSize: 13 }}>🏌️ Tomt här. Skriv något!</div>}
             {chat.map((m, i) => {
               const me = m.player_id === user?.id
-              const sys = m.msg_type === 'shoutout' || m.msg_type === 'roast'
-              const brd = sys ? (m.msg_type === 'shoutout' ? 'var(--green)' : 'var(--coral)') : me ? 'var(--gold-dim)' : 'transparent'
+              const isAiRoast = m.msg_type === 'ai_roast'
+              const sys = m.msg_type === 'shoutout' || m.msg_type === 'roast' || isAiRoast
+              const brd = isAiRoast ? '#FF8A6B' : sys ? (m.msg_type === 'shoutout' ? 'var(--green)' : 'var(--coral)') : me ? 'var(--gold-dim)' : 'transparent'
               const canDel = me || isAdmin
               // Highlight @mentions
               const renderMsg = (text) => {
@@ -6682,7 +6683,20 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                       })}
                     </div>
                   )}
-                  <div style={{ fontSize: 13, lineHeight: 1.5, color: sys ? 'var(--cream-dim)' : 'var(--cream)' }}>{renderMsg(m.message)}</div>
+                  {isAiRoast ? (() => {
+                    // Parsea "🔥 Mr Vain roastar The Grinder:\n"roast..."" till header + citat
+                    const lines = m.message.split('\n')
+                    const header = lines[0] || ''
+                    const roastBody = lines.slice(1).join('\n').replace(/^"|"$/g, '').trim()
+                    return (
+                      <div style={{ background: 'rgba(232,99,74,0.08)', margin: '-4px -2px', padding: '8px 10px', borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: '#FF8A6B', letterSpacing: 0.5, marginBottom: 6, fontWeight: 600 }}>{header}</div>
+                        <div style={{ fontSize: 14, lineHeight: 1.55, color: '#FAF8F0', fontFamily: 'var(--serif)', fontStyle: 'italic', paddingLeft: 8, borderLeft: '2px solid rgba(232,99,74,0.4)' }}>"{roastBody}"</div>
+                      </div>
+                    )
+                  })() : (
+                    <div style={{ fontSize: 13, lineHeight: 1.5, color: sys ? 'var(--cream-dim)' : 'var(--cream)' }}>{renderMsg(m.message)}</div>
+                  )}
                   {m.image_url && (m.msg_type === 'video' ? <video preload="none" src={m.image_url} controls playsInline style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} /> : <img src={m.image_url} alt="" style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} loading="lazy" />)}
                   <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', marginTop: 3 }}>{new Date(m.created_at).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</div>
                 </div>
