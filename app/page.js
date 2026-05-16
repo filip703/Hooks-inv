@@ -388,6 +388,9 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [tabyTeamGenLoading, setTabyTeamGenLoading] = useState(false)
   const [tabyAllPlayers, setTabyAllPlayers] = useState([])
   const [tabyHoleImages, setTabyHoleImages] = useState({}) // { 1: 'url', 2: 'url', ... }
+  // Live Pill — expanderbar Dynamic Island med pågående runda
+  const [tabyLivePillOpen, setTabyLivePillOpen] = useState(false)
+  const tabyBadgeRef = useRef(null)
   const [tabyDioConfig, setTabyDioConfig] = useState({ // för admin-redigering av DIO-datum från Täby-appen
     startDate: '2026-05-22T09:00:00+02:00',
     endDate: '2026-05-24T20:00:00+02:00',
@@ -1001,6 +1004,20 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
   // Current round scores for user
   const roundScores = (newRound && tabyUser) ? tabyScores.filter(s => s.round_id === newRound.id && s.player_id === tabyUser.id) : []
   const totalStab = roundScores.reduce((s, sc) => s + (sc.stableford || 0), 0)
+
+  // ===== PWA App Badge — Täby total stableford på app-ikonen =====
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !tabyUser) return
+    if (!('setAppBadge' in navigator)) return
+    if (tabyBadgeRef.current === totalStab) return
+    tabyBadgeRef.current = totalStab
+    if (totalStab > 0) {
+      navigator.setAppBadge(totalStab).catch(() => {})
+    } else {
+      navigator.clearAppBadge?.().catch(() => {})
+    }
+    return () => { navigator.clearAppBadge?.().catch(() => {}) }
+  }, [tabyUser?.id, newRound?.id, totalStab])
   const totalStrokes = roundScores.reduce((s, sc) => s + (sc.strokes || 0), 0)
   const holesPlayed = roundScores.length
   const parPlayed = roundScores.reduce((s, sc) => s + PARS[sc.hole - 1], 0)
@@ -1293,10 +1310,11 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {/* ── BOTTOM NAV ── */}
       <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200, display: 'flex', flexDirection: 'column', paddingBottom: 'calc(4px + env(safe-area-inset-bottom, 0px))', background: 'linear-gradient(180deg, rgba(30,58,95,0.55) 0%, rgba(12,24,48,0.88) 100%)', backdropFilter: 'blur(40px) saturate(1.8)', WebkitBackdropFilter: 'blur(40px) saturate(1.8)', borderTop: '0.5px solid rgba(147,197,253,0.12)', boxShadow: 'inset 0 0.5px 0 rgba(147,197,253,0.15), 0 -2px 20px rgba(0,0,0,0.4)' }}>
         {newRound && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '3px 0 2px', borderBottom: '0.5px solid rgba(147,197,253,0.08)' }}>
+          <button onClick={() => setTabyLivePillOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '4px 0 3px', borderBottom: '0.5px solid rgba(147,197,253,0.08)', background: 'none', border: 'none', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
             <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017' }}>●</span>
             <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,175,55,0.7)', letterSpacing: 0.5 }}>RUNDA AKTIV · {roundScores.length}/18 HÅL · {totalStab}P</span>
-          </div>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,175,55,0.5)' }}>{tabyLivePillOpen ? '▼' : '▲'}</span>
+          </button>
         )}
         <div style={{ display: 'flex' }}>
           {[
@@ -1320,6 +1338,54 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           </button>
         </div>
       </nav>
+
+      {/* ===== TÄBY LIVE PILL EXPANDED — alla spelare i rundan ===== */}
+      {tabyLivePillOpen && newRound && (() => {
+        const rid = newRound.id
+        const roundPlayers = tabyPlayers.filter(p => newRound.player_ids?.includes(p.id))
+        return (
+          <div onClick={() => setTabyLivePillOpen(false)} style={{ position: 'fixed', bottom: 'calc(78px + env(safe-area-inset-bottom, 0px))', left: 8, right: 8, zIndex: 250, background: 'rgba(12,24,48,0.96)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: 18, padding: 14, boxShadow: '0 -12px 40px rgba(0,0,0,0.5)' }}>
+            <div onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1.5 }}>PÅGÅENDE RUNDA</div>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: '#F0F4FF', marginTop: 2 }}>{newRound.format === 'stroke' ? 'Slagspel' : newRound.format === 'matchplay' ? 'Matchplay' : newRound.format === 'skins' ? 'Skins' : 'Stableford'} · Täby GK</div>
+                </div>
+                <button onClick={() => setTabyLivePillOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(240,244,255,0.5)', fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {roundPlayers.sort((a, b) => {
+                  const aTot = tabyScores.filter(s => s.player_id === a.id && s.round_id === rid && s.strokes > 0).reduce((s, x) => s + (x.stableford || 0), 0)
+                  const bTot = tabyScores.filter(s => s.player_id === b.id && s.round_id === rid && s.strokes > 0).reduce((s, x) => s + (x.stableford || 0), 0)
+                  return bTot - aTot
+                }).map(p => {
+                  const myScs = tabyScores.filter(s => s.player_id === p.id && s.round_id === rid && s.strokes > 0)
+                  const played = myScs.length
+                  const tot = myScs.reduce((s, x) => s + (x.stableford || 0), 0)
+                  const lastScore = myScs.length > 0 ? myScs.sort((a, b) => b.hole - a.hole)[0] : null
+                  const isMe = p.id === tabyUser?.id
+                  return (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', background: isMe ? 'rgba(147,197,253,0.08)' : 'transparent', borderRadius: 8, border: isMe ? '1px solid rgba(147,197,253,0.25)' : '1px solid rgba(255,255,255,0.04)' }}>
+                      {p.image_url ? <img src={p.image_url} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(147,197,253,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, color: '#F0F4FF', fontWeight: isMe ? 600 : 400 }}>{p.nickname}</div>
+                        {lastScore && <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'rgba(240,244,255,0.45)' }}>Senast: H{lastScore.hole} · {lastScore.strokes} slag · {lastScore.stableford ?? '–'}p</div>}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)' }}>{played}/18</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 600, color: tot >= 30 ? '#6BBF7F' : tot >= 18 ? '#D4A017' : '#F0F4FF' }}>{tot || '–'}p</div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <button onClick={() => { setTabyView('scoring'); setTabyLivePillOpen(false) }} style={{ width: '100%', marginTop: 12, padding: '10px', background: '#93C5FD', border: 'none', borderRadius: 10, color: '#0C1830', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                ⛳ Öppna scorekort
+              </button>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* LEADERBOARD */}
       {tabyView === 'leaderboard' && (
@@ -4699,6 +4765,10 @@ function DIOApp({ onSwitchMode }) {
   // Pending scores för bekräfta-flowet — { playerId_hole: strokes }
   // Score sparas inte direkt vid +/-, utan först när man trycker "Bekräfta & Nästa hål"
   const [dioPendingScore, setDioPendingScore] = useState({})
+  // Live Pill — expanderbar Dynamic Island med pågående runda
+  const [livePillOpen, setLivePillOpen] = useState(false)
+  // PWA App Badge — speglar användarens totalpoäng på app-ikonen på hemskärmen
+  const dioBadgeRef = useRef(null)
   const [guideHole, setGuideHole] = useState(null)
   const [activeHole, setActiveHole] = useState(null)
   const [caddieMsg, setCaddieMsg] = useState(null)
@@ -5034,6 +5104,21 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
   // Individual total = raw pts + streak bonuses
   const pTotal = pid => [1,2,3,4].reduce((s, r) => s + pRoundRaw(pid, r) + pRoundBonus(pid, r), 0)
+
+  // ===== PWA App Badge — total stableford-poäng på app-ikonen (iOS 16.4+ / Chrome / Edge) =====
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !user || user.key === 'spectator') return
+    if (!('setAppBadge' in navigator)) return
+    const myTotal = pTotal(user.id)
+    if (dioBadgeRef.current === myTotal) return // skip om samma värde
+    dioBadgeRef.current = myTotal
+    if (myTotal > 0) {
+      navigator.setAppBadge(myTotal).catch(() => {})
+    } else {
+      navigator.clearAppBadge?.().catch(() => {})
+    }
+    return () => { navigator.clearAppBadge?.().catch(() => {}) }
+  }, [user?.id, scores])
   // Team uses double-pts scoring
   // Team-matcher: hanterar både nya namn (Gaylords/Stjärtmesarna) och legacy (green/blue)
   const isTeamGaylords = (t) => t === 'Gaylords' || t === 'green'
@@ -5817,7 +5902,33 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           <span className="live-dot" /><Av p={user} size={20} /><span style={{ fontSize: 12, fontWeight: 500, color: '#FAF8F0' }}>{user.nickname}</span>
           {isAdmin && <Badge text="ADM" color="var(--gold)" bg="rgba(201,168,76,0.15)" />}
           {(() => {
-            // Only show leader pill if someone actually has points. Use tie-breaker on total strokes (fewer = better).
+            // LIVE RUNDE-INFO — visas när jag har minst 1 score i vald runda
+            const r = rounds.find(rr => rr.round_number === selRound)
+            const rid = r?.id
+            if (!rid) return null
+            const myScores = scores.filter(s => s.player_id === user?.id && s.round_id === rid && s.strokes > 0)
+            if (myScores.length === 0) return null
+            const playedCount = myScores.length
+            const myTotal = myScores.reduce((sum, s) => sum + (s.stableford_points || 0), 0)
+            const courseName = RC[selRound]
+            const courseShort = courseName === 'Skogsbanan' ? 'Skog' : 'Park'
+            const isComplete = playedCount === 18
+            return (
+              <button onClick={() => setLivePillOpen(o => !o)} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '3px 9px', background: isComplete ? 'rgba(74,222,128,0.15)' : 'rgba(212,175,55,0.18)', borderRadius: 12, border: isComplete ? '1px solid rgba(74,222,128,0.4)' : '1px solid rgba(212,175,55,0.35)', cursor: 'pointer' }}>
+                <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--gold)', letterSpacing: 0.5, fontWeight: 700 }}>R{selRound}</span>
+                <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'rgba(250,248,240,0.7)' }}>{playedCount}/18</span>
+                <span style={{ fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 600, color: isComplete ? 'var(--green)' : 'var(--gold-bright)' }}>{myTotal}p</span>
+                <span style={{ fontSize: 9, color: 'rgba(250,248,240,0.5)', fontFamily: 'var(--mono)' }}>{courseShort}</span>
+                <span style={{ fontSize: 9, color: 'rgba(250,248,240,0.4)' }}>{livePillOpen ? '▲' : '▼'}</span>
+              </button>
+            )
+          })()}
+          {(() => {
+            // LEADER pill — visas BARA om ingen aktiv runda för mig
+            const r = rounds.find(rr => rr.round_number === selRound)
+            const rid = r?.id
+            const myActive = rid && scores.some(s => s.player_id === user?.id && s.round_id === rid && s.strokes > 0)
+            if (myActive) return null
             const leader = lb.find(p => pTotal(p.id) > 0)
             if (!leader) return null
             const leaderPts = pTotal(leader.id)
@@ -5840,6 +5951,59 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         </div>
         <button onClick={() => { setUser(null); localStorage?.removeItem('inv_user') }} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 9, cursor: 'pointer', padding: '4px 4px 4px 0' }}>Byt</button>
       </div>
+
+      {/* ===== LIVE PILL EXPANDED — alla 6 spelares status i pågående runda ===== */}
+      {livePillOpen && (() => {
+        const r = rounds.find(rr => rr.round_number === selRound)
+        const rid = r?.id
+        if (!rid) return null
+        const courseName = RC[selRound]
+        const c = courses[courseName]
+        return (
+          <div onClick={() => setLivePillOpen(false)} style={{ position: 'fixed', top: 'calc(54px + env(safe-area-inset-top, 0px))', left: 8, right: 8, zIndex: 250, background: 'rgba(11,20,16,0.96)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: 18, padding: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}>
+            <div onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5 }}>PÅGÅENDE RUNDA</div>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--cream)', marginTop: 2 }}>{RL[selRound]} · {courseName}</div>
+                </div>
+                <button onClick={() => setLivePillOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {activePlayers.filter(p => p.key !== 'spectator').sort((a, b) => {
+                  const aScores = scores.filter(s => s.player_id === a.id && s.round_id === rid && s.strokes > 0)
+                  const bScores = scores.filter(s => s.player_id === b.id && s.round_id === rid && s.strokes > 0)
+                  const aTot = aScores.reduce((s, x) => s + (x.stableford_points || 0), 0)
+                  const bTot = bScores.reduce((s, x) => s + (x.stableford_points || 0), 0)
+                  return bTot - aTot
+                }).map(p => {
+                  const myScs = scores.filter(s => s.player_id === p.id && s.round_id === rid && s.strokes > 0)
+                  const played = myScs.length
+                  const tot = myScs.reduce((s, x) => s + (x.stableford_points || 0), 0)
+                  const lastScore = myScs.length > 0 ? myScs.sort((a, b) => b.hole - a.hole)[0] : null
+                  const isMe = p.id === user?.id
+                  return (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', background: isMe ? 'rgba(212,175,55,0.08)' : 'transparent', borderRadius: 8, border: isMe ? '1px solid rgba(212,175,55,0.2)' : '1px solid rgba(255,255,255,0.04)' }}>
+                      <Av p={p} size={26} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, color: 'var(--cream)', fontWeight: isMe ? 600 : 400 }}>{p.nickname}</div>
+                        {lastScore && <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>Senast: H{lastScore.hole} · {lastScore.strokes} slag · {lastScore.stableford_points}p</div>}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)' }}>{played}/18</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 600, color: tot >= 30 ? 'var(--green)' : tot >= 18 ? 'var(--gold)' : 'var(--cream)' }}>{tot || '–'}p</div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <button onClick={() => { setView('score'); setLivePillOpen(false) }} style={{ width: '100%', marginTop: 12, padding: '10px', background: 'var(--gold)', border: 'none', borderRadius: 10, color: '#0A0A08', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                ⛳ Öppna scorekort
+              </button>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Notification Center Panel */}
       {showNotifs && (
