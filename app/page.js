@@ -265,6 +265,33 @@ export default function Home() {
   }, [])
   useEffect(() => { if (appMode && typeof window !== 'undefined') { localStorage.setItem('app_mode', appMode); document.documentElement.setAttribute('data-mode', appMode) } }, [appMode])
 
+  // ===== Service Worker message-listener — hanterar push-notification clicks =====
+  // När en push (roast, ledare, prop bet, etc.) klickas postar SW ett message hit.
+  // Vi switchar mode + flashar appen så användaren landar rätt vy istället för
+  // att fastna i fel mode med trasig state.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.serviceWorker) return
+    const handleSwMessage = (event) => {
+      const data = event.data
+      if (!data || data.type !== 'notification_click') return
+      try {
+        const url = new URL(data.url, window.location.origin)
+        const mode = url.searchParams.get('mode')
+        if (mode === 'dio' || mode === 'taby') {
+          // Auto-switch till rätt mode utan att kräva manuellt val
+          setAppMode(mode)
+          if (mode === 'dio') {
+            try { localStorage.removeItem('taby_only') } catch(e) {}
+            setTabyOnly(false)
+          }
+          localStorage.setItem('app_mode', mode)
+        }
+      } catch (e) { /* ignore parse errors */ }
+    }
+    navigator.serviceWorker.addEventListener('message', handleSwMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', handleSwMessage)
+  }, [])
+
   if (!appMode) return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0B1410 0%, #0C1830 50%, #0B1410 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 20 }}>
       <div style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: 4, color: 'rgba(250,248,240,0.3)', textTransform: 'uppercase' }}>Välj läge</div>

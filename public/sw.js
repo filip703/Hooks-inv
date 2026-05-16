@@ -1,5 +1,5 @@
 // Service worker for PWA offline support + push notifications
-const CACHE_NAME = 'inv-v3-2026-05-16'
+const CACHE_NAME = 'inv-v4-2026-05-16'
 const ASSETS = ['/', '/manifest.json']
 
 self.addEventListener('install', e => {
@@ -17,7 +17,7 @@ self.addEventListener('activate', e => {
   e.waitUntil(
     Promise.all([
       caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))),
-      self.clients.claim() // tar över alla öppna klienter direkt så de får ny version
+      self.clients.claim()
     ])
   )
 })
@@ -33,8 +33,9 @@ self.addEventListener('push', e => {
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       tag: data.type || 'dio',
-      data: { url: data.url || '/' },
-      vibrate: [200, 100, 200]
+      data: { url: data.url || '/', type: data.type || 'general' },
+      vibrate: [200, 100, 200],
+      requireInteraction: false
     }
     e.waitUntil(self.registration.showNotification(title, options))
   } catch (err) {
@@ -42,19 +43,27 @@ self.addEventListener('push', e => {
   }
 })
 
-// Click handler – open app at URL
+// Click handler — robust för iOS PWA. Strategi:
+// 1. Hitta öppen PWA-fönster → focus + postMessage med URL för intern navigation
+// 2. Annars: öppna helt nytt fönster med URL
+// Tar bort client.navigate() som är opålitligt på iOS PWA.
 self.addEventListener('notificationclick', e => {
   e.notification.close()
-  const url = e.notification.data?.url || '/'
+  const targetUrl = e.notification.data?.url || '/'
+  const notifType = e.notification.data?.type || 'general'
+
   e.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then(clientList => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      // Try to focus existing PWA window first
       for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(url)
-          return client.focus()
+        if (client.url.includes(self.location.origin)) {
+          // Skicka navigations-intention via postMessage så React kan hantera internt
+          client.postMessage({ type: 'notification_click', url: targetUrl, notifType })
+          if ('focus' in client) return client.focus()
         }
       }
-      return self.clients.openWindow(url)
-    })
+      // No window open → öppna ny
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl)
+    }).catch(err => console.error('notificationclick error:', err))
   )
 })
