@@ -4804,6 +4804,12 @@ function DIOApp({ onSwitchMode }) {
   const [lastRoast, setLastRoast] = useState(null) // { target, text } senaste roast
   const [roastModal, setRoastModal] = useState(null) // { target, text, scoreContext } — full-screen roast-modal
   const [roastWallFilter, setRoastWallFilter] = useState('recent') // 'recent' | 'sent' | 'received'
+  // Chat reply + reactions
+  const [replyTo, setReplyTo] = useState(null) // { id, message, inv_players } — meddelande vi svarar på
+  const [reactionPicker, setReactionPicker] = useState(null) // message id för open reaction picker
+  const swipeStartX = useRef(null)
+  const swipeMsgId = useRef(null)
+  const longPressTimer = useRef(null)
   const [guideHole, setGuideHole] = useState(null)
   const [activeHole, setActiveHole] = useState(null)
   const [caddieMsg, setCaddieMsg] = useState(null)
@@ -5435,10 +5441,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
   const sendMsg = async () => {
     if (!chatMsg.trim() || !user || !supabase) return
     const msg = chatMsg.trim()
+    const currentReplyTo = replyTo // capture before clearing
     setChatMsg('')
+    setReplyTo(null)
     // Optimistic: add immediately so sender sees it
-    setChat(prev => [...prev, { id: 'tmp-' + Date.now(), player_id: user.id, message: msg, msg_type: 'chat', created_at: new Date().toISOString(), inv_players: { name: user.name, nickname: user.nickname, image_url: user.image_url, team: user.team } }])
-    await supabase.from('inv_chat').insert({ player_id: user.id, message: msg, msg_type: 'chat' })
+    setChat(prev => [...prev, { id: 'tmp-' + Date.now(), player_id: user.id, message: msg, msg_type: 'chat', reply_to_id: currentReplyTo?.id || null, created_at: new Date().toISOString(), inv_players: { name: user.name, nickname: user.nickname, image_url: user.image_url, team: user.team } }])
+    await supabase.from('inv_chat').insert({ player_id: user.id, message: msg, msg_type: 'chat', reply_to_id: currentReplyTo?.id || null })
     // @-mentions → push
     const mentions = msg.match(/@(\w+)/g) || []
     for (const m of mentions) {
@@ -6113,6 +6121,44 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         )
       })()}
 
+      {/* ===== REACTION PICKER MODAL — visas vid long-press på meddelande ===== */}
+      {reactionPicker && (() => {
+        const m = chat.find(x => x.id === reactionPicker)
+        if (!m) return null
+        const allEmojis = ['🔥','😂','👏','💀','🗑️','❤️','🍻','⛳','🦅','🐦','💪','🤣','😎','🙌','👀']
+        const addReaction = async (emoji) => {
+          const curr = m.reactions ? safeParse(m.reactions, {}) : {}
+          const list = curr[emoji] || []
+          if (list.includes(user?.key)) { curr[emoji] = list.filter(k => k !== user.key) }
+          else { curr[emoji] = [...list, user.key] }
+          if (curr[emoji].length === 0) delete curr[emoji]
+          await supabase.from('inv_chat').update({ reactions: curr }).eq('id', m.id)
+          fetchChat()
+          setReactionPicker(null)
+        }
+        return (
+          <div onClick={() => setReactionPicker(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', zIndex: 550, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 20, paddingBottom: 'calc(40px + env(safe-area-inset-bottom, 0px))' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: '#0B1410', border: '1px solid var(--gold-dim)', borderRadius: 20, padding: 16, width: '100%', maxWidth: 380, boxShadow: '0 -8px 32px rgba(0,0,0,0.5)' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 10, textAlign: 'center', fontWeight: 600 }}>VÄLJ REAKTION</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 12 }}>
+                {allEmojis.map(emoji => (
+                  <button key={emoji} onClick={() => addReaction(emoji)} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 12, padding: '10px 0', fontSize: 24, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => { setReplyTo({ id: m.id, message: m.message, inv_players: m.inv_players, player_id: m.player_id }); setReactionPicker(null); document.querySelector('input[placeholder^="Skriv"]')?.focus() }} style={{ flex: 1, padding: '10px', background: 'rgba(212,175,55,0.12)', border: '1px solid var(--gold-dim)', borderRadius: 10, color: 'var(--gold)', fontSize: 12, fontFamily: 'var(--mono)', fontWeight: 600, cursor: 'pointer' }}>↩ SVARA</button>
+                {(m.player_id === user?.id || isAdmin) && (
+                  <button onClick={async () => { await supabase.from('inv_chat').delete().eq('id', m.id); fetchChat(); setReactionPicker(null) }} style={{ flex: 1, padding: '10px', background: 'rgba(232,99,74,0.12)', border: '1px solid rgba(232,99,74,0.4)', borderRadius: 10, color: '#FF8A6B', fontSize: 12, fontFamily: 'var(--mono)', fontWeight: 600, cursor: 'pointer' }}>🗑️ RADERA</button>
+                )}
+                <button onClick={() => setReactionPicker(null)} style={{ flex: 1, padding: '10px', background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 10, color: 'var(--cream-dim)', fontSize: 12, fontFamily: 'var(--mono)', fontWeight: 600, cursor: 'pointer' }}>AVBRYT</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ===== ROAST MODAL — visar AI-genererad roast med score-kontext ===== */}
       {roastModal && (
         <div onClick={() => setRoastModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'roastFadeIn 0.25s ease-out' }}>
@@ -6625,13 +6671,15 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         </>)}
 
         {view === 'feed' && (<>
-          {/* === WhatsApp-style chat header === */}
+          {/* === WhatsApp-style chat header med tillbaka-knapp === */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px 12px', borderBottom: '0.5px solid var(--card-border)', marginBottom: 8 }}>
+            <button onClick={() => setView('leaderboard')} style={{ background: 'none', border: 'none', color: 'var(--gold)', fontSize: 22, cursor: 'pointer', padding: '4px 8px 4px 0', lineHeight: 1 }} title="Tillbaka">←</button>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, var(--green-dark, #1B4332), var(--gold-dim))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>⛳</div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--cream)' }}>DIO 2026 — Bollen</div>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>{activePlayers.filter(p => p.key !== 'spectator').length} medlemmar · {chat.length > 0 ? new Date(chat[chat.length - 1].created_at).toLocaleString('sv-SE', { hour: '2-digit', minute: '2-digit' }) + ' senaste' : 'tyst för tillfället'}</div>
             </div>
+            <button onClick={() => setShowMenu(true)} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', fontSize: 16, cursor: 'pointer', padding: '6px 10px', borderRadius: 10 }} title="Meny">☰</button>
           </div>
 
           {/* === WhatsApp-style messages med datum-dividers + bubblor === */}
@@ -6712,47 +6760,95 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   return
                 }
 
-                // NORMAL MESSAGES — bubblor
+                // NORMAL MESSAGES — bubblor med swipe-reply + long-press reactions
+                const replyMsg = m.reply_to_id ? chat.find(x => x.id === m.reply_to_id) : null
                 rendered.push(
-                  <div key={m.id || idx} style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginTop: groupedWithPrev ? 1 : 6, marginBottom: 1, justifyContent: me ? 'flex-end' : 'flex-start', flexDirection: me ? 'row-reverse' : 'row' }}>
+                  <div key={m.id || idx}
+                    onTouchStart={(e) => {
+                      if (!m.id || String(m.id).startsWith('tmp')) return
+                      swipeStartX.current = e.touches[0].clientX
+                      swipeMsgId.current = m.id
+                      // Long-press timer (500ms) → reaction picker
+                      longPressTimer.current = setTimeout(() => {
+                        if (navigator.vibrate) navigator.vibrate(40)
+                        setReactionPicker(m.id)
+                      }, 500)
+                    }}
+                    onTouchMove={(e) => {
+                      if (swipeStartX.current == null || swipeMsgId.current !== m.id) return
+                      const dx = e.touches[0].clientX - swipeStartX.current
+                      // Cancel long-press om man rör sig
+                      if (Math.abs(dx) > 10 && longPressTimer.current) {
+                        clearTimeout(longPressTimer.current)
+                        longPressTimer.current = null
+                      }
+                      // Visuell feedback under swipe — translateX på bubblan
+                      const target = e.currentTarget.querySelector('[data-bubble-inner]')
+                      if (target && dx > 0 && dx < 100) target.style.transform = `translateX(${Math.min(dx, 80)}px)`
+                    }}
+                    onTouchEnd={(e) => {
+                      if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
+                      if (swipeStartX.current == null || swipeMsgId.current !== m.id) return
+                      const dx = e.changedTouches[0].clientX - swipeStartX.current
+                      const target = e.currentTarget.querySelector('[data-bubble-inner]')
+                      if (target) target.style.transform = ''
+                      // Swipe höger > 60px → reply
+                      if (dx > 60) {
+                        if (navigator.vibrate) navigator.vibrate(20)
+                        setReplyTo({ id: m.id, message: m.message, inv_players: m.inv_players, player_id: m.player_id })
+                        document.querySelector('input[placeholder^="Skriv"]')?.focus()
+                      }
+                      swipeStartX.current = null
+                      swipeMsgId.current = null
+                    }}
+                    style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginTop: groupedWithPrev ? 1 : 6, marginBottom: 1, justifyContent: me ? 'flex-end' : 'flex-start', flexDirection: me ? 'row-reverse' : 'row', position: 'relative', WebkitTapHighlightColor: 'transparent' }}>
                     {/* Avatar (bara för första i grupp + andras meddelanden) */}
                     {!me && (
                       <div style={{ width: 28, flexShrink: 0, alignSelf: 'flex-end' }}>
                         {showAvatar ? <Av p={m.inv_players || { name: '?', team: 'green' }} size={28} /> : null}
                       </div>
                     )}
-                    {/* Bubble */}
-                    <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', alignItems: me ? 'flex-end' : 'flex-start' }}>
+                    {/* Bubble container (inner wraps för swipe-animation) */}
+                    <div data-bubble-inner style={{ maxWidth: '78%', display: 'flex', flexDirection: 'column', alignItems: me ? 'flex-end' : 'flex-start', transition: 'transform 0.2s ease' }}>
                       {showAvatar && !me && (
                         <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--gold)', marginLeft: 12, marginBottom: 2, fontWeight: 600 }}>{m.inv_players?.nickname || '?'}</span>
                       )}
                       <div style={{
                         background: me ? 'linear-gradient(135deg, rgba(212,175,55,0.95), rgba(180,140,40,0.95))' : 'var(--surface2)',
                         color: me ? '#0A0A08' : 'var(--cream)',
-                        padding: '7px 11px',
+                        padding: replyMsg ? '4px 4px 7px' : '7px 11px',
                         borderRadius: me ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
                         position: 'relative',
                         wordBreak: 'break-word',
                         boxShadow: me ? '0 1px 3px rgba(0,0,0,0.2)' : '0 1px 2px rgba(0,0,0,0.15)',
                       }}>
-                        {m.message && <div style={{ fontSize: 14, lineHeight: 1.4 }}>{renderMsg(m.message)}</div>}
-                        {m.image_url && (m.msg_type === 'video'
-                          ? <video preload="none" src={m.image_url} controls playsInline style={{ maxWidth: '100%', borderRadius: 8, marginTop: m.message ? 4 : 0 }} />
-                          : <img src={m.image_url} alt="" style={{ maxWidth: '100%', borderRadius: 8, marginTop: m.message ? 4 : 0 }} loading="lazy" />)}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 2 }}>
-                          <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: me ? 'rgba(10,10,8,0.55)' : 'var(--cream-muted)' }}>{ts}</span>
-                          {canDel && m.id && !String(m.id).startsWith('tmp') && (
-                            <button onClick={async () => { await supabase.from('inv_chat').delete().eq('id', m.id); fetchChat() }} style={{ background: 'none', border: 'none', color: me ? 'rgba(10,10,8,0.4)' : 'var(--cream-muted)', fontSize: 9, cursor: 'pointer', padding: 0 }}>✕</button>
-                          )}
+                        {/* Reply-quote om denna message är ett svar */}
+                        {replyMsg && (
+                          <div style={{ background: me ? 'rgba(10,10,8,0.12)' : 'rgba(255,255,255,0.06)', borderLeft: `3px solid ${me ? 'rgba(10,10,8,0.4)' : 'var(--gold)'}`, padding: '5px 8px', borderRadius: '8px 8px 4px 4px', marginBottom: 4 }}>
+                            <div style={{ fontSize: 10, fontFamily: 'var(--mono)', fontWeight: 600, color: me ? 'rgba(10,10,8,0.7)' : 'var(--gold)', marginBottom: 2 }}>{replyMsg.inv_players?.nickname || '?'}</div>
+                            <div style={{ fontSize: 12, color: me ? 'rgba(10,10,8,0.65)' : 'var(--cream-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 240 }}>{replyMsg.message || (replyMsg.image_url ? '📷 Bild' : '')}</div>
+                          </div>
+                        )}
+                        <div style={{ padding: replyMsg ? '0 8px' : 0 }}>
+                          {m.message && <div style={{ fontSize: 14, lineHeight: 1.4 }}>{renderMsg(m.message)}</div>}
+                          {m.image_url && (m.msg_type === 'video'
+                            ? <video preload="none" src={m.image_url} controls playsInline style={{ maxWidth: '100%', borderRadius: 8, marginTop: m.message ? 4 : 0 }} />
+                            : <img src={m.image_url} alt="" style={{ maxWidth: '100%', borderRadius: 8, marginTop: m.message ? 4 : 0 }} loading="lazy" />)}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 2 }}>
+                            <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: me ? 'rgba(10,10,8,0.55)' : 'var(--cream-muted)' }}>{ts}</span>
+                            {canDel && m.id && !String(m.id).startsWith('tmp') && (
+                              <button onClick={async () => { await supabase.from('inv_chat').delete().eq('id', m.id); fetchChat() }} style={{ background: 'none', border: 'none', color: me ? 'rgba(10,10,8,0.4)' : 'var(--cream-muted)', fontSize: 9, cursor: 'pointer', padding: 0 }}>✕</button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      {/* Reactions — under bubblan */}
-                      {m.id && !String(m.id).startsWith('tmp') && (
+                      {/* Reactions — under bubblan (visas bara om det FINNS) */}
+                      {m.id && !String(m.id).startsWith('tmp') && hasReactions && (
                         <div style={{ display: 'flex', gap: 2, marginTop: 2, flexWrap: 'wrap', marginLeft: me ? 0 : 4, marginRight: me ? 4 : 0 }}>
-                          {['🔥','😂','👏','💀','🗑️'].map(emoji => {
+                          {['🔥','😂','👏','💀','🗑️','❤️','🍻'].map(emoji => {
                             const users = rxns[emoji] || []
+                            if (users.length === 0) return null
                             const myR = users.includes(user?.key)
-                            if (users.length === 0 && !myR) return null
                             return (
                               <button key={emoji} onClick={async () => {
                                 const curr = m.reactions ? safeParse(m.reactions, {}) : {}
@@ -6762,28 +6858,11 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                                 if (curr[emoji].length === 0) delete curr[emoji]
                                 await supabase.from('inv_chat').update({ reactions: curr }).eq('id', m.id)
                                 fetchChat()
-                              }} style={{ background: myR ? 'rgba(212,175,55,0.18)' : 'var(--surface)', border: myR ? '1px solid var(--gold-dim)' : '1px solid var(--card-border)', borderRadius: 10, padding: '1px 6px', cursor: 'pointer', fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                              }} style={{ background: myR ? 'rgba(212,175,55,0.18)' : 'var(--surface)', border: myR ? '1px solid var(--gold-dim)' : '1px solid var(--card-border)', borderRadius: 10, padding: '1px 6px', cursor: 'pointer', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
                                 {emoji}<span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>{users.length}</span>
                               </button>
                             )
                           })}
-                          {/* Add reaction quick-pick (5 emojis dolda) */}
-                          {!hasReactions && (
-                            <details style={{ display: 'inline-block' }}>
-                              <summary style={{ listStyle: 'none', cursor: 'pointer', background: 'transparent', border: '1px solid var(--card-border)', borderRadius: 10, padding: '1px 6px', fontSize: 10, color: 'var(--cream-muted)' }}>+</summary>
-                              <div style={{ display: 'flex', gap: 2, marginTop: 4, padding: 4, background: 'var(--surface2)', borderRadius: 8, position: 'absolute', zIndex: 10 }}>
-                                {['🔥','😂','👏','💀','🗑️'].map(emoji => (
-                                  <button key={emoji} onClick={async (e) => {
-                                    e.target.closest('details').open = false
-                                    const curr = m.reactions ? safeParse(m.reactions, {}) : {}
-                                    curr[emoji] = [...(curr[emoji] || []), user.key]
-                                    await supabase.from('inv_chat').update({ reactions: curr }).eq('id', m.id)
-                                    fetchChat()
-                                  }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }}>{emoji}</button>
-                                ))}
-                              </div>
-                            </details>
-                          )}
                         </div>
                       )}
                     </div>
@@ -6794,38 +6873,6 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             })()}
             <div ref={chatEnd} />
           </div>
-          {/* Shot of the Day */}
-          {shotOfDay && (
-            <div style={{ background: 'linear-gradient(135deg, rgba(27,67,50,0.12), rgba(212,175,55,0.06))', borderRadius: 12, padding: 14, marginBottom: 12, border: '1px solid rgba(212,175,55,0.15)' }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 6 }}>SHOT OF THE DAY</div>
-              <div style={{ fontSize: 13, color: 'var(--cream-dim)', marginBottom: 10 }}>Vem slog helgens bästa slag?</div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {activePlayers.map(p => {
-                  const votes = (shotVotes[p.key] || 0)
-                  const voted = shotVotes._myVote === p.key
-                  return (
-                    <button key={p.key} onClick={async () => {
-                      if (shotVotes._myVote) return
-                      setShotVotes(v => ({ ...v, [p.key]: (v[p.key] || 0) + 1, _myVote: p.key }))
-                      await supabase.from('inv_chat').insert({ player_id: user.id, message: 'SOTD:' + p.key, msg_type: 'vote' })
-                      showToast('Röst registrerad!', 'birdie')
-                    }} style={{
-                      display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 8,
-                      cursor: voted || shotVotes._myVote ? 'default' : 'pointer',
-                      background: voted ? 'rgba(212,175,55,0.15)' : 'var(--surface)',
-                      border: voted ? '1px solid var(--gold-dim)' : '1px solid var(--card-border)',
-                      opacity: shotVotes._myVote && !voted ? 0.5 : 1,
-                    }}>
-                      <Av p={p} size={20} />
-                      <span style={{ fontSize: 11, color: voted ? 'var(--gold)' : 'var(--cream-dim)' }}>{p.nickname}</span>
-                      {votes > 0 && <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--gold)', marginLeft: 2 }}>{votes}</span>}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
           {/* @-mention suggestions */}
           {chatMsg.includes('@') && (() => {
             const match = chatMsg.match(/@(\w*)$/)
@@ -6841,6 +6888,16 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               </div>
             )
           })()}
+          {/* Reply-preview ovanför input */}
+          {replyTo && (
+            <div style={{ display: 'flex', alignItems: 'stretch', background: 'var(--surface2)', borderRadius: 10, padding: 0, marginTop: 6, overflow: 'hidden', borderLeft: '3px solid var(--gold)' }}>
+              <div style={{ flex: 1, padding: '6px 10px', overflow: 'hidden' }}>
+                <div style={{ fontSize: 10, fontFamily: 'var(--mono)', fontWeight: 600, color: 'var(--gold)', marginBottom: 2 }}>↩ Svarar till {replyTo.inv_players?.nickname || '?'}</div>
+                <div style={{ fontSize: 12, color: 'var(--cream-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{replyTo.message || '📷 Bild'}</div>
+              </div>
+              <button onClick={() => setReplyTo(null)} style={{ background: 'transparent', border: 'none', color: 'var(--cream-muted)', fontSize: 18, padding: '0 14px', cursor: 'pointer' }}>×</button>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
             <label style={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer', fontSize: 16 }}>
               📷<input ref={fileRef} type="file" accept="image/*,video/*" capture="environment" style={{ display: 'none' }} onChange={e => { if(e.target.files[0]) uploadImg(e.target.files[0]) }} />
@@ -9307,7 +9364,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         </div>
       )}
 
-      <nav className="bottom-nav">
+      <nav className="bottom-nav" style={view === 'feed' ? { display: 'none' } : {}}>
         <div className="nav-teams-strip">
           <span className={`nav-team green ${teamTotal('green') > teamTotal('blue') ? 'leading' : ''}`}>GAYLORDS {teamTotal('green') || '–'}p</span>
           <span className="nav-team-vs">vs</span>
