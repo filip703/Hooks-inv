@@ -31,8 +31,26 @@ function SwishModal({ open, onClose, toPlayer, fromPlayer, amount, onMarkPaid })
 
   const openSwishDirect = () => {
     const phoneSwedish = phone.replace(/^46/, '0')
-    const url = `swish://payment?data=${encodeURIComponent(JSON.stringify({ version: 1, payee: { value: phoneSwedish, editable: false }, amount: { value: amount, editable: false }, message: { value: message, editable: true } }))}`
+    // Swish deeplink kräver BASE64-encoded JSON (inte URL-encoded)
+    // Format: swish://payment?data=<base64>
+    const payload = {
+      version: 1,
+      payee: { value: phoneSwedish, editable: false },
+      amount: { value: amount, editable: false },
+      message: { value: message, editable: true }
+    }
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))))
+    const url = `swish://payment?data=${b64}`
+    // iOS PWA: använd window.location.href för att trigga deeplink korrekt
     window.location.href = url
+    // Fallback om Swish-appen inte är installerad: visa info efter 2.5s
+    setTimeout(() => {
+      // Om vi fortfarande är på samma sida har Swish-appen inte öppnats
+      if (document.visibilityState === 'visible') {
+        // Försök öppna App Store som fallback
+        // (kommenterad bort — användaren kan kopiera manuellt istället)
+      }
+    }, 2500)
   }
 
   const copyAll = async () => {
@@ -345,7 +363,15 @@ const Sparkline = ({ values, width = 60, height = 16, color = '#D4A017' }) => {
 }
 
 function TaByApp({ onSwitchMode, tabyOnly }) {
-  const [tabySplash, setTabySplash] = useState(true)
+  const [tabySplash, setTabySplash] = useState(() => {
+    // Bypassa splash om appen öppnas via push-notis
+    if (typeof window === 'undefined') return true
+    try {
+      if (sessionStorage.getItem('pending_view')) return false
+      if (new URLSearchParams(window.location.search).get('view')) return false
+    } catch (e) {}
+    return true
+  })
   const [tabySplashExit, setTabySplashExit] = useState(false)
   const [tabyView, setTabyView] = useState('leaderboard')
   const [tabyHole, setTabyHole] = useState(1)
@@ -4841,7 +4867,16 @@ function DIOApp({ onSwitchMode }) {
   }, [darkMode])
   const [unread, setUnread] = useState(0)
   const [showInstall, setShowInstall] = useState(false)
-  const [splash, setSplash] = useState(true)
+  const [splash, setSplash] = useState(() => {
+    // Bypassa splash om appen öppnas via push-notis (pending_view i sessionStorage)
+    // Eller om URL har ?view= param (notification_click)
+    if (typeof window === 'undefined') return true
+    try {
+      if (sessionStorage.getItem('pending_view')) return false
+      if (new URLSearchParams(window.location.search).get('view')) return false
+    } catch (e) {}
+    return true
+  })
   const [historia, setHistoria] = useState([])
   const [weather, setWeather] = useState(null)
   const [shotVotes, setShotVotes] = useState({})
@@ -4900,6 +4935,22 @@ function DIOApp({ onSwitchMode }) {
 
   useEffect(() => { if (typeof window !== 'undefined') { const s = localStorage.getItem('inv_user'); if (s) try { setUser(JSON.parse(s)) } catch(e) {} } }, [])
   useEffect(() => { if (user && typeof window !== 'undefined') localStorage.setItem('inv_user', JSON.stringify(user)) }, [user])
+
+  // ===== Re-fetcha aktuell user-data från DB vid mount =====
+  // Skyddar mot stale localStorage med gammalt namn/nick efter profil-uppdatering
+  useEffect(() => {
+    if (!user?.id || !supabase) return
+    let cancelled = false
+    supabase.from('inv_players').select('*').eq('id', user.id).single().then(({ data, error }) => {
+      if (cancelled || error || !data) return
+      // Bara uppdatera om något faktiskt ändrats
+      const changed = ['name', 'nickname', 'image_url', 'hcp', 'team', 'phone', 'email', 'pin', 'must_change_pin'].some(k => user[k] !== data[k])
+      if (changed) {
+        setUser(prev => ({ ...prev, ...data }))
+      }
+    })
+    return () => { cancelled = true }
+  }, [user?.id])
   // Show iOS install prompt if not in standalone mode
   useEffect(() => {
     if (typeof window !== 'undefined') {
