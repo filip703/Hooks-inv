@@ -1,5 +1,5 @@
 // Service worker for PWA offline support + push notifications
-const CACHE_NAME = 'inv-v2'
+const CACHE_NAME = 'inv-v3-2026-05-16'
 const ASSETS = ['/', '/manifest.json']
 
 self.addEventListener('install', e => {
@@ -14,7 +14,12 @@ self.addEventListener('fetch', e => {
 })
 
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))))
+  e.waitUntil(
+    Promise.all([
+      caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))),
+      self.clients.claim() // tar över alla öppna klienter direkt så de får ny version
+    ])
+  )
 })
 
 // Push notification handler

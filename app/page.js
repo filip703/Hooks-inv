@@ -1011,12 +1011,14 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     if (!('setAppBadge' in navigator)) return
     if (tabyBadgeRef.current === totalStab) return
     tabyBadgeRef.current = totalStab
-    if (totalStab > 0) {
-      navigator.setAppBadge(totalStab).catch(() => {})
-    } else {
-      navigator.clearAppBadge?.().catch(() => {})
-    }
-    return () => { navigator.clearAppBadge?.().catch(() => {}) }
+    try {
+      if (totalStab > 0) {
+        navigator.setAppBadge(totalStab).catch(() => {})
+      } else {
+        navigator.clearAppBadge?.().catch(() => {})
+      }
+    } catch (e) { /* ignore */ }
+    // Ingen cleanup — badge ska persistera mellan re-runs
   }, [tabyUser?.id, newRound?.id, totalStab])
   const totalStrokes = roundScores.reduce((s, sc) => s + (sc.strokes || 0), 0)
   const holesPlayed = roundScores.length
@@ -1340,9 +1342,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       </nav>
 
       {/* ===== TÄBY LIVE PILL EXPANDED — alla spelare i rundan ===== */}
-      {tabyLivePillOpen && newRound && (() => {
+      {tabyLivePillOpen && newRound && Array.isArray(newRound.player_ids) && newRound.player_ids.length > 0 && (() => {
         const rid = newRound.id
         const roundPlayers = tabyPlayers.filter(p => newRound.player_ids?.includes(p.id))
+        if (roundPlayers.length === 0) return null
         return (
           <div onClick={() => setTabyLivePillOpen(false)} style={{ position: 'fixed', bottom: 'calc(78px + env(safe-area-inset-bottom, 0px))', left: 8, right: 8, zIndex: 250, background: '#0C1830', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1.5px solid rgba(212,175,55,0.5)', borderRadius: 18, padding: 14, boxShadow: '0 -12px 40px rgba(0,0,0,0.7)' }}>
             <div onClick={e => e.stopPropagation()}>
@@ -5116,12 +5119,14 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     const myTotal = pTotal(user.id)
     if (dioBadgeRef.current === myTotal) return // skip om samma värde
     dioBadgeRef.current = myTotal
-    if (myTotal > 0) {
-      navigator.setAppBadge(myTotal).catch(() => {})
-    } else {
-      navigator.clearAppBadge?.().catch(() => {})
-    }
-    return () => { navigator.clearAppBadge?.().catch(() => {}) }
+    try {
+      if (myTotal > 0) {
+        navigator.setAppBadge(myTotal).catch(() => {})
+      } else {
+        navigator.clearAppBadge?.().catch(() => {})
+      }
+    } catch (e) { /* ignore */ }
+    // Ingen cleanup — badge ska persistera mellan re-runs
   }, [user?.id, scores])
 
   // ===== AI Roast — generera personlig roast via Caddie API =====
@@ -5177,12 +5182,13 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         message: `🔥 ${user.nickname} roastar ${targetPlayer.nickname}:\n"${roastText}"`,
         msg_type: 'ai_roast'
       })
-      // Push till target (om de prenumererar)
+      // Push till target (om de prenumererar) — url tar dem direkt till DIO
       sendPush({
         title: `🔥 Du blev roastad av ${user.nickname}`,
         body: roastText.substring(0, 140),
         type: 'roast',
         targetPlayerId: targetPlayer.id,
+        url: 'https://hooks-inv.vercel.app/?mode=dio',
       }).catch(() => {})
     } catch (e) {
       console.error('Roast error:', e)
