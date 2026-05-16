@@ -30,27 +30,20 @@ function SwishModal({ open, onClose, toPlayer, fromPlayer, amount, onMarkPaid })
   const message = `DIO 2026 - ${fromPlayer?.nickname} till ${toPlayer?.nickname}`
 
   const openSwishDirect = () => {
+    // VIKTIGT: Swish stöder INTE officiella deeplinks för privatpersoner —
+    // swish://payment är reserverat för merchant-numren. Vi försöker ändå
+    // med en så ren JSON som möjligt, men fallback är QR-koden nedanför.
     const phoneSwedish = phone.replace(/^46/, '0')
-    // Swish deeplink kräver BASE64-encoded JSON (inte URL-encoded)
-    // Format: swish://payment?data=<base64>
+    const cleanMsg = message.replace(/[^a-zA-Z0-9 åäöÅÄÖ:.,?!()-]/g, '').slice(0, 50)
+    // Minimal JSON utan "editable"-properties (kan trigga "Incorrect link")
     const payload = {
       version: 1,
-      payee: { value: phoneSwedish, editable: false },
-      amount: { value: amount, editable: false },
-      message: { value: message, editable: true }
+      payee: { value: phoneSwedish },
+      amount: { value: Number(amount) },
+      message: { value: cleanMsg }
     }
     const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))))
-    const url = `swish://payment?data=${b64}`
-    // iOS PWA: använd window.location.href för att trigga deeplink korrekt
-    window.location.href = url
-    // Fallback om Swish-appen inte är installerad: visa info efter 2.5s
-    setTimeout(() => {
-      // Om vi fortfarande är på samma sida har Swish-appen inte öppnats
-      if (document.visibilityState === 'visible') {
-        // Försök öppna App Store som fallback
-        // (kommenterad bort — användaren kan kopiera manuellt istället)
-      }
-    }, 2500)
+    window.location.href = `swish://payment?data=${b64}`
   }
 
   const copyAll = async () => {
@@ -80,46 +73,43 @@ function SwishModal({ open, onClose, toPlayer, fromPlayer, amount, onMarkPaid })
 
         <div style={{ fontFamily: 'var(--mono)', fontSize: 32, color: 'var(--gold)', marginBottom: 14 }}>{amount} kr</div>
 
-        {/* Primär: Öppna Swish direkt */}
-        <button onClick={openSwishDirect} style={{ width: '100%', padding: '14px', background: '#EF6C00', color: '#fff', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: 'pointer', marginBottom: 10 }}>
-          🚀 Öppna Swish direkt
-        </button>
+        {/* QR-kod — PRIMÄR betalningsmetod (Swish blockerar privat-deeplinks) */}
+        {qrDataUrl && (
+          <div style={{ background: '#F5F0E8', padding: 14, borderRadius: 14, marginBottom: 12, textAlign: 'center', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
+            <img src={qrDataUrl} alt="Swish QR" style={{ width: 220, height: 220, display: 'inline-block' }} />
+            <div style={{ fontSize: 11, color: '#0A0F0A', marginTop: 8, fontWeight: 500 }}>📲 Öppna Swish → kamera-ikonen → skanna</div>
+          </div>
+        )}
 
         {/* Markera som betald */}
         <button onClick={() => { onMarkPaid && onMarkPaid(); onClose() }} style={{ width: '100%', padding: '12px', background: 'rgba(107,191,127,0.15)', color: 'var(--green)', border: '1px solid var(--green)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 10 }}>
           ✅ Markera som betald
         </button>
 
-        <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 14, lineHeight: 1.4 }}>
-          Om knappen inte öppnar Swish → använd QR-koden eller kopiera manuellt nedan
+        {/* Kopiera manuellt — alltid öppet, alltid synligt */}
+        <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+            <span style={{ color: 'var(--cream-muted)' }}>Nummer:</span>
+            <span style={{ fontFamily: 'var(--mono)', color: 'var(--cream)' }}>{phone}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
+            <span style={{ color: 'var(--cream-muted)' }}>Belopp:</span>
+            <span style={{ fontFamily: 'var(--mono)', color: 'var(--cream)' }}>{amount} kr</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={copyPhone} style={{ flex: 1, padding: '10px', background: 'var(--surface)', color: 'var(--cream)', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>📋 Nummer</button>
+            <button onClick={copyAll} style={{ flex: 1, padding: '10px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📋 Allt</button>
+          </div>
         </div>
 
-        {qrDataUrl && (
-          <details style={{ marginBottom: 10, textAlign: 'left' }}>
-            <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--cream-dim)', padding: '8px 0', textAlign: 'center' }}>📲 Visa QR-kod</summary>
-            <div style={{ background: '#F5F0E8', padding: 12, borderRadius: 12, marginTop: 8, textAlign: 'center' }}>
-              <img src={qrDataUrl} alt="Swish QR" style={{ width: 240, height: 240, display: 'inline-block' }} />
-              <div style={{ fontSize: 10, color: '#0A0F0A', marginTop: 6 }}>Öppna Swish → kamera-ikonen → skanna</div>
-            </div>
-          </details>
-        )}
-
+        {/* Deeplink-test som sista alternativ med disclaimer */}
         <details style={{ textAlign: 'left' }}>
-          <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--cream-dim)', padding: '8px 0', textAlign: 'center' }}>📋 Kopiera manuellt</summary>
-          <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 12, marginTop: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-              <span style={{ color: 'var(--cream-muted)' }}>Nummer:</span>
-              <span style={{ fontFamily: 'var(--mono)', color: 'var(--cream)' }}>{phone}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-              <span style={{ color: 'var(--cream-muted)' }}>Belopp:</span>
-              <span style={{ fontFamily: 'var(--mono)', color: 'var(--cream)' }}>{amount} kr</span>
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--cream-dim)', marginTop: 6, marginBottom: 10 }}>{message}</div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={copyPhone} style={{ flex: 1, padding: '10px', background: 'var(--surface)', color: 'var(--cream)', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>📋 Nummer</button>
-              <button onClick={copyAll} style={{ flex: 1, padding: '10px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📋 Allt</button>
-            </div>
+          <summary style={{ cursor: 'pointer', fontSize: 11, color: 'var(--cream-muted)', padding: '8px 0', textAlign: 'center', fontStyle: 'italic' }}>🚀 Testa direktlänk (funkar inte alltid)</summary>
+          <button onClick={openSwishDirect} style={{ width: '100%', padding: '12px', background: '#EF6C00', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', marginTop: 8 }}>
+            Öppna Swish-appen
+          </button>
+          <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 6, lineHeight: 1.4, textAlign: 'center' }}>
+            Swish blockerar direktlänkar till privatpersoner — om det säger "Incorrect link", använd QR-koden ovan istället.
           </div>
         </details>
       </div>
