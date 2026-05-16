@@ -4840,6 +4840,7 @@ function DIOApp({ onSwitchMode }) {
   const swipeMsgId = useRef(null)
   const longPressTimer = useRef(null)
   const chatScrollRef = useRef(null) // för auto-scroll till botten
+  const edgeSwipeRef = useRef(null) // för edge-swipe-back från chatten
   const [guideHole, setGuideHole] = useState(null)
   const [activeHole, setActiveHole] = useState(null)
   const [caddieMsg, setCaddieMsg] = useState(null)
@@ -5312,12 +5313,19 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         ? `R${selRound} · ${stats.holesPlayed}/18 hål · ${stats.totalPts}p${stats.lastHole ? ` · Senast: H${stats.lastHole} (${stats.lastStrokes} slag, ${stats.lastPts}p)` : ''}`
         : `R${selRound} · Inga slag än`
       setRoastModal({ target: targetPlayer, text: roastText, scoreContext, from: user })
-      // Posta i chat med roast-typ för stilning
-      supabase?.from('inv_chat').insert({
+      // Posta i chat med roast-typ för stilning — AWAIT + error handling så vi vet att det fungerar
+      const { data: insData, error: insErr } = await supabase.from('inv_chat').insert({
         player_id: user.id,
         message: `🔥 ${user.nickname} roastar ${targetPlayer.nickname}:\n"${roastText}"`,
         msg_type: 'ai_roast'
-      })
+      }).select().single()
+      if (insErr) {
+        console.error('[roastPlayer] Insert misslyckades:', insErr)
+        showToast('Roast skapad men gick inte att spara: ' + insErr.message, 'zero')
+      } else {
+        // Refetcha chatten så roasten visas direkt i Live Feed + Roast Wall
+        fetchChat()
+      }
       // Push till target (om de prenumererar) — url tar dem direkt till DIO
       sendPush({
         title: `🔥 Du blev roastad av ${user.nickname}`,
@@ -6803,17 +6811,48 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         </>)}
 
         {view === 'feed' && (
-          <div style={{
-            position: 'fixed',
-            top: 0, left: 0, right: 0, bottom: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            background: 'var(--bg)',
-            zIndex: 100,
-            paddingTop: 'env(safe-area-inset-top)',
-            paddingBottom: 'env(safe-area-inset-bottom)',
-            overflow: 'hidden',
-          }}>
+          <div
+            onTouchStart={(e) => {
+              // Edge swipe back: detektera touch från vänsterkanten (< 25px)
+              if (e.touches[0].clientX < 25) {
+                edgeSwipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY }
+              }
+            }}
+            onTouchMove={(e) => {
+              if (!edgeSwipeRef.current) return
+              const dx = e.touches[0].clientX - edgeSwipeRef.current.startX
+              const dy = Math.abs(e.touches[0].clientY - edgeSwipeRef.current.startY)
+              // Avbryt om vertikal scroll dominerar
+              if (dy > Math.abs(dx) + 10) { edgeSwipeRef.current = null; e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = ''; return }
+              if (dx > 0) {
+                e.currentTarget.style.transform = `translateX(${Math.min(dx, 200)}px)`
+                e.currentTarget.style.opacity = String(1 - Math.min(dx / 500, 0.3))
+              }
+            }}
+            onTouchEnd={(e) => {
+              if (!edgeSwipeRef.current) return
+              const dx = e.changedTouches[0].clientX - edgeSwipeRef.current.startX
+              e.currentTarget.style.transform = ''
+              e.currentTarget.style.opacity = ''
+              if (dx > 100) {
+                if (navigator.vibrate) navigator.vibrate(15)
+                setView('leaderboard')
+              }
+              edgeSwipeRef.current = null
+            }}
+            style={{
+              position: 'fixed',
+              top: 0, left: 0, right: 0, bottom: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              background: 'var(--bg)',
+              zIndex: 100,
+              paddingTop: 'env(safe-area-inset-top)',
+              paddingBottom: 'env(safe-area-inset-bottom)',
+              overflow: 'hidden',
+              transition: 'transform 0.25s ease, opacity 0.25s ease',
+              willChange: 'transform',
+            }}>
           {/* === WhatsApp-style chat header med tillbaka-knapp === */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px', borderBottom: '0.5px solid var(--card-border)', flexShrink: 0, background: 'var(--bg)' }}>
             <button onClick={() => setView('leaderboard')} style={{ background: 'none', border: 'none', color: 'var(--gold)', fontSize: 22, cursor: 'pointer', padding: '4px 8px 4px 0', lineHeight: 1 }} title="Tillbaka">←</button>
@@ -6866,9 +6905,32 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
                 const renderMsg = (text) => {
                   if (!text) return text
-                  return text.split(/(@\w+)/g).map((part, j) => {
+                  // Split på BÅDE @mentions och URLs så vi kan rendera dem som klickbara
+                  return text.split(/(@\w+|https?:\/\/[^\s]+)/g).map((part, j) => {
+                    if (!part) return null
                     if (part.startsWith('@')) {
                       return <span key={j} style={{ color: me ? '#FFE89A' : 'var(--gold)', fontWeight: 600 }}>{part}</span>
+                    }
+                    if (/^https?:\/\//.test(part)) {
+                      // Klickbar länk — öppnar i extern browser, stoppar swipe-to-reply
+                      return (
+                        <a
+                          key={j}
+                          href={part}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          onTouchMove={(e) => e.stopPropagation()}
+                          onTouchEnd={(e) => e.stopPropagation()}
+                          style={{
+                            color: me ? '#0F3A5C' : '#93C5FD',
+                            textDecoration: 'underline',
+                            wordBreak: 'break-all',
+                            fontWeight: 500
+                          }}
+                        >{part}</a>
+                      )
                     }
                     return part
                   })
