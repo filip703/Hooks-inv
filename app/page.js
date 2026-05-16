@@ -6387,6 +6387,40 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             {[1,2,3,4].map(r => <button key={r} className={`sc-round-pill ${selRound === r ? 'active' : ''}`} onClick={() => setSelRound(r)}>{RL[r]}</button>)}
           </div>
 
+          {/* ===== LIVE MINI-LEADERBOARD — alla 6 spelares total stableford ===== */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 12, padding: '10px 12px', marginTop: 10, marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', animation: 'p2r-spin 2s linear infinite' }} />
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, fontWeight: 700 }}>LIVE LEADERBOARD</span>
+              </div>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)' }}>Total · alla rundor</span>
+            </div>
+            {(() => {
+              const liveLb = [...activePlayers].filter(p => p.key !== 'spectator').map(p => ({ p, tot: pTotal(p.id) })).sort((a, b) => b.tot - a.tot)
+              const myIdx = liveLb.findIndex(x => x.p.id === user?.id)
+              const myTot = myIdx >= 0 ? liveLb[myIdx].tot : 0
+              return (
+                <>
+                  {liveLb.map((row, i) => {
+                    const isMe = row.p.id === user?.id
+                    const diff = isMe ? 0 : row.tot - myTot
+                    const aheadStr = !isMe ? (diff > 0 ? `+${diff}` : diff < 0 ? `${diff}` : '=') : null
+                    return (
+                      <div key={row.p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 6px', background: isMe ? 'rgba(212,175,55,0.12)' : i === 0 ? 'rgba(74,222,128,0.04)' : 'transparent', borderRadius: 6, borderLeft: isMe ? '2px solid var(--gold)' : i === 0 && row.tot > 0 ? '2px solid var(--green)' : '2px solid transparent', marginBottom: 2 }}>
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, color: i === 0 && row.tot > 0 ? 'var(--green)' : isMe ? 'var(--gold)' : 'var(--cream-dim)', minWidth: 16 }}>{i === 0 && row.tot > 0 ? '👑' : i + 1}</span>
+                        <Av p={row.p} size={22} />
+                        <span style={{ fontSize: 12, color: isMe ? 'var(--gold)' : 'var(--cream)', fontWeight: isMe ? 700 : 500, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isMe ? 'DU' : row.p.nickname}</span>
+                        {aheadStr && row.tot > 0 && <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: diff > 0 ? 'var(--coral)' : diff < 0 ? 'var(--green)' : 'var(--cream-muted)', minWidth: 22, textAlign: 'right' }}>{aheadStr}</span>}
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 700, color: row.tot >= 80 ? 'var(--green)' : row.tot >= 40 ? 'var(--gold)' : 'var(--cream)', minWidth: 32, textAlign: 'right' }}>{row.tot || '–'}</span>
+                      </div>
+                    )
+                  })}
+                </>
+              )
+            })()}
+          </div>
+
           {/* Quick start button */}
           <button onClick={() => setActiveHole(nextHole || 1)} style={{ width: '100%', padding: '14px', background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 12, fontSize: 16, fontWeight: 600, cursor: 'pointer', marginTop: 8, marginBottom: 12 }}>
             {nextHole ? `▶ Hål ${nextHole} – Registrera score` : '▶ Starta runda – Hål 1'}
