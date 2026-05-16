@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven, holeImages } from '../lib/courses'
+import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven, holeImages, buildRoastPrompt } from '../lib/courses'
 import { TABY_GPS, TABY_HOLES, TABY_COURSE, distanceToGreen, distanceToTee, haversineDistance } from '../lib/courses-taby'
 import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio } from '../lib/sounds'
 import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush, sendPush } from '../lib/push'
@@ -4769,6 +4769,9 @@ function DIOApp({ onSwitchMode }) {
   const [livePillOpen, setLivePillOpen] = useState(false)
   // PWA App Badge — speglar användarens totalpoäng på app-ikonen på hemskärmen
   const dioBadgeRef = useRef(null)
+  // AI Roast — genererar personlig roast via Caddie API
+  const [roastingPid, setRoastingPid] = useState(null) // pid som AI:n roastar just nu
+  const [lastRoast, setLastRoast] = useState(null) // { target, text } senaste roast
   const [guideHole, setGuideHole] = useState(null)
   const [activeHole, setActiveHole] = useState(null)
   const [caddieMsg, setCaddieMsg] = useState(null)
@@ -5119,6 +5122,69 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     }
     return () => { navigator.clearAppBadge?.().catch(() => {}) }
   }, [user?.id, scores])
+
+  // ===== AI Roast — generera personlig roast via Caddie API =====
+  const roastPlayer = async (targetPlayer) => {
+    if (!targetPlayer || !user || roastingPid) return
+    if (targetPlayer.id === user.id) {
+      showToast('Du kan inte roasta dig själv. Hitta någon annan.', 'zero')
+      return
+    }
+    setRoastingPid(targetPlayer.id)
+    setLastRoast(null)
+    try {
+      // Samla live-stats för target i nuvarande runda
+      const r = rounds.find(rr => rr.round_number === selRound)
+      const rid = r?.id
+      const targetScores = rid ? scores.filter(s => s.player_id === targetPlayer.id && s.round_id === rid && s.strokes > 0).sort((a, b) => b.hole - a.hole) : []
+      const lastScore = targetScores[0]
+      const totalPts = targetScores.reduce((s, x) => s + (x.stableford_points || 0), 0)
+      const stats = {
+        lastHole: lastScore?.hole || null,
+        lastStrokes: lastScore?.strokes || null,
+        lastPts: lastScore?.stableford_points ?? null,
+        totalPts,
+        holesPlayed: targetScores.length,
+      }
+      const prompt = buildRoastPrompt(targetPlayer, stats, user)
+      if (!prompt) {
+        showToast(`Ingen roast-profil för ${targetPlayer.nickname}`, 'zero')
+        setRoastingPid(null)
+        return
+      }
+      const res = await fetchWithTimeout('/api/caddie', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      }, 12000)
+      const data = await res.json()
+      const roastText = (data.text || data.reply || '').trim()
+      if (!roastText) {
+        showToast('AI:n vägrade roasta. Försök igen.', 'zero')
+        setRoastingPid(null)
+        return
+      }
+      setLastRoast({ target: targetPlayer, text: roastText })
+      // Posta i chat med roast-typ för stilning + visa toast
+      supabase?.from('inv_chat').insert({
+        player_id: user.id,
+        message: `🔥 ${user.nickname} roastar ${targetPlayer.nickname}:\n"${roastText}"`,
+        msg_type: 'ai_roast'
+      })
+      showToast(`🔥 ${targetPlayer.nickname} fick skit av Caddien`, 'birdie')
+      // Push till target (om de prenumererar)
+      sendPush({
+        title: `🔥 Du blev roastad av ${user.nickname}`,
+        body: roastText.substring(0, 140),
+        type: 'roast',
+        targetPlayerId: targetPlayer.id,
+      }).catch(() => {})
+    } catch (e) {
+      console.error('Roast error:', e)
+      showToast('Caddien tappade tråden. Försök igen.', 'zero')
+    }
+    setRoastingPid(null)
+  }
   // Team uses double-pts scoring
   // Team-matcher: hanterar både nya namn (Gaylords/Stjärtmesarna) och legacy (green/blue)
   const isTeamGaylords = (t) => t === 'Gaylords' || t === 'green'
@@ -5993,6 +6059,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                         <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-dim)' }}>{played}/18</div>
                         <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 600, color: tot >= 30 ? 'var(--green)' : tot >= 18 ? 'var(--gold)' : 'var(--cream)' }}>{tot || '–'}p</div>
                       </div>
+                      {!isMe && (
+                        <button onClick={() => roastPlayer(p)} disabled={roastingPid === p.id} title={`Roasta ${p.nickname}`} style={{ width: 32, height: 32, borderRadius: 10, background: roastingPid === p.id ? 'rgba(232,99,74,0.3)' : 'rgba(232,99,74,0.12)', border: '1px solid rgba(232,99,74,0.4)', cursor: roastingPid === p.id ? 'wait' : 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}>{roastingPid === p.id ? '⏳' : '🔥'}</button>
+                      )}
                     </div>
                   )
                 })}
@@ -6064,6 +6133,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     </div>
                   </div>
                   <div className="lb-total">{tot || '-'}</div>
+                  {p.id !== user?.id && p.key !== 'spectator' && (
+                    <button onClick={(e) => { e.stopPropagation(); roastPlayer(p) }} disabled={roastingPid === p.id} title={`Roasta ${p.nickname}`} style={{ width: 28, height: 28, marginLeft: 6, borderRadius: 8, background: roastingPid === p.id ? 'rgba(232,99,74,0.3)' : 'rgba(232,99,74,0.1)', border: '1px solid rgba(232,99,74,0.3)', cursor: roastingPid === p.id ? 'wait' : 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>{roastingPid === p.id ? '⏳' : '🔥'}</button>
+                  )}
                 </div>
               )
             })}
