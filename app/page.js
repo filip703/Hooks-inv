@@ -266,8 +266,8 @@ export default function Home() {
   useEffect(() => { if (appMode && typeof window !== 'undefined') { localStorage.setItem('app_mode', appMode); document.documentElement.setAttribute('data-mode', appMode) } }, [appMode])
 
   // ===== Service Worker message-listener — hanterar push-notification clicks =====
-  // När en push (roast, ledare, prop bet, etc.) klickas postar SW ett message hit.
-  // Vi switchar mode + flashar appen så användaren landar rätt vy istället för
+  // När en push (chat, roast, mention, etc.) klickas postar SW ett message hit.
+  // Vi switchar mode + view så användaren landar rätt vy istället för
   // att fastna i fel mode med trasig state.
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.serviceWorker) return
@@ -277,14 +277,20 @@ export default function Home() {
       try {
         const url = new URL(data.url, window.location.origin)
         const mode = url.searchParams.get('mode')
+        const view = url.searchParams.get('view')
         if (mode === 'dio' || mode === 'taby') {
-          // Auto-switch till rätt mode utan att kräva manuellt val
           setAppMode(mode)
           if (mode === 'dio') {
             try { localStorage.removeItem('taby_only') } catch(e) {}
             setTabyOnly(false)
           }
           localStorage.setItem('app_mode', mode)
+        }
+        // Spara view-intention i sessionStorage så DIOApp/TaByApp kan plocka upp
+        if (view) {
+          try { sessionStorage.setItem('pending_view', view) } catch(e) {}
+          // Dispatch custom event så DIOApp omedelbart fångar upp om redan monterad
+          window.dispatchEvent(new CustomEvent('dio_navigate', { detail: { view } }))
         }
       } catch (e) { /* ignore parse errors */ }
     }
@@ -4883,7 +4889,7 @@ function DIOApp({ onSwitchMode }) {
       daily_summary: user.daily_summary !== false, notifications: user.notifications !== false,
       notif_eagles: user.notif_eagles !== false, notif_bets: user.notif_bets !== false,
       notif_mentions: user.notif_mentions !== false, notif_debts: user.notif_debts !== false,
-      notif_leader: user.notif_leader !== false
+      notif_leader: user.notif_leader !== false, notif_chat_all: user.notif_chat_all !== false
     })
   }, [user?.id, view])
   const [pep] = useState(pepTalks[Math.floor(Math.random() * pepTalks.length)])
@@ -5186,6 +5192,31 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     }
   }, [view, chat.length])
 
+  // ===== Push-notis navigation — lyssna på custom event från Home() =====
+  // När en chat/mention/roast-push klickas, dispatchas 'dio_navigate' med target view.
+  // Vi byter direkt till den vyn så användaren landar i chatten/roast wall.
+  useEffect(() => {
+    // Vid mount: kolla om det finns pending view i sessionStorage
+    if (typeof sessionStorage !== 'undefined') {
+      const pending = sessionStorage.getItem('pending_view')
+      if (pending) {
+        sessionStorage.removeItem('pending_view')
+        if (pending === 'feed' || pending === 'roastwall' || pending === 'leaderboard' || pending === 'scorecard' || pending === 'lounge') {
+          setView(pending)
+        }
+      }
+    }
+    // Lyssna på navigation-events
+    const handler = (e) => {
+      const target = e.detail?.view
+      if (target === 'feed' || target === 'roastwall' || target === 'leaderboard' || target === 'scorecard' || target === 'lounge') {
+        setView(target)
+      }
+    }
+    window.addEventListener('dio_navigate', handler)
+    return () => window.removeEventListener('dio_navigate', handler)
+  }, [])
+
   // ===== AI Roast — generera personlig roast via Caddie API =====
   const roastPlayer = async (targetPlayer) => {
     if (!targetPlayer || !user || roastingPid) return
@@ -5469,33 +5500,63 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     setReplyTo(null)
     // Optimistic: add immediately so sender sees it
     setChat(prev => [...prev, { id: 'tmp-' + Date.now(), player_id: user.id, message: msg, msg_type: 'chat', reply_to_id: currentReplyTo?.id || null, created_at: new Date().toISOString(), inv_players: { name: user.name, nickname: user.nickname, image_url: user.image_url, team: user.team } }])
-    await supabase.from('inv_chat').insert({ player_id: user.id, message: msg, msg_type: 'chat', reply_to_id: currentReplyTo?.id || null })
-    // @-mentions → push
+    const { data: inserted } = await supabase.from('inv_chat').insert({ player_id: user.id, message: msg, msg_type: 'chat', reply_to_id: currentReplyTo?.id || null }).select().single()
+
+    // === Push notifications ===
     const mentions = msg.match(/@(\w+)/g) || []
+    const mentionedPids = new Set()
     for (const m of mentions) {
       const name = m.slice(1).toLowerCase()
       const target = activePlayers.find(p => p.id !== user.id && (p.nickname?.toLowerCase().includes(name) || p.name?.toLowerCase().includes(name) || p.key?.toLowerCase() === name))
       if (target) {
+        mentionedPids.add(target.id)
+        // @-mention: tydligare title med "nämnde dig"
         sendPush({
-          title: `💬 ${user.nickname} nämnde dig`,
-          body: msg.length > 80 ? msg.slice(0, 80) + '…' : msg,
+          title: `${user.nickname} nämnde dig`,
+          body: msg.length > 140 ? msg.slice(0, 140) + '…' : msg,
           type: 'mention',
           targetPlayerId: target.id,
+          url: 'https://hooks-inv.vercel.app/?mode=dio&view=feed',
           prefKey: 'notif_mentions'
-        })
+        }).catch(() => {})
       }
     }
-    fetchChat()
-    const fetchHist = async () => { const { data } = await supabase.from('inv_historia').select('*').order('created_at', { ascending: false }); if (data) setHistoria(data) }
-    fetchHist()
-    fetchWithTimeout('https://api.open-meteo.com/v1/forecast?latitude=57.72&longitude=14.83&current=temperature_2m,wind_speed_10m,weather_code&timezone=Europe/Stockholm')
-      .then(r => r.json()).then(d => {
-        const wc = d.current.weather_code
-        const icons = {0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌧️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',80:'🌦️',95:'⛈️'}
-        const descs = {0:'Klart',1:'Mestadels klart',2:'Halvklart',3:'Mulet',45:'Dimma',48:'Dimma',51:'Lätt duggregn',53:'Duggregn',55:'Regn',61:'Lätt regn',63:'Regn',65:'Kraftigt regn',71:'Lätt snö',73:'Snö',80:'Skurar',95:'Åska'}
-        setWeather({ temp: Math.round(d.current.temperature_2m) + '°C', wind: Math.round(d.current.wind_speed_10m) + ' km/h', icon: icons[wc] || '🌤️', desc: descs[wc] || 'Okänt' })
+
+    // Reply till någon? Notifiera target oavsett om de har notif_chat_all
+    const replyTargetId = currentReplyTo?.player_id
+    if (replyTargetId && replyTargetId !== user.id && !mentionedPids.has(replyTargetId)) {
+      const replyTarget = activePlayers.find(p => p.id === replyTargetId)
+      if (replyTarget) {
+        sendPush({
+          title: `${user.nickname} svarade dig`,
+          body: msg.length > 140 ? msg.slice(0, 140) + '…' : msg,
+          type: 'reply',
+          targetPlayerId: replyTarget.id,
+          url: 'https://hooks-inv.vercel.app/?mode=dio&view=feed',
+        }).catch(() => {})
+        mentionedPids.add(replyTarget.id)
+      }
+    }
+
+    // Broadcast till alla med notif_chat_all=true (utom sender + redan notifierade)
+    const broadcastRecipients = activePlayers.filter(p =>
+      p.id !== user.id &&
+      p.key !== 'spectator' &&
+      p.notif_chat_all !== false &&
+      !mentionedPids.has(p.id)
+    )
+    for (const r of broadcastRecipients) {
+      // iMessage/WhatsApp-style: nickname som title, meddelandet som body
+      sendPush({
+        title: user.nickname,
+        body: msg.length > 140 ? msg.slice(0, 140) + '…' : msg,
+        type: 'chat',
+        targetPlayerId: r.id,
+        url: 'https://hooks-inv.vercel.app/?mode=dio&view=feed',
       }).catch(() => {})
+    }
   }
+
   const uploadImg = async file => {
     if (!file || !user || !supabase) return
     const path = `chat/${Date.now()}.${file.name.split('.').pop()}`
@@ -8707,9 +8768,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1.5, marginTop: 14, marginBottom: 6 }}>VAD VILL DU FÅ?</div>
 
             {[
+              { key: 'notif_chat_all', label: '💬 Alla chatt-meddelanden', desc: 'Notis varje gång någon skickar något' },
               { key: 'notif_eagles', label: '🦅 Eagles & Birdies', desc: 'När någon gör 3+ poäng' },
               { key: 'notif_bets', label: '🎲 Bet-avgöranden', desc: 'H2H, LD/NP, Prop bets' },
-              { key: 'notif_mentions', label: '💬 @-mentions i chat', desc: 'När någon taggar dig' },
+              { key: 'notif_mentions', label: '@ Mentions & svar', desc: 'När någon taggar eller svarar dig' },
               { key: 'notif_debts', label: '💰 Nya skulder', desc: 'När någon la ut åt dig' },
               { key: 'notif_leader', label: '👑 Ny ledare', desc: 'Förstaplatsen byter händer' },
             ].map(n => (
@@ -8814,7 +8876,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               notif_bets: profileForm.notif_bets,
               notif_mentions: profileForm.notif_mentions,
               notif_debts: profileForm.notif_debts,
-              notif_leader: profileForm.notif_leader
+              notif_leader: profileForm.notif_leader,
+              notif_chat_all: profileForm.notif_chat_all
             }
             const { error } = await supabase.from('inv_players').update(updates).eq('id', user.id)
             if (error) {

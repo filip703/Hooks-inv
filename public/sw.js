@@ -1,5 +1,5 @@
 // Service worker for PWA offline support + push notifications
-const CACHE_NAME = 'inv-v4-2026-05-16'
+const CACHE_NAME = 'inv-v5-chat-notifs'
 const ASSETS = ['/', '/manifest.json']
 
 self.addEventListener('install', e => {
