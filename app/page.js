@@ -1310,10 +1310,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {/* ── BOTTOM NAV ── */}
       <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200, display: 'flex', flexDirection: 'column', paddingBottom: 'calc(4px + env(safe-area-inset-bottom, 0px))', background: 'linear-gradient(180deg, rgba(30,58,95,0.55) 0%, rgba(12,24,48,0.88) 100%)', backdropFilter: 'blur(40px) saturate(1.8)', WebkitBackdropFilter: 'blur(40px) saturate(1.8)', borderTop: '0.5px solid rgba(147,197,253,0.12)', boxShadow: 'inset 0 0.5px 0 rgba(147,197,253,0.15), 0 -2px 20px rgba(0,0,0,0.4)' }}>
         {newRound && (
-          <button onClick={() => setTabyLivePillOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '4px 0 3px', borderBottom: '0.5px solid rgba(147,197,253,0.08)', background: 'none', border: 'none', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017' }}>●</span>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(212,175,55,0.7)', letterSpacing: 0.5 }}>RUNDA AKTIV · {roundScores.length}/18 HÅL · {totalStab}P</span>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,175,55,0.5)' }}>{tabyLivePillOpen ? '▼' : '▲'}</span>
+          <button onClick={() => setTabyLivePillOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '6px 0 5px', borderBottom: '0.5px solid rgba(147,197,253,0.12)', background: 'rgba(212,175,55,0.12)', border: 'none', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#FFD56B' }}>●</span>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#FFD56B', letterSpacing: 0.8, fontWeight: 600 }}>RUNDA AKTIV · {roundScores.length}/18 HÅL · {totalStab}P</span>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(255,213,107,0.8)' }}>{tabyLivePillOpen ? '▼' : '▲'}</span>
           </button>
         )}
         <div style={{ display: 'flex' }}>
@@ -1369,10 +1369,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                       {p.image_url ? <img src={p.image_url} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(147,197,253,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, color: '#F0F4FF', fontWeight: isMe ? 600 : 400 }}>{p.nickname}</div>
-                        {lastScore && <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'rgba(240,244,255,0.45)' }}>Senast: H{lastScore.hole} · {lastScore.strokes} slag · {lastScore.stableford ?? '–'}p</div>}
+                        {lastScore && <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'rgba(240,244,255,0.75)' }}>Senast: H{lastScore.hole} · {lastScore.strokes} slag · {lastScore.stableford ?? '–'}p</div>}
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)' }}>{played}/18</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(240,244,255,0.75)' }}>{played}/18</div>
                         <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 600, color: tot >= 30 ? '#6BBF7F' : tot >= 18 ? '#D4A017' : '#F0F4FF' }}>{tot || '–'}p</div>
                       </div>
                     </div>
@@ -5914,12 +5914,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             const courseShort = courseName === 'Skogsbanan' ? 'Skog' : 'Park'
             const isComplete = playedCount === 18
             return (
-              <button onClick={() => setLivePillOpen(o => !o)} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '3px 9px', background: isComplete ? 'rgba(74,222,128,0.15)' : 'rgba(212,175,55,0.18)', borderRadius: 12, border: isComplete ? '1px solid rgba(74,222,128,0.4)' : '1px solid rgba(212,175,55,0.35)', cursor: 'pointer' }}>
-                <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--gold)', letterSpacing: 0.5, fontWeight: 700 }}>R{selRound}</span>
-                <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'rgba(250,248,240,0.7)' }}>{playedCount}/18</span>
-                <span style={{ fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 600, color: isComplete ? 'var(--green)' : 'var(--gold-bright)' }}>{myTotal}p</span>
-                <span style={{ fontSize: 9, color: 'rgba(250,248,240,0.5)', fontFamily: 'var(--mono)' }}>{courseShort}</span>
-                <span style={{ fontSize: 9, color: 'rgba(250,248,240,0.4)' }}>{livePillOpen ? '▲' : '▼'}</span>
+              <button onClick={() => setLivePillOpen(o => !o)} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: isComplete ? 'rgba(74,222,128,0.28)' : 'rgba(212,175,55,0.32)', borderRadius: 12, border: isComplete ? '1px solid rgba(74,222,128,0.6)' : '1px solid rgba(212,175,55,0.55)', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+                <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: '#FFD56B', letterSpacing: 0.5, fontWeight: 700 }}>R{selRound}</span>
+                <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: '#FAF8F0', fontWeight: 500 }}>{playedCount}/18</span>
+                <span style={{ fontSize: 12, fontFamily: 'var(--mono)', fontWeight: 700, color: isComplete ? '#86EFAC' : '#FFD56B' }}>{myTotal}p</span>
+                <span style={{ fontSize: 10, color: 'rgba(250,248,240,0.85)', fontFamily: 'var(--mono)', fontWeight: 500 }}>{courseShort}</span>
+                <span style={{ fontSize: 10, color: 'rgba(250,248,240,0.7)' }}>{livePillOpen ? '▲' : '▼'}</span>
               </button>
             )
           })()}
@@ -5987,10 +5987,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                       <Av p={p} size={26} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, color: 'var(--cream)', fontWeight: isMe ? 600 : 400 }}>{p.nickname}</div>
-                        {lastScore && <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>Senast: H{lastScore.hole} · {lastScore.strokes} slag · {lastScore.stableford_points}p</div>}
+                        {lastScore && <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--cream-dim)' }}>Senast: H{lastScore.hole} · {lastScore.strokes} slag · {lastScore.stableford_points}p</div>}
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)' }}>{played}/18</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-dim)' }}>{played}/18</div>
                         <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 600, color: tot >= 30 ? 'var(--green)' : tot >= 18 ? 'var(--gold)' : 'var(--cream)' }}>{tot || '–'}p</div>
                       </div>
                     </div>
