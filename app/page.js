@@ -4803,6 +4803,7 @@ function DIOApp({ onSwitchMode }) {
   const [roastingPid, setRoastingPid] = useState(null) // pid som AI:n roastar just nu
   const [lastRoast, setLastRoast] = useState(null) // { target, text } senaste roast
   const [roastModal, setRoastModal] = useState(null) // { target, text, scoreContext } — full-screen roast-modal
+  const [roastWallFilter, setRoastWallFilter] = useState('recent') // 'recent' | 'sent' | 'received'
   const [guideHole, setGuideHole] = useState(null)
   const [activeHole, setActiveHole] = useState(null)
   const [caddieMsg, setCaddieMsg] = useState(null)
@@ -6624,84 +6625,173 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         </>)}
 
         {view === 'feed' && (<>
-          <div className="section-title">Live Feed</div>
-          <div className="section-sub">Chat, birdies, nollor och skitsnack</div>
-          <div style={{ background: 'var(--surface)', borderRadius: 12, maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column-reverse' }}>
+          {/* === WhatsApp-style chat header === */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px 12px', borderBottom: '0.5px solid var(--card-border)', marginBottom: 8 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, var(--green-dark, #1B4332), var(--gold-dim))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>⛳</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--cream)' }}>DIO 2026 — Bollen</div>
+              <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>{activePlayers.filter(p => p.key !== 'spectator').length} medlemmar · {chat.length > 0 ? new Date(chat[chat.length - 1].created_at).toLocaleString('sv-SE', { hour: '2-digit', minute: '2-digit' }) + ' senaste' : 'tyst för tillfället'}</div>
+            </div>
+          </div>
+
+          {/* === WhatsApp-style messages med datum-dividers + bubblor === */}
+          <div style={{ background: 'var(--surface)', borderRadius: 12, maxHeight: 'calc(100vh - 320px)', overflowY: 'auto', padding: '10px 8px', display: 'flex', flexDirection: 'column' }}>
             {chat.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--cream-muted)', fontSize: 13 }}>🏌️ Tomt här. Skriv något!</div>}
-            {chat.map((m, i) => {
-              const me = m.player_id === user?.id
-              const isAiRoast = m.msg_type === 'ai_roast'
-              const sys = m.msg_type === 'shoutout' || m.msg_type === 'roast' || isAiRoast
-              const brd = isAiRoast ? '#FF8A6B' : sys ? (m.msg_type === 'shoutout' ? 'var(--green)' : 'var(--coral)') : me ? 'var(--gold-dim)' : 'transparent'
-              const canDel = me || isAdmin
-              // Highlight @mentions
-              const renderMsg = (text) => {
-                if (!text) return text
-                return text.split(/(@\w+)/g).map((part, j) => {
-                  if (part.startsWith('@')) {
-                    const nick = part.slice(1).toLowerCase()
-                    const tagged = players.find(p => p.nickname?.toLowerCase().includes(nick) || p.name?.split(' ')[0].toLowerCase() === nick)
-                    return <span key={j} style={{ color: 'var(--gold)', fontWeight: 500 }}>{part}</span>
-                  }
-                  return part
-                })
+            {(() => {
+              // Sortera ASC för korrekt grupp-rendering (äldsta först, scrollar till botten)
+              const sortedChat = [...chat].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+              const today = new Date(); today.setHours(0,0,0,0)
+              const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1)
+              const formatDateDivider = (ts) => {
+                const d = new Date(ts); d.setHours(0,0,0,0)
+                if (d.getTime() === today.getTime()) return 'IDAG'
+                if (d.getTime() === yesterday.getTime()) return 'IGÅR'
+                return d.toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'short' }).toUpperCase()
               }
-              return (
-                <div key={m.id || i} style={{ marginBottom: 6, padding: '8px 10px', background: sys ? 'var(--surface2)' : 'var(--surface2)', borderRadius: 10, borderLeft: `3px solid ${brd}`, position: 'relative' }}>
-                  {!sys && <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                    <Av p={m.inv_players || { name: '?', team: 'green' }} size={18} />
-                    <span style={{ fontSize: 11, fontWeight: 500, color: me ? 'var(--gold)' : 'var(--cream-dim)' }}>{m.inv_players?.nickname || '?'}</span>
-                    {canDel && m.id && !String(m.id).startsWith('tmp') && (
-                      <button onClick={async () => { await supabase.from('inv_chat').delete().eq('id', m.id); fetchChat() }} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 10, cursor: 'pointer', opacity: 0.5 }}>✕</button>
-                    )}
-                  </div>}
-                  {/* Reaction emojis */}
-                  {!sys && m.id && !String(m.id).startsWith('tmp') && (
-                    <div style={{ display: 'flex', gap: 2, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                      {['🔥','😂','👏','💀','🗑️'].map(emoji => {
-                        const rxns = m.reactions ? (safeParse(m.reactions, {})) : {}
-                        const users = rxns[emoji] || []
-                        const myR = users.includes(user?.key)
-                        return (
-                          <button key={emoji} onClick={async () => {
-                            const curr = m.reactions ? (safeParse(m.reactions, {})) : {}
-                            const list = curr[emoji] || []
-                            if (list.includes(user?.key)) { curr[emoji] = list.filter(k => k !== user.key) }
-                            else { curr[emoji] = [...list, user.key] }
-                            if (curr[emoji].length === 0) delete curr[emoji]
-                            await supabase.from('inv_chat').update({ reactions: curr }).eq('id', m.id)
-                            fetchChat()
-                          }} style={{
-                            background: myR ? 'rgba(212,175,55,0.12)' : 'transparent',
-                            border: myR ? '1px solid var(--gold-dim)' : '1px solid transparent',
-                            borderRadius: 6, padding: '1px 4px', cursor: 'pointer', fontSize: 12,
-                            display: 'flex', alignItems: 'center', gap: 2,
-                          }}>
-                            {emoji}{users.length > 0 && <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>{users.length}</span>}
-                          </button>
-                        )
-                      })}
+              const rendered = []
+              let lastDateKey = null
+              let lastSenderId = null
+              sortedChat.forEach((m, idx) => {
+                const me = m.player_id === user?.id
+                const isAiRoast = m.msg_type === 'ai_roast'
+                const isShoutout = m.msg_type === 'shoutout'
+                const isRoast = m.msg_type === 'roast'
+                const isSys = isShoutout || isRoast || isAiRoast || m.msg_type === 'vote' || m.msg_type === 'bounty'
+                const dateKey = new Date(m.created_at).toDateString()
+                const showDateDivider = dateKey !== lastDateKey
+                lastDateKey = dateKey
+                const showAvatar = !me && !isSys && (lastSenderId !== m.player_id || showDateDivider)
+                const groupedWithPrev = !isSys && lastSenderId === m.player_id && !showDateDivider
+                lastSenderId = isSys ? null : m.player_id
+                const canDel = me || isAdmin
+
+                if (showDateDivider) {
+                  rendered.push(
+                    <div key={`d-${dateKey}`} style={{ display: 'flex', justifyContent: 'center', margin: '12px 0 8px' }}>
+                      <div style={{ padding: '4px 12px', borderRadius: 12, background: 'var(--surface2)', fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1.5, fontWeight: 600 }}>{formatDateDivider(m.created_at)}</div>
                     </div>
-                  )}
-                  {isAiRoast ? (() => {
-                    // Parsea "🔥 Mr Vain roastar The Grinder:\n"roast..."" till header + citat
+                  )
+                }
+
+                const renderMsg = (text) => {
+                  if (!text) return text
+                  return text.split(/(@\w+)/g).map((part, j) => {
+                    if (part.startsWith('@')) {
+                      return <span key={j} style={{ color: me ? '#FFE89A' : 'var(--gold)', fontWeight: 600 }}>{part}</span>
+                    }
+                    return part
+                  })
+                }
+
+                const ts = new Date(m.created_at).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })
+                const rxns = m.reactions ? safeParse(m.reactions, {}) : {}
+                const hasReactions = Object.keys(rxns).some(k => rxns[k]?.length > 0)
+
+                // SYSTEM MESSAGES (shoutouts, roasts, ai_roasts, votes) — center-aligned
+                if (isSys) {
+                  if (isAiRoast) {
                     const lines = m.message.split('\n')
                     const header = lines[0] || ''
                     const roastBody = lines.slice(1).join('\n').replace(/^"|"$/g, '').trim()
-                    return (
-                      <div style={{ background: 'rgba(232,99,74,0.08)', margin: '-4px -2px', padding: '8px 10px', borderRadius: 8 }}>
-                        <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: '#FF8A6B', letterSpacing: 0.5, marginBottom: 6, fontWeight: 600 }}>{header}</div>
-                        <div style={{ fontSize: 14, lineHeight: 1.55, color: '#FAF8F0', fontFamily: 'var(--serif)', fontStyle: 'italic', paddingLeft: 8, borderLeft: '2px solid rgba(232,99,74,0.4)' }}>"{roastBody}"</div>
+                    rendered.push(
+                      <div key={m.id || idx} style={{ alignSelf: 'center', maxWidth: '90%', margin: '6px 0', padding: '10px 14px', background: 'linear-gradient(135deg, rgba(232,99,74,0.16), rgba(232,99,74,0.06))', border: '1px solid rgba(232,99,74,0.4)', borderRadius: 14, boxShadow: '0 2px 8px rgba(232,99,74,0.15)' }}>
+                        <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: '#FF8A6B', letterSpacing: 0.5, marginBottom: 6, fontWeight: 700, textAlign: 'center' }}>{header}</div>
+                        <div style={{ fontSize: 14, lineHeight: 1.55, color: '#FAF8F0', fontFamily: 'var(--serif)', fontStyle: 'italic', textAlign: 'center' }}>"{roastBody}"</div>
+                        <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'rgba(250,248,240,0.4)', textAlign: 'center', marginTop: 6 }}>{ts}</div>
                       </div>
                     )
-                  })() : (
-                    <div style={{ fontSize: 13, lineHeight: 1.5, color: sys ? 'var(--cream-dim)' : 'var(--cream)' }}>{renderMsg(m.message)}</div>
-                  )}
-                  {m.image_url && (m.msg_type === 'video' ? <video preload="none" src={m.image_url} controls playsInline style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} /> : <img src={m.image_url} alt="" style={{ maxWidth: '100%', borderRadius: 8, marginTop: 6 }} loading="lazy" />)}
-                  <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', marginTop: 3 }}>{new Date(m.created_at).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</div>
-                </div>
-              )
-            })}
+                  } else {
+                    const sysColor = isShoutout ? 'var(--green)' : 'var(--coral)'
+                    rendered.push(
+                      <div key={m.id || idx} style={{ alignSelf: 'center', maxWidth: '85%', margin: '4px 0', padding: '6px 12px', background: 'var(--surface2)', borderRadius: 12, border: `1px solid ${sysColor === 'var(--green)' ? 'rgba(74,222,128,0.3)' : 'rgba(232,99,74,0.3)'}` }}>
+                        <div style={{ fontSize: 12, color: sysColor, textAlign: 'center', fontWeight: 500 }}>{m.message}</div>
+                        <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', textAlign: 'center', marginTop: 2 }}>{ts}</div>
+                      </div>
+                    )
+                  }
+                  return
+                }
+
+                // NORMAL MESSAGES — bubblor
+                rendered.push(
+                  <div key={m.id || idx} style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginTop: groupedWithPrev ? 1 : 6, marginBottom: 1, justifyContent: me ? 'flex-end' : 'flex-start', flexDirection: me ? 'row-reverse' : 'row' }}>
+                    {/* Avatar (bara för första i grupp + andras meddelanden) */}
+                    {!me && (
+                      <div style={{ width: 28, flexShrink: 0, alignSelf: 'flex-end' }}>
+                        {showAvatar ? <Av p={m.inv_players || { name: '?', team: 'green' }} size={28} /> : null}
+                      </div>
+                    )}
+                    {/* Bubble */}
+                    <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', alignItems: me ? 'flex-end' : 'flex-start' }}>
+                      {showAvatar && !me && (
+                        <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--gold)', marginLeft: 12, marginBottom: 2, fontWeight: 600 }}>{m.inv_players?.nickname || '?'}</span>
+                      )}
+                      <div style={{
+                        background: me ? 'linear-gradient(135deg, rgba(212,175,55,0.95), rgba(180,140,40,0.95))' : 'var(--surface2)',
+                        color: me ? '#0A0A08' : 'var(--cream)',
+                        padding: '7px 11px',
+                        borderRadius: me ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                        position: 'relative',
+                        wordBreak: 'break-word',
+                        boxShadow: me ? '0 1px 3px rgba(0,0,0,0.2)' : '0 1px 2px rgba(0,0,0,0.15)',
+                      }}>
+                        {m.message && <div style={{ fontSize: 14, lineHeight: 1.4 }}>{renderMsg(m.message)}</div>}
+                        {m.image_url && (m.msg_type === 'video'
+                          ? <video preload="none" src={m.image_url} controls playsInline style={{ maxWidth: '100%', borderRadius: 8, marginTop: m.message ? 4 : 0 }} />
+                          : <img src={m.image_url} alt="" style={{ maxWidth: '100%', borderRadius: 8, marginTop: m.message ? 4 : 0 }} loading="lazy" />)}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 2 }}>
+                          <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: me ? 'rgba(10,10,8,0.55)' : 'var(--cream-muted)' }}>{ts}</span>
+                          {canDel && m.id && !String(m.id).startsWith('tmp') && (
+                            <button onClick={async () => { await supabase.from('inv_chat').delete().eq('id', m.id); fetchChat() }} style={{ background: 'none', border: 'none', color: me ? 'rgba(10,10,8,0.4)' : 'var(--cream-muted)', fontSize: 9, cursor: 'pointer', padding: 0 }}>✕</button>
+                          )}
+                        </div>
+                      </div>
+                      {/* Reactions — under bubblan */}
+                      {m.id && !String(m.id).startsWith('tmp') && (
+                        <div style={{ display: 'flex', gap: 2, marginTop: 2, flexWrap: 'wrap', marginLeft: me ? 0 : 4, marginRight: me ? 4 : 0 }}>
+                          {['🔥','😂','👏','💀','🗑️'].map(emoji => {
+                            const users = rxns[emoji] || []
+                            const myR = users.includes(user?.key)
+                            if (users.length === 0 && !myR) return null
+                            return (
+                              <button key={emoji} onClick={async () => {
+                                const curr = m.reactions ? safeParse(m.reactions, {}) : {}
+                                const list = curr[emoji] || []
+                                if (list.includes(user?.key)) { curr[emoji] = list.filter(k => k !== user.key) }
+                                else { curr[emoji] = [...list, user.key] }
+                                if (curr[emoji].length === 0) delete curr[emoji]
+                                await supabase.from('inv_chat').update({ reactions: curr }).eq('id', m.id)
+                                fetchChat()
+                              }} style={{ background: myR ? 'rgba(212,175,55,0.18)' : 'var(--surface)', border: myR ? '1px solid var(--gold-dim)' : '1px solid var(--card-border)', borderRadius: 10, padding: '1px 6px', cursor: 'pointer', fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                                {emoji}<span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>{users.length}</span>
+                              </button>
+                            )
+                          })}
+                          {/* Add reaction quick-pick (5 emojis dolda) */}
+                          {!hasReactions && (
+                            <details style={{ display: 'inline-block' }}>
+                              <summary style={{ listStyle: 'none', cursor: 'pointer', background: 'transparent', border: '1px solid var(--card-border)', borderRadius: 10, padding: '1px 6px', fontSize: 10, color: 'var(--cream-muted)' }}>+</summary>
+                              <div style={{ display: 'flex', gap: 2, marginTop: 4, padding: 4, background: 'var(--surface2)', borderRadius: 8, position: 'absolute', zIndex: 10 }}>
+                                {['🔥','😂','👏','💀','🗑️'].map(emoji => (
+                                  <button key={emoji} onClick={async (e) => {
+                                    e.target.closest('details').open = false
+                                    const curr = m.reactions ? safeParse(m.reactions, {}) : {}
+                                    curr[emoji] = [...(curr[emoji] || []), user.key]
+                                    await supabase.from('inv_chat').update({ reactions: curr }).eq('id', m.id)
+                                    fetchChat()
+                                  }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, padding: 4 }}>{emoji}</button>
+                                ))}
+                              </div>
+                            </details>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })
+              return rendered
+            })()}
             <div ref={chatEnd} />
           </div>
           {/* Shot of the Day */}
@@ -6760,6 +6850,160 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <button onClick={sendMsg} style={{ background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 10, padding: '10px 16px', fontWeight: 600, cursor: 'pointer' }}>↑</button>
           </div>
         </>)}
+
+        {/* ===== ROAST WALL ===== */}
+        {view === 'roastwall' && (() => {
+          const allRoasts = chat.filter(m => m.msg_type === 'ai_roast').sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          // Parsea "🔥 X roastar Y:" header för att veta from/target
+          const parsedRoasts = allRoasts.map(m => {
+            const headerMatch = m.message.match(/^🔥\s*([^→]+?)\s*roastar\s*([^:]+):/i)
+            const fromNick = headerMatch?.[1]?.trim() || null
+            const targetNick = headerMatch?.[2]?.trim() || null
+            const fromPlayer = fromNick ? players.find(p => p.nickname === fromNick) : null
+            const targetPlayer = targetNick ? players.find(p => p.nickname === targetNick) : null
+            const body = m.message.split('\n').slice(1).join('\n').replace(/^"|"$/g, '').trim()
+            return { ...m, fromPlayer, targetPlayer, fromNick, targetNick, body }
+          }).filter(r => r.fromPlayer && r.targetPlayer)
+
+          // Stats
+          const targetCounts = {}
+          const senderCounts = {}
+          parsedRoasts.forEach(r => {
+            targetCounts[r.targetPlayer.id] = (targetCounts[r.targetPlayer.id] || 0) + 1
+            senderCounts[r.fromPlayer.id] = (senderCounts[r.fromPlayer.id] || 0) + 1
+          })
+          const topTargets = Object.entries(targetCounts).map(([id, count]) => ({ player: players.find(p => p.id === id), count })).filter(x => x.player).sort((a, b) => b.count - a.count).slice(0, 3)
+          const topSenders = Object.entries(senderCounts).map(([id, count]) => ({ player: players.find(p => p.id === id), count })).filter(x => x.player).sort((a, b) => b.count - a.count).slice(0, 3)
+
+          // Daily Roast Champion (idag)
+          const today = new Date(); today.setHours(0,0,0,0)
+          const todayRoasts = parsedRoasts.filter(r => new Date(r.created_at) >= today)
+          const dailySenders = {}
+          todayRoasts.forEach(r => { dailySenders[r.fromPlayer.id] = (dailySenders[r.fromPlayer.id] || 0) + 1 })
+          const dailyChampion = Object.entries(dailySenders).map(([id, count]) => ({ player: players.find(p => p.id === id), count })).filter(x => x.player).sort((a, b) => b.count - a.count)[0]
+
+          // Filter pills state — bundlas i useRef-liknande pattern via window
+          const filter = roastWallFilter || 'recent'
+          let visible = parsedRoasts
+          if (filter === 'top') visible = parsedRoasts.slice(0, 50) // top = senaste 50 visas
+          if (filter === 'sent') visible = parsedRoasts.filter(r => r.fromPlayer.id === user?.id)
+          if (filter === 'received') visible = parsedRoasts.filter(r => r.targetPlayer.id === user?.id)
+
+          return (
+            <>
+              <div className="section-title">🔥 Roast Wall</div>
+              <div className="section-sub">Alla AI-genererade roasts samlade</div>
+
+              {/* Stats card */}
+              {parsedRoasts.length > 0 && (
+                <div style={{ background: 'linear-gradient(135deg, rgba(232,99,74,0.1), rgba(11,20,16,0.5))', border: '1px solid rgba(232,99,74,0.3)', borderRadius: 14, padding: 14, marginBottom: 12 }}>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {dailyChampion && (
+                      <div style={{ flex: '1 1 100%', textAlign: 'center', padding: '8px 0', borderBottom: '1px solid rgba(232,99,74,0.2)', marginBottom: 6 }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#FF8A6B', letterSpacing: 1.5, fontWeight: 700, marginBottom: 4 }}>🏆 DAGENS ROAST CHAMPION</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                          <Av p={dailyChampion.player} size={28} />
+                          <span style={{ fontSize: 16, fontWeight: 600, color: '#FAF8F0' }}>{dailyChampion.player.nickname}</span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: '#FF8A6B', fontWeight: 700 }}>{dailyChampion.count} roasts idag</span>
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 140 }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1.2, marginBottom: 6 }}>MEST ROASTADE</div>
+                      {topTargets.map((t, i) => (
+                        <div key={t.player.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-muted)', width: 14 }}>#{i + 1}</span>
+                          <Av p={t.player} size={20} />
+                          <span style={{ fontSize: 11, color: 'var(--cream)', flex: 1 }}>{t.player.nickname}</span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: '#FF8A6B', fontWeight: 600 }}>{t.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 140 }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1.2, marginBottom: 6 }}>MEST ROASTER</div>
+                      {topSenders.map((t, i) => (
+                        <div key={t.player.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-muted)', width: 14 }}>#{i + 1}</span>
+                          <Av p={t.player} size={20} />
+                          <span style={{ fontSize: 11, color: 'var(--cream)', flex: 1 }}>{t.player.nickname}</span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--gold)', fontWeight: 600 }}>{t.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Filter pills */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12, overflowX: 'auto', paddingBottom: 4 }}>
+                {[
+                  { k: 'recent', label: '🕐 Senaste', count: parsedRoasts.length },
+                  { k: 'sent', label: '📤 AV mig', count: parsedRoasts.filter(r => r.fromPlayer.id === user?.id).length },
+                  { k: 'received', label: '📥 MOT mig', count: parsedRoasts.filter(r => r.targetPlayer.id === user?.id).length },
+                ].map(f => (
+                  <button key={f.k} onClick={() => setRoastWallFilter(f.k)} style={{ padding: '8px 14px', borderRadius: 20, background: filter === f.k ? 'rgba(232,99,74,0.2)' : 'var(--surface)', border: filter === f.k ? '1px solid rgba(232,99,74,0.5)' : '1px solid var(--card-border)', color: filter === f.k ? '#FF8A6B' : 'var(--cream-muted)', fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                    {f.label} <span style={{ opacity: 0.7 }}>({f.count})</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Roast list */}
+              {visible.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--cream-muted)' }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>🔥</div>
+                  <div style={{ fontSize: 14 }}>{filter === 'sent' ? 'Du har inte roastat någon än' : filter === 'received' ? 'Du har inte blivit roastad än' : 'Inga roasts än. Klicka 🔥 på en spelare för att starta.'}</div>
+                </div>
+              )}
+              {visible.map(r => {
+                const date = new Date(r.created_at)
+                const isMine = r.fromPlayer.id === user?.id
+                const isMeTarget = r.targetPlayer.id === user?.id
+                const rxns = r.reactions ? safeParse(r.reactions, {}) : {}
+                return (
+                  <div key={r.id} style={{ background: 'linear-gradient(135deg, rgba(232,99,74,0.06), var(--surface))', border: isMeTarget ? '1.5px solid rgba(232,99,74,0.5)' : '1px solid rgba(232,99,74,0.2)', borderRadius: 14, padding: 12, marginBottom: 10, boxShadow: isMeTarget ? '0 4px 12px rgba(232,99,74,0.15)' : 'none' }}>
+                    {/* Header: from → target */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <Av p={r.fromPlayer} size={26} />
+                      <span style={{ fontSize: 12, color: isMine ? 'var(--gold)' : 'var(--cream-dim)', fontWeight: isMine ? 700 : 500 }}>{isMine ? 'DU' : r.fromPlayer.nickname}</span>
+                      <span style={{ fontSize: 14, color: '#FF8A6B' }}>→</span>
+                      <Av p={r.targetPlayer} size={26} />
+                      <span style={{ fontSize: 13, color: isMeTarget ? '#FF8A6B' : 'var(--cream)', fontWeight: 700 }}>{isMeTarget ? 'DU' : r.targetPlayer.nickname}</span>
+                      <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)' }}>{date.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })} · {date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    {/* Själva roasten */}
+                    <div style={{ fontSize: 15, lineHeight: 1.55, color: '#FAF8F0', fontFamily: 'var(--serif)', fontStyle: 'italic', paddingLeft: 12, borderLeft: '3px solid rgba(232,99,74,0.5)', marginBottom: 10 }}>"{r.body}"</div>
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {['🔥','😂','💀'].map(emoji => {
+                        const users = rxns[emoji] || []
+                        const myR = users.includes(user?.key)
+                        return (
+                          <button key={emoji} onClick={async () => {
+                            const curr = r.reactions ? safeParse(r.reactions, {}) : {}
+                            const list = curr[emoji] || []
+                            if (list.includes(user?.key)) { curr[emoji] = list.filter(k => k !== user.key) }
+                            else { curr[emoji] = [...list, user.key] }
+                            if (curr[emoji].length === 0) delete curr[emoji]
+                            await supabase.from('inv_chat').update({ reactions: curr }).eq('id', r.id)
+                            fetchChat()
+                          }} style={{ background: myR ? 'rgba(232,99,74,0.18)' : 'var(--surface)', border: myR ? '1px solid rgba(232,99,74,0.5)' : '1px solid var(--card-border)', borderRadius: 8, padding: '3px 8px', cursor: 'pointer', fontSize: 12 }}>
+                            {emoji} {users.length > 0 && <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>{users.length}</span>}
+                          </button>
+                        )
+                      })}
+                      {!isMine && !isMeTarget && (
+                        <button onClick={() => roastPlayer(r.fromPlayer)} disabled={roastingPid === r.fromPlayer.id} style={{ marginLeft: 'auto', padding: '4px 10px', background: 'rgba(232,99,74,0.12)', border: '1px solid rgba(232,99,74,0.4)', borderRadius: 8, color: '#FF8A6B', fontSize: 10, fontFamily: 'var(--mono)', fontWeight: 600, cursor: roastingPid ? 'wait' : 'pointer' }}>🔁 ROASTA TILLBAKA</button>
+                      )}
+                      {isMeTarget && (
+                        <button onClick={() => roastPlayer(r.fromPlayer)} disabled={roastingPid === r.fromPlayer.id} style={{ marginLeft: 'auto', padding: '4px 10px', background: 'rgba(232,99,74,0.2)', border: '1px solid rgba(232,99,74,0.6)', borderRadius: 8, color: '#FF8A6B', fontSize: 10, fontFamily: 'var(--mono)', fontWeight: 700, cursor: roastingPid ? 'wait' : 'pointer' }}>🔁 HÄMNAS PÅ {r.fromPlayer.nickname.toUpperCase()}</button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </>
+          )
+        })()}
 
         {/* ===== INFO ===== */}
         {view === 'lounge' && (<>
@@ -8949,7 +9193,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 { key: 'lounge', icon: <span style={{ fontSize: 14 }}>🎉</span>, label: 'The Lounge', desc: 'Musik · Achievements · Hype · Vägg' },
                 { key: 'teams', icon: <IconSwords size={16} />, label: 'Lag-battle', desc: 'Gaylords vs Stjärtmesarna' },
                 { key: 'inbox', icon: <IconBell size={16} />, label: 'Inkorg', desc: 'Utmaningar & mentions' },
-                { key: 'feed', icon: <IconChat size={16} />, label: 'Chat', desc: 'Trash talk i realtid' },
+                { key: 'feed', icon: <IconChat size={16} />, label: 'Chat', desc: 'WhatsApp-style trash talk' },
+                { key: 'roastwall', icon: <span style={{ fontSize: 14 }}>🔥</span>, label: 'Roast Wall', desc: 'Alla AI-roasts samlade' },
                 { key: 'expenses', icon: <IconWallet size={16} />, label: 'Even Steven', desc: 'Utgifter & settlement' },
                 { key: 'betting', icon: <IconDice size={16} />, label: 'Betting', desc: 'Odds, H2H & LD/NP' },
                 { key: 'gallery', icon: <IconCamera size={16} />, label: 'Foton', desc: 'Helgen i bilder' },
