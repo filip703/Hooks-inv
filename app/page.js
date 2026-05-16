@@ -4810,6 +4810,7 @@ function DIOApp({ onSwitchMode }) {
   const swipeStartX = useRef(null)
   const swipeMsgId = useRef(null)
   const longPressTimer = useRef(null)
+  const chatScrollRef = useRef(null) // för auto-scroll till botten
   const [guideHole, setGuideHole] = useState(null)
   const [activeHole, setActiveHole] = useState(null)
   const [caddieMsg, setCaddieMsg] = useState(null)
@@ -5162,6 +5163,28 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     } catch (e) { /* ignore */ }
     // Ingen cleanup — badge ska persistera mellan re-runs
   }, [user?.id, scores])
+
+  // ===== Chat auto-scroll till botten vid nya meddelanden + keyboard show =====
+  useEffect(() => {
+    if (view !== 'feed') return
+    // Scroll till botten när chat ändras
+    const scrollToBottom = () => {
+      if (chatScrollRef.current) {
+        chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
+      }
+    }
+    // Initial scroll + på new message
+    scrollToBottom()
+    // Visual Viewport API — körs vid keyboard show/hide
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      const handleResize = () => {
+        // Liten delay så DOM hinner uppdateras
+        setTimeout(scrollToBottom, 50)
+      }
+      window.visualViewport.addEventListener('resize', handleResize)
+      return () => window.visualViewport.removeEventListener('resize', handleResize)
+    }
+  }, [view, chat.length])
 
   // ===== AI Roast — generera personlig roast via Caddie API =====
   const roastPlayer = async (targetPlayer) => {
@@ -6670,20 +6693,31 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           })()}
         </>)}
 
-        {view === 'feed' && (<>
+        {view === 'feed' && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            background: 'var(--bg)',
+            zIndex: 100,
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            overflow: 'hidden',
+          }}>
           {/* === WhatsApp-style chat header med tillbaka-knapp === */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px 12px', borderBottom: '0.5px solid var(--card-border)', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px', borderBottom: '0.5px solid var(--card-border)', flexShrink: 0, background: 'var(--bg)' }}>
             <button onClick={() => setView('leaderboard')} style={{ background: 'none', border: 'none', color: 'var(--gold)', fontSize: 22, cursor: 'pointer', padding: '4px 8px 4px 0', lineHeight: 1 }} title="Tillbaka">←</button>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, var(--green-dark, #1B4332), var(--gold-dim))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>⛳</div>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, var(--green-dark, #1B4332), var(--gold-dim))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>⛳</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--cream)' }}>DIO 2026 — Bollen</div>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>{activePlayers.filter(p => p.key !== 'spectator').length} medlemmar · {chat.length > 0 ? new Date(chat[chat.length - 1].created_at).toLocaleString('sv-SE', { hour: '2-digit', minute: '2-digit' }) + ' senaste' : 'tyst för tillfället'}</div>
             </div>
-            <button onClick={() => setShowMenu(true)} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', fontSize: 16, cursor: 'pointer', padding: '6px 10px', borderRadius: 10 }} title="Meny">☰</button>
+            <button onClick={() => setShowMenu(true)} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', fontSize: 16, cursor: 'pointer', padding: '6px 10px', borderRadius: 10, flexShrink: 0 }} title="Meny">☰</button>
           </div>
 
           {/* === WhatsApp-style messages med datum-dividers + bubblor === */}
-          <div style={{ background: 'var(--surface)', borderRadius: 12, maxHeight: 'calc(100vh - 320px)', overflowY: 'auto', padding: '10px 8px', display: 'flex', flexDirection: 'column' }}>
+          <div ref={chatScrollRef} style={{ background: 'var(--surface)', flex: 1, overflowY: 'auto', padding: '10px 8px', display: 'flex', flexDirection: 'column', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
             {chat.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--cream-muted)', fontSize: 13 }}>🏌️ Tomt här. Skriv något!</div>}
             {(() => {
               // Sortera ASC för korrekt grupp-rendering (äldsta först, scrollar till botten)
@@ -6873,6 +6907,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             })()}
             <div ref={chatEnd} />
           </div>
+          {/* === Input area — sticky bottom, flex-shrink 0 så keyboard inte trycker upp meddelanden === */}
+          <div style={{ flexShrink: 0, background: 'var(--bg)', borderTop: '1px solid var(--card-border)', padding: '8px 10px' }}>
           {/* @-mention suggestions */}
           {chatMsg.includes('@') && (() => {
             const match = chatMsg.match(/@(\w*)$/)
@@ -6881,7 +6917,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             const suggestions = players.filter(p => p.key !== 'spectator' && (p.nickname?.toLowerCase().includes(q) || p.name?.split(' ')[0].toLowerCase().includes(q)))
             if (!suggestions.length) return null
             return (
-              <div style={{ display: 'flex', gap: 4, padding: '6px 0', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 4, padding: '0 0 6px', flexWrap: 'wrap' }}>
                 {suggestions.map(p => (
                   <button key={p.id} onClick={() => setChatMsg(chatMsg.replace(/@\w*$/, `@${p.name.split(' ')[0]} `))} style={{ fontSize: 11, padding: '4px 8px', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', cursor: 'pointer' }}>@{p.name.split(' ')[0]}</button>
                 ))}
@@ -6890,7 +6926,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           })()}
           {/* Reply-preview ovanför input */}
           {replyTo && (
-            <div style={{ display: 'flex', alignItems: 'stretch', background: 'var(--surface2)', borderRadius: 10, padding: 0, marginTop: 6, overflow: 'hidden', borderLeft: '3px solid var(--gold)' }}>
+            <div style={{ display: 'flex', alignItems: 'stretch', background: 'var(--surface2)', borderRadius: 10, padding: 0, marginBottom: 6, overflow: 'hidden', borderLeft: '3px solid var(--gold)' }}>
               <div style={{ flex: 1, padding: '6px 10px', overflow: 'hidden' }}>
                 <div style={{ fontSize: 10, fontFamily: 'var(--mono)', fontWeight: 600, color: 'var(--gold)', marginBottom: 2 }}>↩ Svarar till {replyTo.inv_players?.nickname || '?'}</div>
                 <div style={{ fontSize: 12, color: 'var(--cream-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{replyTo.message || '📷 Bild'}</div>
@@ -6898,15 +6934,18 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <button onClick={() => setReplyTo(null)} style={{ background: 'transparent', border: 'none', color: 'var(--cream-muted)', fontSize: 18, padding: '0 14px', cursor: 'pointer' }}>×</button>
             </div>
           )}
-          <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-            <label style={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer', fontSize: 16 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <label style={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer', fontSize: 16, flexShrink: 0 }}>
               📷<input ref={fileRef} type="file" accept="image/*,video/*" capture="environment" style={{ display: 'none' }} onChange={e => { if(e.target.files[0]) uploadImg(e.target.files[0]) }} />
             </label>
             <input value={chatMsg} onChange={e => setChatMsg(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') sendMsg() }}
-              placeholder="Skriv något... @namn för att tagga" style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '10px 14px', borderRadius: 10, fontSize: 14, fontFamily: 'var(--sans)', outline: 'none' }} />
-            <button onClick={sendMsg} style={{ background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 10, padding: '10px 16px', fontWeight: 600, cursor: 'pointer' }}>↑</button>
+              onFocus={() => { setTimeout(() => { chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' }) }, 300) }}
+              placeholder="Skriv något... @namn för att tagga" style={{ flex: 1, minWidth: 0, background: 'var(--surface)', border: '1px solid var(--card-border)', color: 'var(--cream)', padding: '10px 14px', borderRadius: 10, fontSize: 16, fontFamily: 'var(--sans)', outline: 'none' }} />
+            <button onClick={sendMsg} style={{ background: 'var(--gold)', color: '#0A0A08', border: 'none', borderRadius: 10, padding: '10px 16px', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>↑</button>
           </div>
-        </>)}
+          </div>
+          </div>
+        )}
 
         {/* ===== ROAST WALL ===== */}
         {view === 'roastwall' && (() => {
