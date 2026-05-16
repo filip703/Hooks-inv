@@ -1344,12 +1344,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         const rid = newRound.id
         const roundPlayers = tabyPlayers.filter(p => newRound.player_ids?.includes(p.id))
         return (
-          <div onClick={() => setTabyLivePillOpen(false)} style={{ position: 'fixed', bottom: 'calc(78px + env(safe-area-inset-bottom, 0px))', left: 8, right: 8, zIndex: 250, background: 'rgba(12,24,48,0.96)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: 18, padding: 14, boxShadow: '0 -12px 40px rgba(0,0,0,0.5)' }}>
+          <div onClick={() => setTabyLivePillOpen(false)} style={{ position: 'fixed', bottom: 'calc(78px + env(safe-area-inset-bottom, 0px))', left: 8, right: 8, zIndex: 250, background: '#0C1830', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1.5px solid rgba(212,175,55,0.5)', borderRadius: 18, padding: 14, boxShadow: '0 -12px 40px rgba(0,0,0,0.7)' }}>
             <div onClick={e => e.stopPropagation()}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017', letterSpacing: 1.5 }}>PÅGÅENDE RUNDA</div>
-                  <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: '#F0F4FF', marginTop: 2 }}>{newRound.format === 'stroke' ? 'Slagspel' : newRound.format === 'matchplay' ? 'Matchplay' : newRound.format === 'skins' ? 'Skins' : 'Stableford'} · Täby GK</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#FFD56B', letterSpacing: 1.5, fontWeight: 600 }}>PÅGÅENDE RUNDA</div>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: 17, color: '#FAF8F0', marginTop: 2, fontWeight: 500 }}>{newRound.format === 'stroke' ? 'Slagspel' : newRound.format === 'matchplay' ? 'Matchplay' : newRound.format === 'skins' ? 'Skins' : 'Stableford'} · Täby GK</div>
                 </div>
                 <button onClick={() => setTabyLivePillOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(240,244,255,0.5)', fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
               </div>
@@ -1365,15 +1365,15 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   const lastScore = myScs.length > 0 ? myScs.sort((a, b) => b.hole - a.hole)[0] : null
                   const isMe = p.id === tabyUser?.id
                   return (
-                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', background: isMe ? 'rgba(147,197,253,0.08)' : 'transparent', borderRadius: 8, border: isMe ? '1px solid rgba(147,197,253,0.25)' : '1px solid rgba(255,255,255,0.04)' }}>
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: isMe ? 'rgba(147,197,253,0.18)' : 'rgba(255,255,255,0.05)', borderRadius: 10, border: isMe ? '1px solid rgba(147,197,253,0.55)' : '1px solid rgba(255,255,255,0.12)' }}>
                       {p.image_url ? <img src={p.image_url} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(147,197,253,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, color: '#F0F4FF', fontWeight: isMe ? 600 : 400 }}>{p.nickname}</div>
-                        {lastScore && <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'rgba(240,244,255,0.75)' }}>Senast: H{lastScore.hole} · {lastScore.strokes} slag · {lastScore.stableford ?? '–'}p</div>}
+                        <div style={{ fontSize: 13, color: '#F0F4FF', fontWeight: isMe ? 700 : 500 }}>{p.nickname}</div>
+                        {lastScore && <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'rgba(240,244,255,0.85)', marginTop: 2 }}>Senast: H{lastScore.hole} · {lastScore.strokes} slag · {lastScore.stableford ?? '–'}p</div>}
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(240,244,255,0.75)' }}>{played}/18</div>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 600, color: tot >= 30 ? '#6BBF7F' : tot >= 18 ? '#D4A017' : '#F0F4FF' }}>{tot || '–'}p</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.8)', fontWeight: 500 }}>{played}/18</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 700, color: tot >= 30 ? '#86EFAC' : tot >= 18 ? '#FFD56B' : '#F0F4FF' }}>{tot || '–'}p</div>
                       </div>
                     </div>
                   )
@@ -6031,12 +6031,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         const courseName = RC[selRound]
         const c = courses[courseName]
         return (
-          <div onClick={() => setLivePillOpen(false)} style={{ position: 'fixed', top: 'calc(54px + env(safe-area-inset-top, 0px))', left: 8, right: 8, zIndex: 250, background: 'rgba(11,20,16,0.96)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: 18, padding: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}>
+          <div onClick={() => setLivePillOpen(false)} style={{ position: 'fixed', top: 'calc(54px + env(safe-area-inset-top, 0px))', left: 8, right: 8, zIndex: 250, background: '#0B1410', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1.5px solid rgba(212,175,55,0.5)', borderRadius: 18, padding: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.7)' }}>
             <div onClick={e => e.stopPropagation()}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5 }}>PÅGÅENDE RUNDA</div>
-                  <div style={{ fontFamily: 'var(--serif)', fontSize: 16, color: 'var(--cream)', marginTop: 2 }}>{RL[selRound]} · {courseName}</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#FFD56B', letterSpacing: 1.5, fontWeight: 600 }}>PÅGÅENDE RUNDA</div>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: 17, color: '#FAF8F0', marginTop: 2, fontWeight: 500 }}>{RL[selRound]} · {courseName}</div>
                 </div>
                 <button onClick={() => setLivePillOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
               </div>
@@ -6054,15 +6054,15 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   const lastScore = myScs.length > 0 ? myScs.sort((a, b) => b.hole - a.hole)[0] : null
                   const isMe = p.id === user?.id
                   return (
-                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', background: isMe ? 'rgba(212,175,55,0.08)' : 'transparent', borderRadius: 8, border: isMe ? '1px solid rgba(212,175,55,0.2)' : '1px solid rgba(255,255,255,0.04)' }}>
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: isMe ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.04)', borderRadius: 10, border: isMe ? '1px solid rgba(212,175,55,0.5)' : '1px solid rgba(255,255,255,0.1)' }}>
                       <Av p={p} size={26} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, color: 'var(--cream)', fontWeight: isMe ? 600 : 400 }}>{p.nickname}</div>
-                        {lastScore && <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--cream-dim)' }}>Senast: H{lastScore.hole} · {lastScore.strokes} slag · {lastScore.stableford_points}p</div>}
+                        <div style={{ fontSize: 13, color: '#FAF8F0', fontWeight: isMe ? 700 : 500 }}>{p.nickname}</div>
+                        {lastScore && <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'rgba(250,248,240,0.75)', marginTop: 2 }}>Senast: H{lastScore.hole} · {lastScore.strokes} slag · {lastScore.stableford_points}p</div>}
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-dim)' }}>{played}/18</div>
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 600, color: tot >= 30 ? 'var(--green)' : tot >= 18 ? 'var(--gold)' : 'var(--cream)' }}>{tot || '–'}p</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(250,248,240,0.7)', fontWeight: 500 }}>{played}/18</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 700, color: tot >= 30 ? '#86EFAC' : tot >= 18 ? '#FFD56B' : '#FAF8F0' }}>{tot || '–'}p</div>
                       </div>
                       {!isMe && (
                         <button onClick={() => roastPlayer(p)} disabled={roastingPid === p.id} title={`Roasta ${p.nickname}`} style={{ width: 32, height: 32, borderRadius: 10, background: roastingPid === p.id ? 'rgba(232,99,74,0.3)' : 'rgba(232,99,74,0.12)', border: '1px solid rgba(232,99,74,0.4)', cursor: roastingPid === p.id ? 'wait' : 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}>{roastingPid === p.id ? '⏳' : '🔥'}</button>
@@ -6071,7 +6071,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   )
                 })}
               </div>
-              <button onClick={() => { setView('score'); setLivePillOpen(false) }} style={{ width: '100%', marginTop: 12, padding: '10px', background: 'var(--gold)', border: 'none', borderRadius: 10, color: '#0A0A08', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              <button onClick={() => { setView('scorecard'); setLivePillOpen(false) }} style={{ width: '100%', marginTop: 12, padding: '10px', background: 'var(--gold)', border: 'none', borderRadius: 10, color: '#0A0A08', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 ⛳ Öppna scorekort
               </button>
             </div>
