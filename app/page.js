@@ -5251,8 +5251,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     const unread = chat.filter(m => {
       // Räkna bara meddelanden FRÅN andra spelare (inte mina egna)
       if (m.player_id === user.id) return false
-      // Räkna shoutouts, ai_roasts, vanlig chat — ignorera votes/system-spam
-      if (!['chat', 'shoutout', 'ai_roast', 'roast'].includes(m.msg_type) && m.msg_type) return false
+      // Räkna vanlig chat + shoutouts. INTE ai_roast (visas bara på Roast Wall).
+      if (!['chat', 'shoutout'].includes(m.msg_type) && m.msg_type) return false
       return new Date(m.created_at) > lastRead
     }).length
     setUnreadChatCount(unread)
@@ -6899,7 +6899,11 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             {chat.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--cream-muted)', fontSize: 13 }}>🏌️ Tomt här. Skriv något!</div>}
             {(() => {
               // Sortera ASC för korrekt grupp-rendering (äldsta först, scrollar till botten)
-              const sortedChat = [...chat].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+              // Filtrera bort ai_roasts från chatten — de visas BARA på Roast Wall + push till target.
+              // Sender ser modal direkt vid skick, target får push. Inget spam i bollens chat.
+              const sortedChat = [...chat]
+                .filter(m => m.msg_type !== 'ai_roast')
+                .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
               const today = new Date(); today.setHours(0,0,0,0)
               const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1)
               const formatDateDivider = (ts) => {
