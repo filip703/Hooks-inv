@@ -4841,6 +4841,8 @@ function DIOApp({ onSwitchMode }) {
   const longPressTimer = useRef(null)
   const chatScrollRef = useRef(null) // för auto-scroll till botten
   const edgeSwipeRef = useRef(null) // för edge-swipe-back från chatten
+  // Unread chat badge
+  const [unreadChatCount, setUnreadChatCount] = useState(0)
   const [guideHole, setGuideHole] = useState(null)
   const [activeHole, setActiveHole] = useState(null)
   const [caddieMsg, setCaddieMsg] = useState(null)
@@ -4942,7 +4944,7 @@ function DIOApp({ onSwitchMode }) {
     supabase.from('inv_players').select('*').eq('id', user.id).single().then(({ data, error }) => {
       if (cancelled || error || !data) return
       // Bara uppdatera om något faktiskt ändrats
-      const changed = ['name', 'nickname', 'image_url', 'hcp', 'team', 'phone', 'email', 'pin', 'must_change_pin'].some(k => user[k] !== data[k])
+      const changed = ['name', 'nickname', 'image_url', 'hcp', 'team', 'phone', 'email', 'pin', 'must_change_pin', 'chat_last_read_at', 'notif_chat_all'].some(k => user[k] !== data[k])
       if (changed) {
         setUser(prev => ({ ...prev, ...data }))
       }
@@ -5240,6 +5242,34 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       return () => window.visualViewport.removeEventListener('resize', handleResize)
     }
   }, [view, chat.length])
+
+  // ===== Unread chat count + mark-as-read =====
+  // Räknar olästa meddelanden (andra spelares + system) sedan user senast öppnade chatten
+  useEffect(() => {
+    if (!user?.id || !chat || chat.length === 0) { setUnreadChatCount(0); return }
+    const lastRead = user.chat_last_read_at ? new Date(user.chat_last_read_at) : new Date(0)
+    const unread = chat.filter(m => {
+      // Räkna bara meddelanden FRÅN andra spelare (inte mina egna)
+      if (m.player_id === user.id) return false
+      // Räkna shoutouts, ai_roasts, vanlig chat — ignorera votes/system-spam
+      if (!['chat', 'shoutout', 'ai_roast', 'roast'].includes(m.msg_type) && m.msg_type) return false
+      return new Date(m.created_at) > lastRead
+    }).length
+    setUnreadChatCount(unread)
+  }, [chat, user?.id, user?.chat_last_read_at])
+
+  // När user öppnar chat-vyn → markera allt som läst i DB
+  useEffect(() => {
+    if (view !== 'feed' || !user?.id || !supabase) return
+    const now = new Date().toISOString()
+    supabase.from('inv_players').update({ chat_last_read_at: now }).eq('id', user.id).then(({ error }) => {
+      if (!error) {
+        // Uppdatera lokal user-state så badge försvinner direkt
+        setUser(prev => prev ? { ...prev, chat_last_read_at: now } : prev)
+        setUnreadChatCount(0)
+      }
+    })
+  }, [view, user?.id])
 
   // ===== Push-notis navigation — lyssna på custom event från Home() =====
   // När en chat/mention/roast-push klickas, dispatchas 'dio_navigate' med target view.
@@ -9479,6 +9509,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     <div style={{ fontSize: 15, fontWeight: 500, color: view === t.key ? 'var(--gold)' : 'var(--cream)' }}>{t.label}</div>
                     <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginTop: 2 }}>{t.desc}</div>
                   </div>
+                  {/* Unread badge på Chat-raden */}
+                  {t.key === 'feed' && unreadChatCount > 0 && (
+                    <span style={{ background: '#E63946', color: '#fff', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, minWidth: 22, height: 22, padding: '0 7px', borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(230,57,70,0.4)', lineHeight: 1 }}>{unreadChatCount > 99 ? '99+' : unreadChatCount}</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -9595,9 +9629,33 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <AugustaBadge size={28} active={view === 'teams'}><IconSwords size={13} color={view === 'teams' ? '#1B4332' : '#FAF8F0'} /></AugustaBadge>
             <span className="nav-label">LAG</span>
           </button>
-          <button className={`bottom-nav-btn ${view === 'lounge' ? 'active' : ''}`} onClick={() => { setView('lounge'); localStorage.setItem('dio_lounge_seen_v1', '1') }}>
-            <AugustaBadge size={28} active={view === 'lounge'}><span style={{ fontSize: 13 }}>🎉</span></AugustaBadge>
-            <span className="nav-label">LOUNGE</span>
+          <button className={`bottom-nav-btn ${view === 'feed' ? 'active' : ''}`} onClick={() => setView('feed')} style={{ position: 'relative' }}>
+            <AugustaBadge size={28} active={view === 'feed'}><span style={{ fontSize: 13 }}>💬</span></AugustaBadge>
+            {/* Unread badge — röd cirkel med antal */}
+            {unreadChatCount > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: 0,
+                right: '50%',
+                transform: 'translate(20px, -2px)',
+                background: '#E63946',
+                color: '#fff',
+                fontFamily: 'var(--mono)',
+                fontSize: 10,
+                fontWeight: 700,
+                minWidth: 18,
+                height: 18,
+                padding: '0 5px',
+                borderRadius: 10,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid var(--bg)',
+                boxShadow: '0 2px 6px rgba(230,57,70,0.4)',
+                lineHeight: 1,
+              }}>{unreadChatCount > 99 ? '99+' : unreadChatCount}</span>
+            )}
+            <span className="nav-label">CHAT</span>
           </button>
           <button className="bottom-nav-btn" onClick={() => setShowMenu(true)}>
             <AugustaBadge size={28}><IconMenu size={13} color="#FAF8F0" /></AugustaBadge>
