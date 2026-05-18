@@ -5675,6 +5675,41 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     }
   }
 
+  // Upload file (PDF, dokument, etc.) — sparar i samma chat-flow men med fil-emoji + filnamn
+  const uploadFile = async file => {
+    if (!file || !user || !supabase) return
+    if (file.size > 25 * 1024 * 1024) {
+      showToast?.('Filen är för stor (max 25 MB)', 'zero')
+      return
+    }
+    // Säkra filnamnet — spara originalnamnet i meddelandet, använd timestamp + extension för storage
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const ext = safeName.split('.').pop() || 'bin'
+    const path = `chat-files/${Date.now()}-${safeName}`
+    const { error } = await supabase.storage.from('inv-images').upload(path, file, { contentType: file.type || 'application/octet-stream' })
+    if (error) {
+      console.error('[uploadFile] Storage upload failed:', error)
+      showToast?.('Uppladdning misslyckades: ' + error.message, 'zero')
+      return
+    }
+    const url = `https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/${path}`
+    // Spara fil-info i message-fältet som JSON så vi kan rendera knappen
+    const fileMeta = JSON.stringify({ filename: file.name, size: file.size, mime: file.type })
+    const { error: insErr } = await supabase.from('inv_chat').insert({
+      player_id: user.id,
+      message: `📎 ${file.name}|FILE_META:${fileMeta}`,
+      image_url: url,
+      msg_type: 'image' // använder image-type så filtreringar inte exkluderar det
+    })
+    if (insErr) {
+      console.error('[uploadFile] DB insert failed:', insErr)
+      showToast?.('Sparning misslyckades', 'zero')
+      return
+    }
+    showToast?.(`📎 ${file.name} uppladdad`, 'birdie')
+    fetchChat()
+  }
+
   // ===== LOGIN =====
   // ===== SPLASH SCREEN =====
   // Player intro sequence — dynamiskt från databasen (faller tillbaka till hårdkodat bara om DB inte laddats än)
@@ -7089,10 +7124,36 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                           </div>
                         )}
                         <div style={{ padding: replyMsg ? '0 8px' : 0 }}>
-                          {m.message && <div style={{ fontSize: 14, lineHeight: 1.4 }}>{renderMsg(m.message)}</div>}
-                          {m.image_url && (m.msg_type === 'video'
-                            ? <video preload="none" src={m.image_url} controls playsInline style={{ maxWidth: '100%', borderRadius: 8, marginTop: m.message ? 4 : 0 }} />
-                            : <img src={m.image_url} alt="" style={{ maxWidth: '100%', borderRadius: 8, marginTop: m.message ? 4 : 0 }} loading="lazy" />)}
+                          {(() => {
+                            // Detektera fil-uppladdning via FILE_META marker → rendera download-knapp
+                            const fileMetaMatch = m.message?.match(/\|FILE_META:(.+)$/)
+                            if (fileMetaMatch && m.image_url) {
+                              let meta = {}
+                              try { meta = JSON.parse(fileMetaMatch[1]) } catch (e) {}
+                              const sizeKb = meta.size ? Math.round(meta.size / 1024) : 0
+                              const sizeStr = sizeKb > 1024 ? `${(sizeKb/1024).toFixed(1)} MB` : `${sizeKb} KB`
+                              return (
+                                <a href={m.image_url} target="_blank" rel="noopener noreferrer" download={meta.filename}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: me ? 'rgba(10,10,8,0.12)' : 'rgba(255,255,255,0.05)', borderRadius: 10, textDecoration: 'none', minWidth: 220, marginTop: 2 }}>
+                                  <div style={{ fontSize: 28, flexShrink: 0 }}>📄</div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: me ? '#0A0A08' : '#FAF8F0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta.filename || 'Fil'}</div>
+                                    <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: me ? 'rgba(10,10,8,0.6)' : '#9B9282', letterSpacing: 0.5 }}>{sizeStr} · TRYCK FÖR ATT ÖPPNA</div>
+                                  </div>
+                                  <div style={{ fontSize: 16, color: me ? 'rgba(10,10,8,0.7)' : 'var(--gold)' }}>↓</div>
+                                </a>
+                              )
+                            }
+                            // Vanlig text + bild/video
+                            return (
+                              <>
+                                {m.message && <div style={{ fontSize: 14, lineHeight: 1.4 }}>{renderMsg(m.message)}</div>}
+                                {m.image_url && (m.msg_type === 'video'
+                                  ? <video preload="none" src={m.image_url} controls playsInline style={{ maxWidth: '100%', borderRadius: 8, marginTop: m.message ? 4 : 0 }} />
+                                  : <img src={m.image_url} alt="" style={{ maxWidth: '100%', borderRadius: 8, marginTop: m.message ? 4 : 0 }} loading="lazy" />)}
+                              </>
+                            )
+                          })()}
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 2 }}>
                             <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: me ? 'rgba(10,10,8,0.55)' : 'var(--cream-muted)' }}>{ts}</span>
                             {canDel && m.id && !String(m.id).startsWith('tmp') && (
@@ -7160,8 +7221,13 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             </div>
           )}
           <div style={{ display: 'flex', gap: 6 }}>
-            <label style={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer', fontSize: 16, flexShrink: 0 }}>
-              📷<input ref={fileRef} type="file" accept="image/*,video/*" capture="environment" style={{ display: 'none' }} onChange={e => { if(e.target.files[0]) uploadImg(e.target.files[0]) }} />
+            {/* Foto/film från kamera eller bibliotek */}
+            <label title="Lägg till bild eller video" style={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 10px', cursor: 'pointer', fontSize: 18, flexShrink: 0, display: 'flex', alignItems: 'center', minWidth: 42, justifyContent: 'center' }}>
+              📷<input ref={fileRef} type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={e => { if(e.target.files[0]) uploadImg(e.target.files[0]) }} />
+            </label>
+            {/* Filuppladdning — PDF, dokument etc */}
+            <label title="Lägg till fil (PDF, dokument)" style={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 10, padding: '10px 10px', cursor: 'pointer', fontSize: 16, flexShrink: 0, display: 'flex', alignItems: 'center', minWidth: 42, justifyContent: 'center' }}>
+              📎<input type="file" accept=".pdf,.doc,.docx,.txt,.rtf,.xls,.xlsx,.ppt,.pptx,.zip,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" style={{ display: 'none' }} onChange={e => { if(e.target.files[0]) uploadFile(e.target.files[0]) }} />
             </label>
             <input value={chatMsg} onChange={e => setChatMsg(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') sendMsg() }}
               onFocus={() => { setTimeout(() => { chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' }) }, 300) }}
@@ -7230,24 +7296,24 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                       </div>
                     )}
                     <div style={{ flex: 1, minWidth: 140 }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1.2, marginBottom: 6 }}>MEST ROASTADE</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#9B9282', letterSpacing: 1.2, marginBottom: 6 }}>MEST ROASTADE</div>
                       {topTargets.map((t, i) => (
                         <div key={t.player.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-muted)', width: 14 }}>#{i + 1}</span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#9B9282', width: 14 }}>#{i + 1}</span>
                           <Av p={t.player} size={20} />
-                          <span style={{ fontSize: 11, color: 'var(--cream)', flex: 1 }}>{t.player.nickname}</span>
+                          <span style={{ fontSize: 11, color: '#FAF8F0', flex: 1 }}>{t.player.nickname}</span>
                           <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: '#FF8A6B', fontWeight: 600 }}>{t.count}</span>
                         </div>
                       ))}
                     </div>
                     <div style={{ flex: 1, minWidth: 140 }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1.2, marginBottom: 6 }}>MEST ROASTER</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#9B9282', letterSpacing: 1.2, marginBottom: 6 }}>MEST ROASTER</div>
                       {topSenders.map((t, i) => (
                         <div key={t.player.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-muted)', width: 14 }}>#{i + 1}</span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#9B9282', width: 14 }}>#{i + 1}</span>
                           <Av p={t.player} size={20} />
-                          <span style={{ fontSize: 11, color: 'var(--cream)', flex: 1 }}>{t.player.nickname}</span>
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--gold)', fontWeight: 600 }}>{t.count}</span>
+                          <span style={{ fontSize: 11, color: '#FAF8F0', flex: 1 }}>{t.player.nickname}</span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: '#D4AF37', fontWeight: 600 }}>{t.count}</span>
                         </div>
                       ))}
                     </div>
@@ -7262,7 +7328,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   { k: 'sent', label: '📤 AV mig', count: parsedRoasts.filter(r => r.fromPlayer.id === user?.id).length },
                   { k: 'received', label: '📥 MOT mig', count: parsedRoasts.filter(r => r.targetPlayer.id === user?.id).length },
                 ].map(f => (
-                  <button key={f.k} onClick={() => setRoastWallFilter(f.k)} style={{ padding: '8px 14px', borderRadius: 20, background: filter === f.k ? 'rgba(232,99,74,0.2)' : 'var(--surface)', border: filter === f.k ? '1px solid rgba(232,99,74,0.5)' : '1px solid var(--card-border)', color: filter === f.k ? '#FF8A6B' : 'var(--cream-muted)', fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  <button key={f.k} onClick={() => setRoastWallFilter(f.k)} style={{ padding: '8px 14px', borderRadius: 20, background: filter === f.k ? 'rgba(232,99,74,0.2)' : '#0F1612', border: filter === f.k ? '1px solid rgba(232,99,74,0.5)' : '1px solid #3A3026', color: filter === f.k ? '#FF8A6B' : '#9B9282', fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
                     {f.label} <span style={{ opacity: 0.7 }}>({f.count})</span>
                   </button>
                 ))}
@@ -7270,7 +7336,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
               {/* Roast list */}
               {visible.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--cream-muted)' }}>
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9B9282' }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>🔥</div>
                   <div style={{ fontSize: 14 }}>{filter === 'sent' ? 'Du har inte roastat någon än' : filter === 'received' ? 'Du har inte blivit roastad än' : 'Inga roasts än. Klicka 🔥 på en spelare för att starta.'}</div>
                 </div>
@@ -7281,15 +7347,15 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 const isMeTarget = r.targetPlayer.id === user?.id
                 const rxns = r.reactions ? safeParse(r.reactions, {}) : {}
                 return (
-                  <div key={r.id} style={{ background: 'linear-gradient(135deg, rgba(232,99,74,0.06), var(--surface))', border: isMeTarget ? '1.5px solid rgba(232,99,74,0.5)' : '1px solid rgba(232,99,74,0.2)', borderRadius: 14, padding: 12, marginBottom: 10, boxShadow: isMeTarget ? '0 4px 12px rgba(232,99,74,0.15)' : 'none' }}>
+                  <div key={r.id} style={{ background: 'linear-gradient(135deg, rgba(232,99,74,0.06), #0F1612)', border: isMeTarget ? '1.5px solid rgba(232,99,74,0.5)' : '1px solid rgba(232,99,74,0.2)', borderRadius: 14, padding: 12, marginBottom: 10, boxShadow: isMeTarget ? '0 4px 12px rgba(232,99,74,0.15)' : 'none' }}>
                     {/* Header: from → target */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <Av p={r.fromPlayer} size={26} />
-                      <span style={{ fontSize: 12, color: isMine ? 'var(--gold)' : 'var(--cream-dim)', fontWeight: isMine ? 700 : 500 }}>{isMine ? 'DU' : r.fromPlayer.nickname}</span>
+                      <span style={{ fontSize: 12, color: isMine ? '#D4AF37' : '#CABFA8', fontWeight: isMine ? 700 : 500 }}>{isMine ? 'DU' : r.fromPlayer.nickname}</span>
                       <span style={{ fontSize: 14, color: '#FF8A6B' }}>→</span>
                       <Av p={r.targetPlayer} size={26} />
-                      <span style={{ fontSize: 13, color: isMeTarget ? '#FF8A6B' : 'var(--cream)', fontWeight: 700 }}>{isMeTarget ? 'DU' : r.targetPlayer.nickname}</span>
-                      <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)' }}>{date.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })} · {date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span style={{ fontSize: 13, color: isMeTarget ? '#FF8A6B' : '#FAF8F0', fontWeight: 700 }}>{isMeTarget ? 'DU' : r.targetPlayer.nickname}</span>
+                      <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 9, color: '#9B9282' }}>{date.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' })} · {date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     {/* Själva roasten */}
                     <div style={{ fontSize: 15, lineHeight: 1.55, color: '#FAF8F0', fontFamily: 'var(--serif)', fontStyle: 'italic', paddingLeft: 12, borderLeft: '3px solid rgba(232,99,74,0.5)', marginBottom: 10 }}>"{r.body}"</div>
@@ -7307,8 +7373,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                             if (curr[emoji].length === 0) delete curr[emoji]
                             await supabase.from('inv_chat').update({ reactions: curr }).eq('id', r.id)
                             fetchChat()
-                          }} style={{ background: myR ? 'rgba(232,99,74,0.18)' : 'var(--surface)', border: myR ? '1px solid rgba(232,99,74,0.5)' : '1px solid var(--card-border)', borderRadius: 8, padding: '3px 8px', cursor: 'pointer', fontSize: 12 }}>
-                            {emoji} {users.length > 0 && <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--cream-muted)' }}>{users.length}</span>}
+                          }} style={{ background: myR ? 'rgba(232,99,74,0.18)' : '#0F1612', border: myR ? '1px solid rgba(232,99,74,0.5)' : '1px solid #3A3026', borderRadius: 8, padding: '3px 8px', cursor: 'pointer', fontSize: 12 }}>
+                            {emoji} {users.length > 0 && <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: '#9B9282' }}>{users.length}</span>}
                           </button>
                         )
                       })}
@@ -8281,7 +8347,55 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               showToast('🔄 Uppdaterad!', 'birdie')
             }} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 8, color: 'var(--cream-dim)', padding: '8px 12px', fontSize: 12, cursor: 'pointer' }}>🔄 Uppdatera</button>
           </div>
-          <div className="section-sub">Odds, H2H, LD/NP & Bounties</div>
+          <div className="section-sub">Odds · H2H · LD/NP · Bounties</div>
+
+          {/* ===== ÖVERSIKT — sammanfattning av läget ===== */}
+          {(() => {
+            const openBets = oddsBets.filter(b => b.status === 'open')
+            const myWagers = oddsWagers.filter(w => w.player_key === user.key)
+            const myActiveWagers = myWagers.filter(w => {
+              const bet = oddsBets.find(b => b.id === w.bet_id)
+              return bet?.status === 'open'
+            })
+            const totalStaked = myActiveWagers.reduce((s, w) => s + parseFloat(w.amount), 0)
+            const potentialWin = myActiveWagers.reduce((s, w) => {
+              const opt = oddsOptions.find(o => o.id === w.option_id)
+              return s + (opt ? parseFloat(w.amount) * parseFloat(opt.odds) : 0)
+            }, 0)
+            const totalPool = oddsWagers.filter(w => {
+              const bet = oddsBets.find(b => b.id === w.bet_id)
+              return bet?.status === 'open'
+            }).reduce((s, w) => s + parseFloat(w.amount), 0)
+            return (
+              <div style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(11,20,16,0.6))', border: '1px solid rgba(212,175,55,0.25)', borderRadius: 14, padding: 14, marginBottom: 14 }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 2, fontWeight: 700, marginBottom: 10 }}>📊 LÄGET JUST NU</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 22, fontFamily: 'var(--mono)', color: openBets.length > 0 ? '#4ADE80' : 'var(--cream-muted)', fontWeight: 700 }}>{openBets.length}</div>
+                    <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', letterSpacing: 1 }}>ÖPPNA BETS</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 22, fontFamily: 'var(--mono)', color: totalStaked > 0 ? 'var(--gold)' : 'var(--cream-muted)', fontWeight: 700 }}>{totalStaked.toFixed(0)} kr</div>
+                    <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', letterSpacing: 1 }}>DU SATSAT</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 22, fontFamily: 'var(--mono)', color: potentialWin > totalStaked ? '#4ADE80' : potentialWin > 0 ? 'var(--gold)' : 'var(--cream-muted)', fontWeight: 700 }}>{potentialWin > 0 ? potentialWin.toFixed(0) + ' kr' : '—'}</div>
+                    <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', letterSpacing: 1 }}>POT. VINST</div>
+                  </div>
+                </div>
+                {totalPool > 0 && (
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)', fontSize: 11, color: 'var(--cream-dim)' }}>
+                    💰 Total pott i öppna bets: <span style={{ color: 'var(--gold)', fontWeight: 600, fontFamily: 'var(--mono)' }}>{totalPool.toFixed(0)} kr</span>
+                  </div>
+                )}
+                {myActiveWagers.length > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 10, color: 'var(--cream-muted)', fontStyle: 'italic' }}>
+                    Du har {myActiveWagers.length} aktiv{myActiveWagers.length === 1 ? '' : 'a'} bet{myActiveWagers.length === 1 ? '' : 's'} igång
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Bounty Board */}
           <div style={{ background: 'linear-gradient(135deg, rgba(232,99,74,0.08), rgba(212,175,55,0.06))', borderRadius: 12, padding: 14, marginBottom: 16, border: '1px solid rgba(232,99,74,0.15)' }}>
@@ -8313,7 +8427,16 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
           {/* 🎰 ODDS BETTING */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>🎰 ODDS BETTING</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2 }}>🎰 ÖPPNA ODDS-BETS</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--cream-muted)' }}>{oddsBets.filter(b => b.status === 'open').length} pågående</div>
+            </div>
+
+            {oddsBets.filter(b => b.status === 'open').length === 0 && (
+              <div style={{ textAlign: 'center', padding: '20px 12px', color: 'var(--cream-muted)', fontSize: 12, fontStyle: 'italic' }}>
+                Inga öppna bets just nu. Skapa en nedan ↓
+              </div>
+            )}
 
             {/* Aktiva bets */}
             {oddsBets.filter(b => b.status === 'open').map(bet => {
@@ -8323,13 +8446,21 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               const banker = activePlayers.find(p => p.key === bet.banker_key)
               const totalPool = wagers.reduce((s, w) => s + parseFloat(w.amount), 0)
               return (
-                <div key={bet.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--card-border)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <div key={bet.id} style={{ padding: '12px', background: 'var(--surface2)', borderRadius: 10, marginBottom: 10, border: myWager ? '1px solid rgba(212,175,55,0.4)' : '1px solid var(--card-border)' }}>
+                  {/* Status badge */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span style={{ background: bet.locked ? 'rgba(232,99,74,0.18)' : 'rgba(74,222,128,0.15)', color: bet.locked ? '#FF8A6B' : '#4ADE80', fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, letterSpacing: 1.5, padding: '3px 8px', borderRadius: 6, border: `1px solid ${bet.locked ? 'rgba(232,99,74,0.3)' : 'rgba(74,222,128,0.3)'}` }}>
+                      {bet.locked ? '🔒 LÅST' : '🟢 ÖPPEN'}
+                    </span>
+                    {myWager && <span style={{ background: 'rgba(212,175,55,0.18)', color: 'var(--gold)', fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, letterSpacing: 1, padding: '3px 8px', borderRadius: 6 }}>DU SATSAT</span>}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--cream)' }}>{bet.question}</div>
-                      <div style={{ fontSize: 10, color: 'var(--cream-muted)', marginTop: 2 }}>
-                        {banker && <span>🏦 Bank: {banker.nickname} · </span>}
-                        Pott: {totalPool} kr · {wagers.length} bets
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--cream)', marginBottom: 4, lineHeight: 1.3 }}>{bet.question}</div>
+                      <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)', letterSpacing: 0.5 }}>
+                        {banker && <span>🏦 BANK: {banker.nickname.toUpperCase()} · </span>}
+                        💰 POTT: {totalPool} KR · 🎯 {wagers.length} BET{wagers.length === 1 ? '' : 'S'}
                       </div>
                     </div>
                     {(isAdmin || bet.created_by === user.key) && <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -8337,8 +8468,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                         await supabase.from('inv_odds_bets').update({ locked: !bet.locked }).eq('id', bet.id)
                         fetchOdds()
                         showToast(bet.locked ? '🔓 Bet öppnad' : '🔒 Bet låst', 'birdie')
-                      }} style={{ background: bet.locked ? 'rgba(232,99,74,0.15)' : 'var(--surface2)', border: '1px solid var(--card-border)', color: bet.locked ? 'var(--coral)' : 'var(--cream-dim)', fontSize: 11, padding: '3px 8px', borderRadius: 6, cursor: 'pointer' }}>
-                        {bet.locked ? '🔒 Låst' : '🔓 Lås'}
+                      }} style={{ background: bet.locked ? 'rgba(232,99,74,0.15)' : 'var(--surface)', border: '1px solid var(--card-border)', color: bet.locked ? 'var(--coral)' : 'var(--cream-dim)', fontSize: 11, padding: '3px 8px', borderRadius: 6, cursor: 'pointer' }}>
+                        {bet.locked ? '🔓' : '🔒'}
                       </button>
                       <button onClick={async () => {
                         if (confirm('Radera denna odds-bet?')) {
