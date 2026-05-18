@@ -821,6 +821,26 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     }
   }, [newRound?.id, tabyActiveHole])
 
+  // ===== PWA App Badge — Täby total stableford på app-ikonen =====
+  // VIKTIGT: Måste ligga FÖRE early returns (tabySplash, tabyUser-check) för att undvika React #310.
+  // Beräknar totalStab on-the-fly inuti callbacken så vi inte behöver flytta beräkningarna.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !tabyUser) return
+    if (!('setAppBadge' in navigator)) return
+    const scoresInRound = (newRound && tabyUser) ? tabyScores.filter(s => s.round_id === newRound.id && s.player_id === tabyUser.id) : []
+    const stab = scoresInRound.reduce((s, sc) => s + (sc.stableford || 0), 0)
+    if (tabyBadgeRef.current === stab) return
+    tabyBadgeRef.current = stab
+    try {
+      if (stab > 0) {
+        navigator.setAppBadge(stab).catch(() => {})
+      } else {
+        navigator.clearAppBadge?.().catch(() => {})
+      }
+    } catch (e) { /* ignore */ }
+    // Ingen cleanup — badge ska persistera mellan re-runs
+  }, [tabyUser?.id, newRound?.id, tabyScores])
+
   // Save score for a hole
   const showTabyToast = (msg, type) => {
     setTabyToast({ msg, type })
@@ -1075,21 +1095,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
   const roundScores = (newRound && tabyUser) ? tabyScores.filter(s => s.round_id === newRound.id && s.player_id === tabyUser.id) : []
   const totalStab = roundScores.reduce((s, sc) => s + (sc.stableford || 0), 0)
 
-  // ===== PWA App Badge — Täby total stableford på app-ikonen =====
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !tabyUser) return
-    if (!('setAppBadge' in navigator)) return
-    if (tabyBadgeRef.current === totalStab) return
-    tabyBadgeRef.current = totalStab
-    try {
-      if (totalStab > 0) {
-        navigator.setAppBadge(totalStab).catch(() => {})
-      } else {
-        navigator.clearAppBadge?.().catch(() => {})
-      }
-    } catch (e) { /* ignore */ }
-    // Ingen cleanup — badge ska persistera mellan re-runs
-  }, [tabyUser?.id, newRound?.id, totalStab])
+  // NOTE: PWA App Badge useEffect flyttad högre upp (före early returns) för att undvika React #310.
   const totalStrokes = roundScores.reduce((s, sc) => s + (sc.strokes || 0), 0)
   const holesPlayed = roundScores.length
   const parPlayed = roundScores.reduce((s, sc) => s + PARS[sc.hole - 1], 0)
