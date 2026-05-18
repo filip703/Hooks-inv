@@ -252,6 +252,20 @@ export default function Home() {
     if (typeof window === 'undefined') return
     // Check URL params first — overrides localStorage
     const params = new URLSearchParams(window.location.search)
+    // ?reset=1 → nuke all localStorage + sessionStorage + reload utan param
+    if (params.get('reset') === '1') {
+      try { localStorage.clear() } catch (e) {}
+      try { sessionStorage.clear() } catch (e) {}
+      // Avregistrera Service Worker så cache också rensas
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations()
+          .then(regs => Promise.all(regs.map(r => r.unregister())))
+          .catch(() => {})
+      }
+      // Reload utan reset-param så vi inte loopar
+      window.location.replace('/')
+      return
+    }
     const urlMode = params.get('mode')
     const urlTabyOnly = params.get('taby_only') === '1' || params.get('only') === 'taby'
     if (urlTabyOnly) {
