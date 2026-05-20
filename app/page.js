@@ -2409,6 +2409,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                       } else if (npHole === h.h && !npAlreadySet) {
                         setLdNpModal({ type: 'np', hole: h.h, nextH })
                       } else {
+                        // Reset till main player (inloggade användaren) vid hålbyte —
+                        // så main player alltid är först på nästa hål oavsett hur många man scorat för
+                        setScoringPlayerId(null)
                         if (nextH) { setTabyActiveHole(nextH); setTabyCaddieMsg(null) }
                         else { setTabyActiveHole(null) }
                       }
@@ -4466,7 +4469,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           }
           setLdNpModal(null)
           showTabyToast(`${winner.nickname} vann ${title}! 💰`, 'birdie')
-          // Navigera till nästa hål
+          // Navigera till nästa hål — reset till main player först
+          setScoringPlayerId(null)
           if (modalNextH) { setTabyActiveHole(modalNextH); setTabyCaddieMsg(null) }
           else { setTabyActiveHole(null) }
         }
@@ -4504,6 +4508,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <div style={{ padding: '0 16px' }}>
                 <button onClick={() => {
                   setLdNpModal(null)
+                  setScoringPlayerId(null)
                   if (modalNextH) { setTabyActiveHole(modalNextH); setTabyCaddieMsg(null) }
                   else { setTabyActiveHole(null) }
                 }} style={{ width: '100%', padding: '13px', borderRadius: 12, background: '#F3F4F6', border: 'none', color: '#888', fontSize: 14, cursor: 'pointer' }}>
@@ -6026,6 +6031,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   {isDouble && <Badge text=" ⚡ DUBBLA POÄNG " color="var(--coral)" bg="rgba(232,99,74,0.15)" />}
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--cream-muted)', fontStyle: 'italic', marginTop: 8 }}>{h.tip}</div>
+                {h.notice && (
+                  <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: 8, fontSize: 12, color: '#D4AF37', fontWeight: 500, lineHeight: 1.45, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+                    <span>{h.notice}</span>
+                  </div>
+                )}
               </div>
 
               {/* Banguide-bild + Flyover — båda visas om de finns */}
@@ -6212,7 +6223,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     return n
                   })
                 }
-                // Navigera
+                // Navigera — reset adminPid till null så main player (du själv) alltid är default
+                // på nästa hål, oavsett om du scorat för andra spelare här
+                if (isAdmin) setAdminPid(null)
                 if (nextH) { setActiveHole(nextH); setCaddieMsg(null) }
                 else setActiveHole(null)
               }
@@ -6766,6 +6779,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                         {isDouble && <Badge text=" 2× " color="var(--coral)" bg="rgba(232,99,74,0.2)" />}
                       </div>
                       <div className="sc-hole-tip">{h.tip}</div>
+                      {h.notice && (
+                        <div style={{ marginTop: 6, padding: '6px 8px', background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: 6, fontSize: 10, color: '#D4AF37', fontWeight: 500, lineHeight: 1.4, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                          <span style={{ flexShrink: 0 }}>⚠️</span>
+                          <span>{h.notice}</span>
+                        </div>
+                      )}
                     </div>
                     {/* +/- Score input defaulting to par */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
