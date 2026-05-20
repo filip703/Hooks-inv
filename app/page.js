@@ -7396,6 +7396,50 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         {view === 'lounge' && (<>
           <div className="section-title">🎉 The Lounge</div>
 
+          {/* 📢 Praktisk info från Hooks — alltid synlig högst upp */}
+          <div style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(27,67,50,0.15))', borderRadius: 14, padding: 14, marginBottom: 14, border: '1px solid rgba(212,175,55,0.3)' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, fontWeight: 700 }}>📢 PRAKTISKT FRÅN HOOKS</div>
+
+            {/* Digital gästbok */}
+            <a href="https://app.digitalguest.com/guestbook/Hooks/CN4WHFhQyV0" target="_blank" rel="noopener noreferrer"
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, textDecoration: 'none', marginBottom: 10, border: '1px solid rgba(212,175,55,0.2)' }}>
+              <div style={{ fontSize: 26 }}>📖</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#FAF8F0', marginBottom: 2 }}>Digital gästbok</div>
+                <div style={{ fontSize: 11, color: '#A89F8E' }}>Hooks-info, schema, restaurang, spa, m.m.</div>
+              </div>
+              <div style={{ fontSize: 18, color: '#D4AF37' }}>→</div>
+            </a>
+
+            {/* Middag */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, marginBottom: 10 }}>
+              <div style={{ fontSize: 26 }}>🍽️</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#FAF8F0', marginBottom: 2 }}>Middag 19:30</div>
+                <div style={{ fontSize: 11, color: '#A89F8E' }}>Båda kvällarna (fre + lör)</div>
+              </div>
+            </div>
+
+            {/* Banutveckling */}
+            <details>
+              <summary style={{ cursor: 'pointer', padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, fontSize: 13, color: '#FAF8F0', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>⛳</span>
+                <span style={{ flex: 1 }}>Banutveckling 2026</span>
+                <span style={{ fontSize: 10, color: '#A89F8E' }}>▼ läs mer</span>
+              </summary>
+              <div style={{ padding: '10px 12px', fontSize: 12, color: '#CABFA8', lineHeight: 1.55, marginTop: 4 }}>
+                <div style={{ marginBottom: 8 }}>Nytt för i år: flera hål har <strong style={{ color: '#FAF8F0' }}>nya tees</strong>.</div>
+                <div style={{ marginBottom: 8 }}>
+                  <strong style={{ color: '#D4AF37' }}>Parkbanan hål 6 + 7</strong> — slås samman till ett nytt korthål.
+                  Följ skyltning. Boll som hamnar i avgränsat område → droppa i anvisad droppruta.
+                </div>
+                <div>
+                  <strong style={{ color: '#D4AF37' }}>Nytt hål 17</strong> — under byggnation. Planeras öppna hösten 2026.
+                </div>
+              </div>
+            </details>
+          </div>
+
           {/* Tab-switcher */}
           <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 4 }}>
             {[
