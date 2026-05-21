@@ -5,7 +5,7 @@ import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZ
 import { TABY_GPS, TABY_HOLES, TABY_COURSE, distanceToGreen, distanceToTee, haversineDistance } from '../lib/courses-taby'
 import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio, playCasinoSound as playCasinoSoundLib } from '../lib/sounds'
 import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush, sendPush } from '../lib/push'
-import { AugustaBadge, LakeBadge, IconTrophy, IconFlag, IconLeaderboard, IconScorecard, IconMenu, IconSwords, IconChat, IconWallet, IconDice, IconCamera, IconInfo, IconUser, IconSettings, IconBell, IconSun, IconMoon, IconRefresh, IconLock, IconSwish, IconGreenJacket, IconGolfBall } from '../lib/icons'
+import { AugustaBadge, LakeBadge, IconTrophy, IconFlag, IconLeaderboard, IconScorecard, IconMenu, IconSwords, IconChat, IconSmokeSignal, IconWallet, IconDice, IconCamera, IconInfo, IconUser, IconSettings, IconBell, IconSun, IconMoon, IconRefresh, IconLock, IconSwish, IconGreenJacket, IconGolfBall } from '../lib/icons'
 import QRCode from 'qrcode'
 
 const RC_DEFAULT = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Skogsbanan', 4: 'Parkbanan' }
@@ -4713,7 +4713,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               {[
                 { key: 'holes',   icon: <IconFlag size={16} />,        label: 'Banguide',  desc: 'Alla 18 hål med GPS' },
                 { key: 'betting', icon: <IconDice size={16} />,        label: 'Betting',   desc: 'H2H, odds & sidospel' },
-                { key: 'feed',    icon: <IconChat size={16} />,        label: 'Chat',      desc: 'Birdies & trash talk' },
+                { key: 'feed',    icon: <IconSmokeSignal size={16} />, label: 'Slask',     desc: 'Slasken — där allt händer' },
                 { key: 'stats',   icon: <IconLeaderboard size={16} />, label: 'Stats',     desc: 'Hålstatistik & historik' },
                 { key: 'profile', icon: <IconUser size={16} />,        label: 'Min profil',desc: 'HCP, notiser, inställningar' },
                 ...(tabyUser?.is_admin || tabyUser?.key === 'filip' || tabyUser?.key === 'marcus' ? [{ key: 'settings', icon: <IconSettings size={16} />, label: 'Admin', desc: 'HCP, rundor, banguide, DIO' }] : []),
@@ -7011,7 +7011,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <button onClick={() => setView('leaderboard')} style={{ background: 'none', border: 'none', color: 'var(--gold)', fontSize: 22, cursor: 'pointer', padding: '4px 8px 4px 0', lineHeight: 1 }} title="Tillbaka">←</button>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, var(--green-dark, #1B4332), var(--gold-dim))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>⛳</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--cream)' }}>DIO 2026 — Bollen</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--cream)' }}>Slasken</div>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>{activePlayers.filter(p => p.key !== 'spectator').length} medlemmar · {chat.length > 0 ? new Date(chat[chat.length - 1].created_at).toLocaleString('sv-SE', { hour: '2-digit', minute: '2-digit' }) + ' senaste' : 'tyst för tillfället'}</div>
             </div>
             <button onClick={() => setShowMenu(true)} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', fontSize: 16, cursor: 'pointer', padding: '6px 10px', borderRadius: 10, flexShrink: 0 }} title="Meny">☰</button>
@@ -7588,7 +7588,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               { key: 'musik', label: '🎵 MUSIK' },
               { key: 'achievements', label: '🏆 PRESTATIONER' },
               { key: 'hype', label: '🔥 HYPE' },
-              { key: 'wall', label: '💬 CHAT' },
+              { key: 'wall', label: '💨 SLASK' },
             ].map(tab => (
               <button key={tab.key} onClick={() => setLoungeTab(tab.key)}
                 style={{ flex: 1, padding: '8px 4px', borderRadius: 8, border: 'none', cursor: 'pointer', background: loungeTab === tab.key ? 'rgba(212,175,55,0.15)' : 'transparent', color: loungeTab === tab.key ? 'var(--gold)' : 'var(--cream-muted)', fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, letterSpacing: 0.5, transition: 'all 0.2s' }}>
@@ -9857,7 +9857,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 { key: 'lounge', icon: <span style={{ fontSize: 14 }}>🎉</span>, label: 'The Lounge', desc: 'Musik · Achievements · Hype · Vägg' },
                 { key: 'teams', icon: <IconSwords size={16} />, label: 'Lag-battle', desc: 'Gaylords vs Stjärtmesarna' },
                 { key: 'inbox', icon: <IconBell size={16} />, label: 'Inkorg', desc: 'Utmaningar & mentions' },
-                { key: 'feed', icon: <IconChat size={16} />, label: 'Chat', desc: 'WhatsApp-style trash talk' },
+                { key: 'feed', icon: <IconSmokeSignal size={16} />, label: 'Slask', desc: 'Slasken — där allt händer' },
                 { key: 'roastwall', icon: <span style={{ fontSize: 14 }}>🔥</span>, label: 'Roast Wall', desc: 'Alla AI-roasts samlade' },
                 { key: 'expenses', icon: <IconWallet size={16} />, label: 'Even Steven', desc: 'Utgifter & settlement' },
                 { key: 'betting', icon: <IconDice size={16} />, label: 'Betting', desc: 'Odds, H2H & LD/NP' },
@@ -9995,7 +9995,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <span className="nav-label">LAG</span>
           </button>
           <button className={`bottom-nav-btn ${view === 'feed' ? 'active' : ''}`} onClick={() => setView('feed')} style={{ position: 'relative' }}>
-            <AugustaBadge size={28} active={view === 'feed'}><span style={{ fontSize: 13 }}>💬</span></AugustaBadge>
+            <AugustaBadge size={28} active={view === 'feed'}><IconSmokeSignal size={13} color={view === 'feed' ? '#0A0A08' : '#FAF8F0'} /></AugustaBadge>
             {/* Unread badge — röd cirkel med antal */}
             {unreadChatCount > 0 && (
               <span style={{
@@ -10020,7 +10020,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 lineHeight: 1,
               }}>{unreadChatCount > 99 ? '99+' : unreadChatCount}</span>
             )}
-            <span className="nav-label">CHAT</span>
+            <span className="nav-label">SLASK</span>
           </button>
           <button className="bottom-nav-btn" onClick={() => setShowMenu(true)}>
             <AugustaBadge size={28}><IconMenu size={13} color="#FAF8F0" /></AugustaBadge>
