@@ -7110,6 +7110,80 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                         <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'rgba(250,248,240,0.4)', textAlign: 'center', marginTop: 6 }}>{ts}</div>
                       </div>
                     )
+                  } else if (m.msg_type === 'bounty') {
+                    // BOUNTY-card med ✓ ACCEPTERA / ✗ AVBÖJ knappar
+                    // Parsa: "BOUNTY: Jag utmanar Nickname på hål X om Ykr! ..."
+                    const bountyMatch = m.message?.match(/BOUNTY:\s*Jag utmanar (.+?) på hål (\d+) om (\d+)\s*kr/i)
+                    const challengerNick = m.inv_players?.nickname || activePlayers.find(p => p.id === m.player_id)?.nickname || '?'
+                    const targetNick = bountyMatch?.[1]?.trim() || ''
+                    const hole = bountyMatch?.[2] || '?'
+                    const amount = bountyMatch?.[3] || '?'
+                    const target = activePlayers.find(p => p.nickname === targetNick)
+                    const isTarget = target?.id === user?.id
+                    const isChallenger = m.player_id === user?.id
+                    // Status från reactions: { status: 'accepted' | 'declined', by: playerKey }
+                    const reactions = (() => { try { return typeof m.reactions === 'string' ? JSON.parse(m.reactions) : (m.reactions || {}) } catch(e) { return {} } })()
+                    const status = reactions.bounty_status || null
+
+                    const respondToBounty = async (accepted) => {
+                      const newReactions = { ...reactions, bounty_status: accepted ? 'accepted' : 'declined', responded_by: user.key, responded_at: new Date().toISOString() }
+                      const { error } = await supabase.from('inv_chat').update({ reactions: newReactions }).eq('id', m.id)
+                      if (error) { showToast('❌ Kunde inte svara', 'zero'); console.error(error); return }
+                      // Posta ett svar i chatten så alla ser
+                      await supabase.from('inv_chat').insert({
+                        player_id: user.id,
+                        message: accepted
+                          ? `🤝 ${user.nickname} ACCEPTERADE ${challengerNick}s bounty på hål ${hole} om ${amount}kr! Bäst Stableford vinner. Game on.`
+                          : `🛑 ${user.nickname} avböjde ${challengerNick}s bounty på hål ${hole}.`,
+                        msg_type: 'chat'
+                      })
+                      // Push till challenger
+                      const challenger = activePlayers.find(p => p.id === m.player_id)
+                      if (challenger) {
+                        sendPush({
+                          title: accepted ? `🤝 ${user.nickname} accepterade!` : `🛑 ${user.nickname} avböjde`,
+                          body: accepted ? `Bounty på hål ${hole} om ${amount}kr. Bäst Stableford vinner.` : `Din bounty på hål ${hole} avböjdes.`,
+                          type: 'bounty',
+                          target_player_id: challenger.id,
+                          url: 'https://hooks-inv.vercel.app/?mode=dio&view=feed'
+                        })
+                      }
+                      fetchChat()
+                      playCasinoSound(accepted ? 'newBet' : 'betLocked')
+                      showToast(accepted ? '🤝 Bounty accepterad!' : '🛑 Bounty avböjd', 'birdie')
+                    }
+
+                    rendered.push(
+                      <div key={m.id || idx} style={{ alignSelf: 'center', maxWidth: '92%', margin: '8px 0', padding: '12px 14px', background: status === 'accepted' ? 'linear-gradient(135deg, rgba(74,222,128,0.12), rgba(74,222,128,0.04))' : status === 'declined' ? 'rgba(168,159,142,0.08)' : 'linear-gradient(135deg, rgba(232,99,74,0.16), rgba(232,99,74,0.06))', border: `1px solid ${status === 'accepted' ? 'rgba(74,222,128,0.4)' : status === 'declined' ? 'rgba(168,159,142,0.3)' : 'rgba(232,99,74,0.4)'}`, borderRadius: 14, boxShadow: '0 2px 8px rgba(232,99,74,0.15)' }}>
+                        <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: status === 'accepted' ? '#4ADE80' : status === 'declined' ? '#A89F8E' : '#FF8A6B', letterSpacing: 1.5, marginBottom: 8, fontWeight: 700, textAlign: 'center' }}>
+                          ⚔️ BOUNTY {status === 'accepted' ? '· ACCEPTERAD' : status === 'declined' ? '· AVBÖJD' : '· VÄNTAR SVAR'}
+                        </div>
+                        <div style={{ fontSize: 13, lineHeight: 1.5, color: '#FAF8F0', textAlign: 'center', marginBottom: status ? 0 : 12 }}>
+                          <strong style={{ color: '#FFD700' }}>{challengerNick}</strong> utmanar <strong style={{ color: '#FFD700' }}>{targetNick}</strong>
+                          {hole !== '?' && <> på <strong>hål {hole}</strong></>}
+                          {amount !== '?' && <> om <strong style={{ color: '#FFD700' }}>{amount} kr</strong></>}
+                          <div style={{ fontSize: 11, color: 'var(--cream-muted)', fontStyle: 'italic', marginTop: 4 }}>Bäst Stableford vinner</div>
+                        </div>
+                        {!status && isTarget && (
+                          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                            <button onClick={() => respondToBounty(false)}
+                              style={{ flex: 1, padding: '10px', background: 'rgba(168,159,142,0.15)', border: '1px solid rgba(168,159,142,0.3)', borderRadius: 10, color: '#A89F8E', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, letterSpacing: 1, cursor: 'pointer' }}>
+                              ✗ AVBÖJ
+                            </button>
+                            <button onClick={() => respondToBounty(true)}
+                              style={{ flex: 2, padding: '10px', background: 'linear-gradient(135deg, #4ADE80, #22C55E)', border: 'none', borderRadius: 10, color: '#0d001f', fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 900, letterSpacing: 1, cursor: 'pointer', boxShadow: '0 0 12px rgba(74,222,128,0.4)' }}>
+                              ✓ ACCEPTERA
+                            </button>
+                          </div>
+                        )}
+                        {!status && !isTarget && (
+                          <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--cream-muted)', textAlign: 'center', marginTop: 8, letterSpacing: 1 }}>
+                            {isChallenger ? `VÄNTAR PÅ SVAR FRÅN ${targetNick.toUpperCase()}` : `VÄNTAR PÅ ${targetNick.toUpperCase()}`}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'rgba(250,248,240,0.4)', textAlign: 'center', marginTop: 8 }}>{ts}</div>
+                      </div>
+                    )
                   } else {
                     const sysColor = isShoutout ? 'var(--green)' : 'var(--coral)'
                     rendered.push(
@@ -9514,22 +9588,41 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
           {/* Lagindelning */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10 }}>LAGINDELNING</div>
-            {activePlayers.map(p => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--card-border)' }}>
-                <Av p={p} size={24} />
-                <div style={{ flex: 1, fontSize: 13 }}>{p.nickname}</div>
-                <select defaultValue={p.team} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 12 }}
-                  onChange={async (e) => {
-                    await supabase.from('inv_players').update({ team: e.target.value }).eq('id', p.id)
-                    fetchAll()
-                    showToast(`${p.nickname} → ${e.target.value}`, 'birdie')
-                  }}>
-                  <option value="Gaylords">Gaylords</option>
-                  <option value="Stjärtmesarna">Stjärtmesarna</option>
-                </select>
-              </div>
-            ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--gold)', letterSpacing: 2 }}>LAGINDELNING</div>
+              <button onClick={() => { fetchAll(); showToast('🔄 Lagen uppdaterade', 'birdie') }}
+                style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream-dim)', padding: '4px 10px', fontSize: 10, fontFamily: 'var(--mono)', cursor: 'pointer', letterSpacing: 1 }}>🔄 SYNCA</button>
+            </div>
+            {['Gaylords', 'Stjärtmesarna'].map(team => {
+              const tp = activePlayers.filter(p => team === 'Gaylords' ? isTeamGaylords(p.team) : isTeamStjart(p.team))
+              return (
+                <div key={team} style={{ marginBottom: 8, padding: '6px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 6, fontFamily: 'var(--mono)', fontSize: 9, color: team === 'Gaylords' ? '#6BBF7F' : '#8AB4D6', letterSpacing: 1.5, fontWeight: 700 }}>
+                  {team.toUpperCase()} ({tp.length}): {tp.map(p => p.nickname).join(' · ').toUpperCase()}
+                </div>
+              )
+            })}
+            {activePlayers.map(p => {
+              // Normalisera p.team till valid option-värde (för controlled select)
+              const teamValue = isTeamGaylords(p.team) ? 'Gaylords' : isTeamStjart(p.team) ? 'Stjärtmesarna' : 'Gaylords'
+              return (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--card-border)' }}>
+                  <Av p={p} size={24} />
+                  <div style={{ flex: 1, fontSize: 13 }}>{p.nickname}</div>
+                  {p.team !== teamValue && <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--coral)' }}>legacy: {p.team}</span>}
+                  <select value={teamValue} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 6, color: 'var(--cream)', padding: '4px 8px', fontSize: 12 }}
+                    onChange={async (e) => {
+                      const newTeam = e.target.value
+                      const { error } = await supabase.from('inv_players').update({ team: newTeam }).eq('id', p.id)
+                      if (error) { showToast('❌ Kunde inte uppdatera lag', 'zero'); console.error(error); return }
+                      await fetchAll()
+                      showToast(`${p.nickname} → ${newTeam}`, 'birdie')
+                    }}>
+                    <option value="Gaylords">Gaylords</option>
+                    <option value="Stjärtmesarna">Stjärtmesarna</option>
+                  </select>
+                </div>
+              )
+            })}
           </div>
 
           {/* Rundor & Banval */}
