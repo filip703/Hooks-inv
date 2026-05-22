@@ -4966,6 +4966,25 @@ function DIOApp({ onSwitchMode }) {
   useEffect(() => { if (typeof window !== 'undefined') { const s = localStorage.getItem('inv_user'); if (s) try { setUser(JSON.parse(s)) } catch(e) {} } }, [])
   useEffect(() => { if (user && typeof window !== 'undefined') localStorage.setItem('inv_user', JSON.stringify(user)) }, [user])
 
+  // Auto-join videosamtal om man kommer via push-länk (?call=room)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !user) return
+    const params = new URLSearchParams(window.location.search)
+    const callRoom = params.get('call')
+    if (callRoom) {
+      const callerName = encodeURIComponent(user.nickname || user.name || 'DIO')
+      setActiveCall({
+        room: callRoom,
+        with: 'DIO videosamtal',
+        url: `https://meet.jit.si/${callRoom}#userInfo.displayName="${callerName}"&config.prejoinPageEnabled=false`
+      })
+      // Rensa param så det inte auto-joinar igen vid omladdning
+      params.delete('call')
+      const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '')
+      window.history.replaceState({}, '', newUrl)
+    }
+  }, [user])
+
   // ===== Re-fetcha aktuell user-data från DB vid mount =====
   // Skyddar mot stale localStorage med gammalt namn/nick efter profil-uppdatering
   useEffect(() => {
@@ -5166,6 +5185,43 @@ function DIOApp({ onSwitchMode }) {
 
   // Big Win popup state — visas vid stora wins
   const [bigWin, setBigWin] = useState(null) // { amount, label, betQuestion }
+
+  // 📹 Videosamtal (Jitsi Meet)
+  const [showCallModal, setShowCallModal] = useState(false)
+  const [activeCall, setActiveCall] = useState(null) // { room, with }
+
+  // Starta videosamtal — genererar Jitsi-rum + push till mottagare
+  const startVideoCall = async (targets, isGroup = false) => {
+    // Unikt rumsnamn (Jitsi skapar rummet on-the-fly)
+    const roomSlug = isGroup
+      ? `DIO2026-Bollen-${Date.now().toString(36)}`
+      : `DIO2026-${[user.key, targets[0]?.key].sort().join('-')}-${Date.now().toString(36)}`
+    const callerName = encodeURIComponent(user.nickname || user.name || 'DIO')
+    const jitsiUrl = `https://meet.jit.si/${roomSlug}#userInfo.displayName="${callerName}"&config.prejoinPageEnabled=false&config.startWithVideoMuted=false`
+
+    // Push till mottagare med join-länk
+    const recipients = isGroup ? activePlayers.filter(p => p.id !== user.id && p.key !== 'spectator') : targets
+    for (const t of recipients) {
+      sendPush({
+        title: `📹 ${user.nickname} ringer${isGroup ? ' (gruppsamtal)' : ''}!`,
+        body: isGroup ? 'Hela bollen kallas till videosamtal — tryck för att svara' : 'Tryck för att svara i appen',
+        type: 'call',
+        targetPlayerId: t.id,
+        url: `https://hooks-inv.vercel.app/?mode=dio&call=${encodeURIComponent(roomSlug)}`
+      })
+    }
+
+    // Posta i Slasken så alla ser + kan joina
+    await supabase.from('inv_chat').insert({
+      player_id: user.id,
+      message: `📹 ${user.nickname} startade ${isGroup ? 'ett gruppsamtal' : `ett videosamtal med ${targets[0]?.nickname || ''}`}! Joina: https://meet.jit.si/${roomSlug}`,
+      msg_type: 'chat'
+    })
+    fetchChat()
+
+    setActiveCall({ room: roomSlug, with: isGroup ? 'Hela bollen' : targets[0]?.nickname, url: jitsiUrl })
+    setShowCallModal(false)
+  }
 
   // Core helpers
   const rid = rn => rounds.find(r => r.round_number === rn)?.id
@@ -7014,6 +7070,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--cream)' }}>Slasken</div>
               <div style={{ fontSize: 10, color: 'var(--cream-muted)', fontFamily: 'var(--mono)' }}>{activePlayers.filter(p => p.key !== 'spectator').length} medlemmar · {chat.length > 0 ? new Date(chat[chat.length - 1].created_at).toLocaleString('sv-SE', { hour: '2-digit', minute: '2-digit' }) + ' senaste' : 'tyst för tillfället'}</div>
             </div>
+            <button onClick={() => setShowCallModal(true)} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--gold)', fontSize: 16, cursor: 'pointer', padding: '6px 10px', borderRadius: 10, flexShrink: 0, marginRight: 6 }} title="Videosamtal">📹</button>
             <button onClick={() => setShowMenu(true)} style={{ background: 'var(--surface2)', border: '1px solid var(--card-border)', color: 'var(--cream)', fontSize: 16, cursor: 'pointer', padding: '6px 10px', borderRadius: 10, flexShrink: 0 }} title="Meny">☰</button>
           </div>
 
@@ -7144,7 +7201,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                           title: accepted ? `🤝 ${user.nickname} accepterade!` : `🛑 ${user.nickname} avböjde`,
                           body: accepted ? `Bounty på hål ${hole} om ${amount}kr. Bäst Stableford vinner.` : `Din bounty på hål ${hole} avböjdes.`,
                           type: 'bounty',
-                          target_player_id: challenger.id,
+                          targetPlayerId: challenger.id,
                           url: 'https://hooks-inv.vercel.app/?mode=dio&view=feed'
                         })
                       }
@@ -9833,6 +9890,73 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         </>)}
 
       </div>
+
+      {/* ===== 📹 VIDEOSAMTAL — ringa-vy ===== */}
+      {showCallModal && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) setShowCallModal(false) }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 700, display: 'flex', alignItems: 'flex-end', animation: 'fadeIn 0.2s ease' }}>
+          <div style={{ width: '100%', background: 'linear-gradient(180deg, var(--surface), var(--bg))', borderRadius: '20px 20px 0 0', padding: '20px 16px calc(20px + var(--safe-bottom))', maxHeight: '80vh', overflowY: 'auto', border: '1px solid var(--card-border)', borderBottom: 'none' }}>
+            <div style={{ width: 40, height: 4, background: 'var(--card-border)', borderRadius: 2, margin: '0 auto 16px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--cream)' }}>📹 Videosamtal</div>
+              <button onClick={() => setShowCallModal(false)} style={{ background: 'none', border: 'none', color: 'var(--cream-muted)', fontSize: 22, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--cream-muted)', marginBottom: 16 }}>Ring en spelare eller hela bollen. Mottagaren får en notis.</div>
+
+            {/* Gruppsamtal */}
+            <button onClick={() => startVideoCall([], true)}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: 14, background: 'linear-gradient(135deg, rgba(212,175,55,0.18), rgba(27,67,50,0.15))', border: '1px solid rgba(212,175,55,0.4)', borderRadius: 14, cursor: 'pointer', marginBottom: 16 }}>
+              <div style={{ fontSize: 28 }}>👥</div>
+              <div style={{ flex: 1, textAlign: 'left' }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--gold)' }}>Ring hela bollen</div>
+                <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>Gruppsamtal med alla spelare</div>
+              </div>
+              <div style={{ fontSize: 18, color: 'var(--gold)' }}>›</div>
+            </button>
+
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--cream-muted)', letterSpacing: 1.5, marginBottom: 8 }}>ELLER RING EN SPELARE</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {activePlayers.filter(p => p.id !== user?.id && p.key !== 'spectator').map(p => (
+                <button key={p.id} onClick={() => startVideoCall([p], false)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: 'var(--surface2)', border: '1px solid var(--card-border)', borderRadius: 12, cursor: 'pointer' }}>
+                  <Av p={p} size={36} />
+                  <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--cream)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nickname}</div>
+                    <div style={{ fontSize: 10, color: 'var(--green)' }}>📹 Ring</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== AKTIVT SAMTAL — Jitsi iframe ===== */}
+      {activeCall && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 900, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'calc(8px + var(--safe-top)) 14px 8px', background: '#0d001f', flexShrink: 0 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>📹 {activeCall.with}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--mono)' }}>DIO videosamtal</div>
+            </div>
+            <button onClick={() => setActiveCall(null)}
+              style={{ background: '#E63946', border: 'none', color: '#fff', padding: '8px 16px', borderRadius: 24, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              📵 Lägg på
+            </button>
+          </div>
+          <iframe
+            src={activeCall.url}
+            allow="camera; microphone; fullscreen; display-capture; autoplay"
+            style={{ flex: 1, width: '100%', border: 'none' }}
+          />
+          <div style={{ padding: '8px 14px calc(8px + var(--safe-bottom))', background: '#0d001f', flexShrink: 0, textAlign: 'center' }}>
+            <button onClick={() => { window.open(activeCall.url, '_blank'); }}
+              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '8px 16px', borderRadius: 10, fontSize: 12, cursor: 'pointer' }}>
+              ↗ Öppna i Jitsi-appen om kamera inte funkar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ===== SIDE MENU (hamburger) ===== */}
       {showMenu && (
