@@ -6559,9 +6559,14 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
         {/* ===== LEADERBOARD ===== */}
         {view === 'leaderboard' && (<>
-          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+          <div style={{ textAlign: 'center', marginBottom: 16, position: 'relative' }}>
             <div className="section-title">Leaderboard</div>
             <div className="section-sub">Stableford netto · 72 hål · Hot Hand +2 · Cold Turkey -1</div>
+            <button onClick={() => setShowCallModal(true)}
+              style={{ position: 'absolute', top: -2, right: 0, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.35)', borderRadius: 999, color: 'var(--gold)', padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              title="Ring bollen">
+              📹 <span style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: 1 }}>RING</span>
+            </button>
           </div>
           <div className="lb-card">
             {lb.map((p, i) => {
@@ -9982,6 +9987,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 { key: 'teams', icon: <IconSwords size={16} />, label: 'Lag-battle', desc: 'Gaylords vs Stjärtmesarna' },
                 { key: 'inbox', icon: <IconBell size={16} />, label: 'Inkorg', desc: 'Utmaningar & mentions' },
                 { key: 'feed', icon: <IconSmokeSignal size={16} />, label: 'Slask', desc: 'Slasken — där allt händer' },
+                { key: '__videocall', icon: <span style={{ fontSize: 14 }}>📹</span>, label: 'Videosamtal', desc: 'Ring en spelare eller hela bollen' },
                 { key: 'roastwall', icon: <span style={{ fontSize: 14 }}>🔥</span>, label: 'Roast Wall', desc: 'Alla AI-roasts samlade' },
                 { key: 'expenses', icon: <IconWallet size={16} />, label: 'Even Steven', desc: 'Utgifter & settlement' },
                 { key: 'betting', icon: <IconDice size={16} />, label: 'Betting', desc: 'Odds, H2H & LD/NP' },
@@ -9991,7 +9997,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 { key: 'profile', icon: <IconUser size={16} />, label: 'Min profil', desc: 'Inställningar & kontakt' },
                 ...(isAdmin ? [{ key: 'settings', icon: <IconSettings size={16} />, label: 'Admin', desc: 'HCP, lag, bana, PIN' }] : []),
               ].map(t => (
-                <button key={t.key} onClick={() => { setView(t.key); setShowMenu(false) }}
+                <button key={t.key} onClick={() => { if (t.key === '__videocall') { setShowMenu(false); setShowCallModal(true) } else { setView(t.key); setShowMenu(false) } }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 14px', background: view === t.key ? 'rgba(201,168,76,0.08)' : 'transparent', border: view === t.key ? '1px solid var(--gold-dim)' : '1px solid transparent', borderRadius: 12, cursor: 'pointer', textAlign: 'left', marginBottom: 4 }}>
                   <AugustaBadge size={32} active={view === t.key}><span style={{ color: view === t.key ? '#1B4332' : '#FAF8F0', display: 'flex' }}>{t.icon}</span></AugustaBadge>
                   <div style={{ flex: 1 }}>
