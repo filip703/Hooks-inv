@@ -5022,7 +5022,7 @@ function DIOApp({ onSwitchMode }) {
       supabase.from('inv_rounds').select('*').order('round_number'),
       supabase.from('inv_scores').select('*'),
       supabase.from('inv_expenses').select('*').order('created_at', { ascending: false }),
-      supabase.from('inv_settings').select('key, value').in('key', ['dio_start_date', 'dio_end_date', 'dio_dates_label', 'dio_venue', 'dio_year', 'prize_per_player', 'prize_split_top', 'prize_split_bottom', 'team_stake_per_player', 'dio_h2h_pairs'])
+      supabase.from('inv_settings').select('key, value').in('key', ['dio_start_date', 'dio_end_date', 'dio_dates_label', 'dio_venue', 'dio_year', 'prize_per_player', 'prize_split_top', 'prize_split_bottom', 'team_stake_per_player', 'dio_h2h_pairs', 'ldnp_skipped'])
     ])
     if (p.data) setPlayers(p.data); if (r.data) setRounds(r.data); if (s.data) setScores(s.data); if (ex.data) setExpenses(ex.data)
     if (set.data) {
@@ -5039,6 +5039,13 @@ function DIOApp({ onSwitchMode }) {
           const parsed = typeof cfg.dio_h2h_pairs === 'string' ? JSON.parse(cfg.dio_h2h_pairs) : cfg.dio_h2h_pairs
           if (Array.isArray(parsed)) setH2hPlayers(parsed)
         } catch (e) { console.warn('h2h_pairs parse error', e) }
+      }
+      // Sync LD/NP-skip-lista (rundor markerade "ingen data")
+      if (cfg.ldnp_skipped) {
+        try {
+          const parsed = typeof cfg.ldnp_skipped === 'string' ? JSON.parse(cfg.ldnp_skipped) : cfg.ldnp_skipped
+          if (Array.isArray(parsed)) setLdNpSkipped(parsed)
+        } catch (e) { console.warn('ldnp_skipped parse error', e) }
       }
       setPrizeConfig(prev => ({
         perPlayer: cfg.prize_per_player != null ? Number(cfg.prize_per_player) : prev.perPlayer,
@@ -5188,6 +5195,7 @@ function DIOApp({ onSwitchMode }) {
 
   // 🏌️🎯 LD/NP — prompt + settlement
   const [ldNpPrompt, setLdNpPrompt] = useState(null) // { type:'ld'|'np', hole, round, nextH }
+  const [ldNpSkipped, setLdNpSkipped] = useState([]) // ['R1_ld', ...] — markerade som "ingen data"
 
   // Hämta LD/NP-vinnare för en runda (via expenses med bet_type 'ld'/'np')
   const getLdNpWinner = (round, type) => {
@@ -5237,16 +5245,24 @@ function DIOApp({ onSwitchMode }) {
       const sp = specialHoles[rn] || {}
       // Kolla om LD-hålet är scorat av minst en spelare
       const roundScores = scores.filter(s => s.round_id === rid)
-      if (sp.ld) {
+      if (sp.ld && !ldNpSkipped.includes(`R${rn}_ld`)) {
         const ldScored = roundScores.some(s => s.hole === sp.ld && s.strokes > 0)
         if (ldScored && !getLdNpWinner(rn, 'ld')) pending.push({ round: rn, type: 'ld', hole: sp.ld })
       }
-      if (sp.np) {
+      if (sp.np && !ldNpSkipped.includes(`R${rn}_np`)) {
         const npScored = roundScores.some(s => s.hole === sp.np && s.strokes > 0)
         if (npScored && !getLdNpWinner(rn, 'np')) pending.push({ round: rn, type: 'np', hole: sp.np })
       }
     }
     return pending
+  }
+
+  // Markera LD/NP som "ingen data" — sparas i inv_settings, tar bort påminnelsen
+  const skipLdNp = async (round, type) => {
+    const tag = `R${round}_${type}`
+    const next = ldNpSkipped.includes(tag) ? ldNpSkipped : [...ldNpSkipped, tag]
+    setLdNpSkipped(next)
+    await supabase.from('inv_settings').upsert({ key: 'ldnp_skipped', value: JSON.stringify(next), updated_by: user?.key || 'system' })
   }
 
 
@@ -6695,8 +6711,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   {movement !== 0 && <div style={{ fontSize: 10, color: movement > 0 ? 'var(--green)' : 'var(--coral)', minWidth: 14 }}>{movement > 0 ? '▲' : '▼'}</div>}
                   <Av p={p} size={38} />
                   <div className="lb-info">
-                    <div className="lb-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{p.name}
-                      {(() => { const vals = [1,2,3,4].map(rn => pRoundRaw(p.id, rn)).filter(v => v > 0); return vals.length >= 2 ? <Sparkline values={vals} width={44} height={12} color="var(--gold)" /> : null })()}
+                    <div className="lb-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: '0 1 auto' }}>{p.name}</span>
+                      {(() => { const vals = [1,2,3,4].map(rn => pRoundRaw(p.id, rn)).filter(v => v > 0); return vals.length >= 2 ? <span style={{ flexShrink: 0, display: 'inline-flex' }}><Sparkline values={vals} width={44} height={12} color="var(--gold)" /></span> : null })()}
                     </div>
                     <div className="lb-hcp">{p.nickname} · {p.hcp}
                       {(() => { const totalStr = scores.filter(s => s.player_id === p.id && s.strokes > 0).reduce((sum, s) => sum + s.strokes, 0); return totalStr > 0 ? <span style={{ marginLeft: 4, fontSize: 9, color: 'var(--cream-muted)' }}>· {totalStr} slag</span> : null })()}
@@ -10060,9 +10077,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   </button>
                 ))}
               </div>
-              <button onClick={proceed}
+              <button onClick={async () => { await skipLdNp(ldNpPrompt.round, ldNpPrompt.type); proceed() }}
                 style={{ width: '100%', padding: 12, background: 'transparent', border: '1px solid var(--card-border)', borderRadius: 12, color: 'var(--cream-muted)', fontSize: 13, cursor: 'pointer' }}>
-                Ingen vinnare / hoppa över
+                Ingen data / ta bort påminnelsen
               </button>
             </div>
           </div>
