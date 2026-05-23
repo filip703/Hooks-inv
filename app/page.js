@@ -5010,8 +5010,8 @@ function DIOApp({ onSwitchMode }) {
   }, [])
   // Splash screen timer
   useEffect(() => {
-    const t1 = setTimeout(() => setSplashExit(true), 9200)
-    const t = setTimeout(() => setSplash(false), 9800)
+    const t1 = setTimeout(() => setSplashExit(true), 4900)
+    const t = setTimeout(() => setSplash(false), 5500)
     return () => { clearTimeout(t1); clearTimeout(t) }
   }, [])
 
@@ -5908,6 +5908,13 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     }}>
       {/* Background photo */}
       <div className="splash-bg" />
+
+      {/* Skip-knapp — alltid synlig uppe till höger */}
+      <button onClick={(e) => { e.stopPropagation(); setSplashExit(true); setTimeout(() => setSplash(false), 400) }}
+        style={{ position: 'absolute', top: 'calc(16px + env(safe-area-inset-top, 0px))', right: 16, zIndex: 50, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(212,175,55,0.5)', color: '#F4ECDF', fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 700, letterSpacing: 1.5, padding: '8px 16px', borderRadius: 999, cursor: 'pointer' }}>
+        HOPPA ÖVER →
+      </button>
+
 
       {/* Badge + venue — centre stage */}
       <div className="splash-badge-phase">
