@@ -6711,21 +6711,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   {movement !== 0 && <div style={{ fontSize: 10, color: movement > 0 ? 'var(--green)' : 'var(--coral)', minWidth: 14 }}>{movement > 0 ? '▲' : '▼'}</div>}
                   <Av p={p} size={38} />
                   <div className="lb-info">
-                    <div className="lb-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: '0 1 auto' }}>{p.name}</span>
-                      {(() => { const vals = [1,2,3,4].map(rn => pRoundRaw(p.id, rn)).filter(v => v > 0); return vals.length >= 2 ? <span style={{ flexShrink: 0, display: 'inline-flex' }}><Sparkline values={vals} width={44} height={12} color="var(--gold)" /></span> : null })()}
-                    </div>
-                    <div className="lb-hcp">{p.nickname} · {p.hcp}
-                      {(() => { const totalStr = scores.filter(s => s.player_id === p.id && s.strokes > 0).reduce((sum, s) => sum + s.strokes, 0); return totalStr > 0 ? <span style={{ marginLeft: 4, fontSize: 9, color: 'var(--cream-muted)' }}>· {totalStr} slag</span> : null })()}
-                      {bonus !== 0 && <span style={{ marginLeft: 4, fontSize: 10, color: bonus > 0 ? 'var(--green)' : 'var(--coral)' }}>{bonus > 0 ? '+' : ''}{bonus} streak</span>}
-                      {momentum(p.id) && (() => {
-                        const m = parseFloat(momentum(p.id))
-                        const color = m >= 2.5 ? '#22c55e' : m >= 1.5 ? '#D4AF37' : '#E8634A'
-                        return <span style={{ marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                          <span style={{ display: 'inline-flex', gap: 1 }}>{[1,2,3,4,5].map(b => <span key={b} style={{ width: 3, height: b <= Math.round(m * 2) ? 8 + b : 4, background: b <= Math.round(m * 2) ? color : 'var(--card-border)', borderRadius: 1, transition: 'height 0.3s' }} />)}</span>
-                          <span style={{ fontSize: 9, color, fontFamily: 'var(--mono)' }}>{momentum(p.id)}</span>
-                        </span>
-                      })()}
+                    <div className="lb-name">{p.name}</div>
+                    <div className="lb-hcp" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ whiteSpace: 'nowrap' }}>{p.nickname} · {p.hcp}</span>
+                      {(() => { const totalStr = scores.filter(s => s.player_id === p.id && s.strokes > 0).reduce((sum, s) => sum + s.strokes, 0); return totalStr > 0 ? <span style={{ fontSize: 9, color: 'var(--cream-muted)', whiteSpace: 'nowrap' }}>· {totalStr} slag</span> : null })()}
+                      {bonus !== 0 && <span style={{ fontSize: 10, color: bonus > 0 ? 'var(--green)' : 'var(--coral)', whiteSpace: 'nowrap' }}>{bonus > 0 ? '+' : ''}{bonus} streak</span>}
+                      {(() => { const vals = [1,2,3,4].map(rn => pRoundRaw(p.id, rn)).filter(v => v > 0); return vals.length >= 2 ? <span style={{ flexShrink: 0, display: 'inline-flex', marginLeft: 'auto' }}><Sparkline values={vals} width={42} height={11} color="var(--gold)" /></span> : null })()}
                     </div>
                   </div>
                   <div className="lb-total">{tot || '-'}</div>
