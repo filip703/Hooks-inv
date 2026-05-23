@@ -5186,7 +5186,70 @@ function DIOApp({ onSwitchMode }) {
   // Big Win popup state — visas vid stora wins
   const [bigWin, setBigWin] = useState(null) // { amount, label, betQuestion }
 
-  // 📹 Videosamtal (Jitsi Meet)
+  // 🏌️🎯 LD/NP — prompt + settlement
+  const [ldNpPrompt, setLdNpPrompt] = useState(null) // { type:'ld'|'np', hole, round, nextH }
+
+  // Hämta LD/NP-vinnare för en runda (via expenses med bet_type 'ld'/'np')
+  const getLdNpWinner = (round, type) => {
+    const exp = expenses.find(e => e.bet_type === type && e.description?.includes(`R${round} `) && e.target_player)
+    return exp ? exp.target_player : null
+  }
+
+  // Avgör LD/NP: skapa expenses (alla andra spelare betalar stake till vinnaren)
+  const settleLdNp = async (round, type, winnerKey, hole) => {
+    if (!winnerKey) return
+    const stake = type === 'ld' ? (roundSetup.ldStake || 50) : (roundSetup.npStake || 50)
+    const title = type === 'ld' ? 'Längst Drive' : 'Närmast Pin'
+    const emoji = type === 'ld' ? '🏌️' : '🎯'
+    const winner = activePlayers.find(p => p.key === winnerKey)
+    // Rensa ev. tidigare settlement för denna runda+typ (om man ändrar vinnare)
+    const existing = expenses.filter(e => e.bet_type === type && e.description?.includes(`R${round} `))
+    for (const e of existing) {
+      await supabase.from('inv_expenses').delete().eq('id', e.id)
+    }
+    // Varje annan spelare betalar stake till vinnaren
+    const losers = activePlayers.filter(p => p.key !== winnerKey && p.key !== 'spectator')
+    for (const loser of losers) {
+      await supabase.from('inv_expenses').insert({
+        paid_by: loser.key, amount: stake,
+        description: `${emoji} ${title} R${round} hål ${hole} — ${winner?.nickname || winnerKey} vann`,
+        tag: 'bet', target_player: winnerKey, split_between: [winnerKey],
+        bet_type: type, created_by: user.key
+      })
+    }
+    fetchExpenses()
+    // Posta i Slasken
+    await supabase.from('inv_chat').insert({
+      player_id: user.id,
+      message: `${emoji} ${title} (R${round}, hål ${hole}): ${winner?.nickname || winnerKey} vann! ${losers.length}×${stake}kr = ${losers.length * stake}kr i potten.`,
+      msg_type: 'shoutout'
+    })
+    fetchChat()
+    showToast(`${emoji} ${winner?.nickname} vann ${title}!`, 'birdie')
+  }
+
+  // Lista oavgjorda LD/NP för spelade rundor (för varningsbanner)
+  const getPendingLdNp = () => {
+    const pending = []
+    for (const rn of [1, 2, 3, 4]) {
+      const rid = rounds.find(r => r.round_number === rn)?.id
+      if (!rid) continue
+      const sp = specialHoles[rn] || {}
+      // Kolla om LD-hålet är scorat av minst en spelare
+      const roundScores = scores.filter(s => s.round_id === rid)
+      if (sp.ld) {
+        const ldScored = roundScores.some(s => s.hole === sp.ld && s.strokes > 0)
+        if (ldScored && !getLdNpWinner(rn, 'ld')) pending.push({ round: rn, type: 'ld', hole: sp.ld })
+      }
+      if (sp.np) {
+        const npScored = roundScores.some(s => s.hole === sp.np && s.strokes > 0)
+        if (npScored && !getLdNpWinner(rn, 'np')) pending.push({ round: rn, type: 'np', hole: sp.np })
+      }
+    }
+    return pending
+  }
+
+
   const [showCallModal, setShowCallModal] = useState(false)
   const [activeCall, setActiveCall] = useState(null) // { room, with }
 
@@ -6331,6 +6394,18 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 // Navigera — reset adminPid till null så main player (du själv) alltid är default
                 // på nästa hål, oavsett om du scorat för andra spelare här
                 if (isAdmin) setAdminPid(null)
+
+                // 🏌️🎯 LD/NP-PROMPT — om detta hål är LD/NP-hål och vinnare ej satt, fråga FÖRST
+                const spNow = specialHoles[selRound] || {}
+                if (h.hole === spNow.ld && !getLdNpWinner(selRound, 'ld')) {
+                  setLdNpPrompt({ type: 'ld', hole: h.hole, round: selRound, nextH })
+                  return
+                }
+                if (h.hole === spNow.np && !getLdNpWinner(selRound, 'np')) {
+                  setLdNpPrompt({ type: 'np', hole: h.hole, round: selRound, nextH })
+                  return
+                }
+
                 if (nextH) { setActiveHole(nextH); setCaddieMsg(null) }
                 else setActiveHole(null)
               }
@@ -6568,6 +6643,34 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               📹 <span style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: 1 }}>RING</span>
             </button>
           </div>
+
+          {/* ⚠️ LD/NP EJ AVGJORD — kvarstående påminnelse */}
+          {(() => {
+            const pending = getPendingLdNp()
+            if (pending.length === 0) return null
+            return (
+              <div style={{ marginBottom: 14 }}>
+                {pending.map((pp, i) => {
+                  const isLD = pp.type === 'ld'
+                  const accent = isLD ? '#D4A017' : '#4ADE80'
+                  return (
+                    <button key={i} onClick={() => setLdNpPrompt({ type: pp.type, hole: pp.hole, round: pp.round, nextH: null })}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', marginBottom: 6, background: `${accent}1A`, border: `1px solid ${accent}55`, borderRadius: 12, cursor: 'pointer', textAlign: 'left' }}>
+                      <div style={{ fontSize: 20 }}>{isLD ? '🏌️' : '🎯'}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--cream)' }}>
+                          {isLD ? 'Längst Drive' : 'Närmast Pin'} ej avgjord — R{pp.round}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--cream-muted)' }}>Hål {pp.hole} · tryck för att välja vinnare</div>
+                      </div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, color: accent, letterSpacing: 1, background: `${accent}22`, padding: '4px 8px', borderRadius: 6 }}>FIXA →</div>
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })()}
+
           <div className="lb-card">
             {lb.map((p, i) => {
               const tot = pTotal(p.id)
@@ -6856,8 +6959,24 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
           {/* Special holes banner */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-            <Badge text={`🏌️ LD: HÅL ${sp.ld}`} color="var(--gold)" bg="rgba(201,168,76,0.12)" />
-            <Badge text={`🎯 NP: HÅL ${sp.np}`} color="var(--green)" bg="rgba(107,191,127,0.12)" />
+            {(() => {
+              const ldW = getLdNpWinner(selRound, 'ld')
+              const npW = getLdNpWinner(selRound, 'np')
+              const ldNick = ldW ? activePlayers.find(p => p.key === ldW)?.nickname : null
+              const npNick = npW ? activePlayers.find(p => p.key === npW)?.nickname : null
+              return (
+                <>
+                  <button onClick={() => sp.ld && setLdNpPrompt({ type: 'ld', hole: sp.ld, round: selRound, nextH: null })}
+                    style={{ background: ldW ? 'rgba(74,222,128,0.15)' : 'rgba(201,168,76,0.12)', border: ldW ? '1px solid rgba(74,222,128,0.4)' : '1px solid rgba(201,168,76,0.3)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, color: ldW ? 'var(--green)' : 'var(--gold)', letterSpacing: 0.5 }}>
+                    🏌️ LD HÅL {sp.ld} {ldNick ? `· ✓ ${ldNick.toUpperCase()}` : '· TRYCK FÖR VINNARE'}
+                  </button>
+                  <button onClick={() => sp.np && setLdNpPrompt({ type: 'np', hole: sp.np, round: selRound, nextH: null })}
+                    style={{ background: npW ? 'rgba(74,222,128,0.15)' : 'rgba(107,191,127,0.12)', border: npW ? '1px solid rgba(74,222,128,0.4)' : '1px solid rgba(107,191,127,0.3)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700, color: 'var(--green)', letterSpacing: 0.5 }}>
+                    🎯 NP HÅL {sp.np} {npNick ? `· ✓ ${npNick.toUpperCase()}` : '· TRYCK FÖR VINNARE'}
+                  </button>
+                </>
+              )
+            })()}
             <Badge text={`⚡ 2x: HÅL ${sp.doubleStart || 16}-18`} color="var(--coral)" bg="rgba(232,99,74,0.12)" />
           </div>
 
@@ -9895,6 +10014,53 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         </>)}
 
       </div>
+
+      {/* ===== 🏌️🎯 LD/NP VINNARE-PROMPT ===== */}
+      {ldNpPrompt && (() => {
+        const isLD = ldNpPrompt.type === 'ld'
+        const title = isLD ? 'Längst Drive' : 'Närmast Pin'
+        const emoji = isLD ? '🏌️' : '🎯'
+        const accent = isLD ? '#D4A017' : '#4ADE80'
+        const proceed = () => {
+          const nh = ldNpPrompt.nextH
+          setLdNpPrompt(null)
+          if (nh) { setActiveHole(nh); setCaddieMsg(null) }
+          else setActiveHole(null)
+        }
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 950, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, animation: 'fadeIn 0.2s ease' }}>
+            <div style={{ width: '100%', maxWidth: 460, background: 'linear-gradient(135deg, var(--surface), var(--bg))', borderRadius: 18, padding: 22, border: `2px solid ${accent}`, boxShadow: `0 0 40px ${accent}44` }}>
+              <div style={{ textAlign: 'center', marginBottom: 4 }}>
+                <div style={{ fontSize: 40, marginBottom: 6 }}>{emoji}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--cream)', fontFamily: 'var(--serif)' }}>{title}</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: accent, letterSpacing: 1, marginTop: 4 }}>
+                  R{ldNpPrompt.round} · HÅL {ldNpPrompt.hole} · VEM VANN?
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--cream-muted)', textAlign: 'center', margin: '10px 0 16px', lineHeight: 1.4 }}>
+                Varje annan spelare betalar {isLD ? (roundSetup.ldStake || 50) : (roundSetup.npStake || 50)} kr till vinnaren. Settlas automatiskt i Even Steven.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                {activePlayers.filter(p => p.key !== 'spectator').map(p => (
+                  <button key={p.id} onClick={async () => {
+                    await settleLdNp(ldNpPrompt.round, ldNpPrompt.type, p.key, ldNpPrompt.hole)
+                    proceed()
+                  }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 10, background: 'var(--surface2)', border: `1px solid var(--card-border)`, borderRadius: 12, cursor: 'pointer' }}>
+                    <Av p={p} size={32} />
+                    <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--cream)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nickname}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <button onClick={proceed}
+                style={{ width: '100%', padding: 12, background: 'transparent', border: '1px solid var(--card-border)', borderRadius: 12, color: 'var(--cream-muted)', fontSize: 13, cursor: 'pointer' }}>
+                Ingen vinnare / hoppa över
+              </button>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ===== 📹 VIDEOSAMTAL — ringa-vy ===== */}
       {showCallModal && (
