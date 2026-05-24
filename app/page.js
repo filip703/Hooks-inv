@@ -5206,7 +5206,7 @@ function DIOApp({ onSwitchMode }) {
   // Avgör LD/NP: skapa expenses (alla andra spelare betalar stake till vinnaren)
   const settleLdNp = async (round, type, winnerKey, hole) => {
     if (!winnerKey) return
-    const stake = type === 'ld' ? (roundSetup.ldStake || 50) : (roundSetup.npStake || 50)
+    const stake = 50 // DIO standard LD/NP-stake (50 kr per spelare)
     const title = type === 'ld' ? 'Längst Drive' : 'Närmast Pin'
     const emoji = type === 'ld' ? '🏌️' : '🎯'
     const winner = activePlayers.find(p => p.key === winnerKey)
@@ -10053,7 +10053,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 </div>
               </div>
               <div style={{ fontSize: 11, color: 'var(--cream-muted)', textAlign: 'center', margin: '10px 0 16px', lineHeight: 1.4 }}>
-                Varje annan spelare betalar {isLD ? (roundSetup.ldStake || 50) : (roundSetup.npStake || 50)} kr till vinnaren. Settlas automatiskt i Even Steven.
+                Varje annan spelare betalar 50 kr till vinnaren. Settlas automatiskt i Even Steven.
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
                 {activePlayers.filter(p => p.key !== 'spectator').map(p => (
