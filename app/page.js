@@ -5364,6 +5364,52 @@ function DIOApp({ onSwitchMode }) {
             Hot Hand räknas nu på <strong style={{color:CREAM}}>riktiga birdies</strong> (slag under par), inte netto-stableford som tidigare. En tidig version delade ut bonus för 3-poängare i rad (par med tilldelade slag) — vilket gav poäng utan en enda riktig birdie. Cold Turkey (2 nollor i rad = −1) är oförändrad. Därför rörde sig ställningen sedan i fredags.
           </div>
         </Card>
+
+        <Card>
+          <Lbl>🧮 DETALJER — STREAK-JUSTERINGAR (MR EXCEL)</Lbl>
+          <div style={{ fontSize:11, color:MUT, marginBottom:8, lineHeight:1.4 }}>
+            Ingen gjorde 2 riktiga birdies i rad — så noll Hot Hand delades ut. Alla justeringar är Cold Turkey (2 nollor i rad = −1):
+          </div>
+          {[
+            ['Mr Vain','0','0','±0'],
+            ['Dr Erektor','0','−1','−1'],
+            ['The Fossil','0','−2','−2'],
+            ['The Grinder','0','−3','−3'],
+            ['The Hybrid','0','−3','−3'],
+            ['Plus One','0','−8','−8'],
+          ].map((r,i)=>(
+            <div key={i} style={{ display:'flex', alignItems:'center', padding:'5px 0', borderBottom:i<5?`1px solid ${G}14`:'none', fontSize:12 }}>
+              <span style={{ flex:1, color:CREAM }}>{r[0]}</span>
+              <span style={{ width:60, textAlign:'right', color:MUT, fontFamily:'var(--mono)', fontSize:10 }}>Hot {r[1]}</span>
+              <span style={{ width:60, textAlign:'right', color:r[2]!=='0'?CORAL:MUT, fontFamily:'var(--mono)', fontSize:10 }}>Cold {r[2]}</span>
+              <span style={{ width:44, textAlign:'right', fontFamily:'var(--mono)', fontWeight:700, color:r[3]==='±0'?GREEN:CORAL }}>{r[3]}</span>
+            </div>
+          ))}
+        </Card>
+
+        <Card style={{ background:`linear-gradient(135deg, ${GREEN}14, ${G}10)` }}>
+          <Lbl>⚔️ VARFÖR LEDER GAYLORDS? (DEKOMPONERING)</Lbl>
+          <div style={{ fontSize:11, color:'#CABFA8', lineHeight:1.5, marginBottom:10 }}>
+            Inte främst dubbla poängen. Lagstriden räknar bara <strong style={{color:CREAM}}>2 bästa per rond</strong> — och Gaylords topp-2 (Filip + Matthis) är fältets vassaste duo.
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:11 }}>
+              <span style={{ color:MUT }}>Utan dubbla poäng</span>
+              <span style={{ fontFamily:'var(--mono)', color:CREAM }}>Gaylords 191 · Stjärt 178 <strong style={{color:G}}>(+13)</strong></span>
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:11 }}>
+              <span style={{ color:MUT }}>Med dubbla poäng 16-18</span>
+              <span style={{ fontFamily:'var(--mono)', color:CREAM }}>Gaylords 220 · Stjärt 201 <strong style={{color:G}}>(+19)</strong></span>
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, borderTop:`1px solid ${G}22`, paddingTop:6 }}>
+              <span style={{ color:MUT }}>Dubbla poängens bidrag till ledningen</span>
+              <span style={{ fontFamily:'var(--mono)', fontWeight:700, color:G }}>+6</span>
+            </div>
+          </div>
+          <div style={{ fontSize:11, color:'#CABFA8', lineHeight:1.5, marginTop:10 }}>
+            Av +19 kommer +13 från vanligt spel, bara +6 från 16-18. Detalj: Stjärtmesarna tog faktiskt R1 (66–61). Det var R2 (Filips 37-runda) som avgjorde.
+          </div>
+        </Card>
         <div style={{ textAlign:'center', fontFamily:'var(--mono)', fontSize:9, color:MUT, letterSpacing:1.5, marginTop:4 }}>
           DIO 2026 · DOUCHE INVITATIONAL ONLY
         </div>
