@@ -5278,12 +5278,12 @@ function DIOApp({ onSwitchMode }) {
   const renderWeekendReport = () => {
     const G = '#D4AF37', CREAM = '#FAF8F0', MUT = '#A89F8E', GREEN = '#6BBF7F', CORAL = '#E8634A'
     const standings = [
-      { pos:'🥇', nick:'Dr Erektor', tot:99, r:'32·28·32 +7b', note:'Mr Excel SJÄLV leder. Sju streak-bonuspoäng — konsistensen lönar sig till slut. Noll birdies, ändå etta. Optimeringen fungerade till punkt och pricka.' },
-      { pos:'🥈', nick:'Mr Vain', tot:98, r:'28·37·31 +2b', note:'EN (1) poäng bakom. Ledde i rå stableford (96) men Marcus streak-bonusar åt upp försprånget. Allt att spela för idag.' },
-      { pos:'🥉', nick:'The Grinder', tot:94, r:'28·34·33 −1b', note:'En ambulerande bartender ligger trea. Imponerande för någon som dinkar drinkar mellan slagen. 5p från toppen.' },
-      { pos:'4', nick:'The Fossil', tot:92, r:'25·31·30 +6b', note:'Klättrade på +6 streak-bonus och andas tronstriden i nacken. Pianot OCH formen sjunger på slutet.' },
-      { pos:'5', nick:'The Hybrid', tot:71, r:'24·21·27 −1b', note:'Näst sist. NOLL pars på hela helgen. Johanna vet redan. Hon har starka åsikter om hybriden.' },
-      { pos:'6', nick:'Plus One', tot:70, r:'26·20·26 −4b', note:'Jumbo. HCP 40, Tre i rad-kung — men golfen lever sitt eget liv. Farfars intervjuer tröstar i bastun.' },
+      { pos:'🥇', nick:'Mr Vain', tot:96, r:'28·37·31', note:'Tillbaka på tronen där han hör hemma. Den enda som inte tappade ett enda streak-poäng — noll baklås hela helgen. Bygg-app-istället-för-att-träna-putt håller faktiskt.' },
+      { pos:'🥈', nick:'The Grinder', tot:92, r:'28·34·33 −3b', note:'Bartendern tappade 3p på Cold Turkey (nollor i rad). Hade han dinkat en mindre drink hade det kanske vänt. 4p från toppen.' },
+      { pos:'🥉', nick:'Dr Erektor', tot:91, r:'32·28·32 −1b', note:'Mr Excel föll från "ledare" till trea när vi bytte till RIKTIGA birdies. Noll gross-birdies hela helgen — modellen gillade netto-par lite väl mycket.' },
+      { pos:'4', nick:'The Fossil', tot:84, r:'25·31·30 −2b', note:'Klättrar inte längre på netto-streaks. Pianot spelar fortfarande bättre än kortleken ser ut.' },
+      { pos:'5', nick:'The Hybrid', tot:69, r:'24·21·27 −3b', note:'Näst sist. 0 pars, 0 birdies, och nu 0 gratisbonus. Johanna har noterat allt och har åsikter.' },
+      { pos:'6', nick:'Plus One', tot:64, r:'26·20·26 −8b', note:'Jumbo med −8 i Cold Turkey. HCP 40 ger slag men inga mirakel. Tre i rad-tronen står dock stadig.' },
     ]
     const Card = ({ children, style }) => <div style={{ background:'rgba(255,255,255,0.04)', border:`1px solid ${G}33`, borderRadius:12, padding:14, marginBottom:12, ...style }}>{children}</div>
     const Lbl = ({ children }) => <div style={{ fontFamily:'var(--mono)', fontSize:9, color:G, letterSpacing:2, fontWeight:700, marginBottom:10 }}>{children}</div>
@@ -5350,11 +5350,18 @@ function DIOApp({ onSwitchMode }) {
         <Card style={{ background:`linear-gradient(135deg, ${CORAL}14, ${G}10)`, border:`1px solid ${CORAL}44` }}>
           <Lbl>🥃 INFÖR SISTA DAGEN — PARKBANAN</Lbl>
           <div style={{ fontSize:13, color:CREAM, lineHeight:1.55 }}>
-            En (1) poäng skiljer Dr Erektor och Mr Vain. The Grinder lurar 5p bakom. Det här avgörs idag.
+            Fyra (4) poäng skiljer Mr Vain och The Grinder. Dr Erektor lurar 5p bakom. Det här avgörs idag.
             <br/><br/>
-            Hål 16-18 ger <strong style={{color:G}}>dubbla poäng</strong> — och streak-bonusarna har redan visat att ingen ledning är säker. LD på hål 17, NP på hål 3.
+            Hål 16-18 ger <strong style={{color:G}}>dubbla poäng</strong> — ingen ledning är säker. LD på hål 17, NP på hål 3.
             <br/><br/>
             <strong style={{color:CREAM}}>Gå ut. Spela smart de första 15. Gå bananas på de sista 3. Vinnaren skriver historia. Förloraren köper champagnen.</strong>
+          </div>
+        </Card>
+
+        <Card style={{ background:'rgba(255,255,255,0.03)', border:`1px solid ${MUT}33` }}>
+          <Lbl>📐 NY REGELTOLKNING — STREAK-BONUS</Lbl>
+          <div style={{ fontSize:11, color:'#CABFA8', lineHeight:1.5 }}>
+            Hot Hand räknas nu på <strong style={{color:CREAM}}>riktiga birdies</strong> (slag under par), inte netto-stableford som tidigare. En tidig version delade ut bonus för 3-poängare i rad (par med tilldelade slag) — vilket gav poäng utan en enda riktig birdie. Cold Turkey (2 nollor i rad = −1) är oförändrad. Därför rörde sig ställningen sedan i fredags.
           </div>
         </Card>
         <div style={{ textAlign:'center', fontFamily:'var(--mono)', fontSize:9, color:MUT, letterSpacing:1.5, marginTop:4 }}>
@@ -5469,7 +5476,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
   // Streak bonus for a round
   const pRoundBonus = (pid, rn) => {
     const r = rid(rn); if (!r) return 0
-    const sc = pSc(pid, r).filter(x => x.strokes).sort((a,b) => a.hole - b.hole).map(x => ({ hole: x.hole, pts: x.stableford_points }))
+    const cName = rounds.find(x => x.round_number === rn)?.course
+    const c = courses[cName]
+    const parOf = (hole) => c?.holes.find(h => h.hole === hole)?.par || 0
+    const sc = pSc(pid, r).filter(x => x.strokes).sort((a,b) => a.hole - b.hole).map(x => ({ hole: x.hole, pts: x.stableford_points, strokes: x.strokes, par: parOf(x.hole) }))
     const { hotHand, coldTurkey } = checkStreaks(sc)
     return (hotHand * 2) + (coldTurkey * -1)
   }
