@@ -5265,6 +5265,105 @@ function DIOApp({ onSwitchMode }) {
     await supabase.from('inv_settings').upsert({ key: 'ldnp_skipped', value: JSON.stringify(next), updated_by: user?.key || 'system' })
   }
 
+  // 📊 HELGRAPPORT (efter R1-R3, inför R4) — popup + Lounge
+  const [showReport, setShowReport] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try { if (!localStorage.getItem('dio_report_r4_seen')) setTimeout(() => setShowReport(true), 6200) } catch(e){}
+  }, [])
+  const dismissReport = () => {
+    setShowReport(false)
+    try { localStorage.setItem('dio_report_r4_seen', '1') } catch(e){}
+  }
+  const renderWeekendReport = () => {
+    const G = '#D4AF37', CREAM = '#FAF8F0', MUT = '#A89F8E', GREEN = '#6BBF7F', CORAL = '#E8634A'
+    const standings = [
+      { pos:'🥇', nick:'Mr Vain', tot:96, r:'28·37·31', note:'Leder. Med EN (1) poäng. "Bygg-app-istället-för-att-träna-putt" höll precis.' },
+      { pos:'🥈', nick:'The Grinder', tot:95, r:'28·34·33', note:'En ambulerande bartender ligger tvåa. EN poäng bakom. Filip — känn G&T-andedräkten i nacken.' },
+      { pos:'🥉', nick:'Dr Erektor', tot:92, r:'32·28·32', note:'Mest konsistent i fältet (std 1.9). Noll birdies. Optimerar medelmåttan med kirurgisk precision. Mr Excel ler.' },
+      { pos:'4', nick:'The Fossil', tot:86, r:'25·31·30', note:'33 dubbelbogey+. Pianot låter bättre än kortspelet ser ut.' },
+      { pos:'5', nick:'Plus One', tot:84, r:'30·23·31', note:'HCP 40, 380 slag — ändå före Magnus. Slaggivningen är hans enda sanna vän.' },
+      { pos:'6', nick:'The Hybrid', tot:72, r:'24·21·27', note:'NOLL pars på hela helgen. Noll. Johanna vet redan. Hon har starka åsikter.' },
+    ]
+    const Card = ({ children, style }) => <div style={{ background:'rgba(255,255,255,0.04)', border:`1px solid ${G}33`, borderRadius:12, padding:14, marginBottom:12, ...style }}>{children}</div>
+    const Lbl = ({ children }) => <div style={{ fontFamily:'var(--mono)', fontSize:9, color:G, letterSpacing:2, fontWeight:700, marginBottom:10 }}>{children}</div>
+    return (
+      <div>
+        <div style={{ textAlign:'center', marginBottom:16 }}>
+          <div style={{ fontFamily:'var(--mono)', fontSize:10, color:G, letterSpacing:3 }}>DIO 2026 · HOOKS HERRGÅRD</div>
+          <div style={{ fontFamily:'var(--serif)', fontSize:26, fontWeight:700, color:CREAM, lineHeight:1.1, margin:'6px 0' }}>Helgrapporten</div>
+          <div style={{ fontSize:12, color:MUT, fontStyle:'italic' }}>Tre ronder spelade. En kvar. Allt att spela för.</div>
+        </div>
+
+        <Card>
+          <Lbl>👑 TRONSTRIDEN — NETTO STABLEFORD</Lbl>
+          {standings.map((s,i) => (
+            <div key={i} style={{ display:'flex', gap:10, padding:'8px 0', borderBottom: i<5?`1px solid ${G}1A`:'none' }}>
+              <div style={{ fontSize:16, minWidth:26, textAlign:'center' }}>{s.pos}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:8 }}>
+                  <span style={{ fontSize:15, fontWeight:700, color:CREAM }}>{s.nick}</span>
+                  <span style={{ fontFamily:'var(--mono)', fontSize:15, fontWeight:700, color:i===0?G:CREAM }}>{s.tot}p</span>
+                </div>
+                <div style={{ fontFamily:'var(--mono)', fontSize:9, color:MUT, margin:'1px 0 4px' }}>{s.r}</div>
+                <div style={{ fontSize:11, color:'#CABFA8', lineHeight:1.45 }}>{s.note}</div>
+              </div>
+            </div>
+          ))}
+        </Card>
+
+        <Card style={{ background:`linear-gradient(135deg, ${G}14, ${GREEN}1A)` }}>
+          <Lbl>⚔️ LAGSTRIDEN — 2 BÄSTA / RONDA</Lbl>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+            <div style={{ textAlign:'center', flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:700, color:GREEN }}>Gaylords</div>
+              <div style={{ fontFamily:'var(--mono)', fontSize:28, fontWeight:700, color:CREAM }}>193</div>
+            </div>
+            <div style={{ fontFamily:'var(--mono)', fontSize:11, color:G }}>+15</div>
+            <div style={{ textAlign:'center', flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:700, color:'#8AB4D6' }}>Stjärtmesarna</div>
+              <div style={{ fontFamily:'var(--mono)', fontSize:28, fontWeight:700, color:CREAM }}>178</div>
+            </div>
+          </div>
+          <div style={{ fontSize:11, color:'#CABFA8', textAlign:'center', marginTop:8, lineHeight:1.45 }}>
+            Gaylords leder varje rond hittills (R1 +1, R2 +12, R3 +2). Stjärtmesarna: ni har 18 hål på er. Och en fårpung att tömma.
+          </div>
+        </Card>
+
+        <Card>
+          <Lbl>📊 SIFFROR SOM FÅR MR EXCEL ATT GRÅTA</Lbl>
+          {[
+            ['🔥 Bästa runda', 'Mr Vain R2 — 37p (gross 81). Helgens enda riktiga klassrunda.'],
+            ['🐦 Flest birdies', 'The Grinder — 2 st. Mellan drinkarna hann han faktiskt göra något rätt.'],
+            ['🎯 Mest konsistent', 'Dr Erektor — std 1.9. Samma medelmåtta varje dag. Excel-drömmen.'],
+            ['🏞️ Pars hela helgen', 'The Hybrid: 0. Mr Vain: 19. Lite olika filosofier.'],
+            ['💀 Nollornas liga', 'Plus One 17 · The Hybrid 13 · Grinder & Fossil 12 var.'],
+            ['🌋 Dubbelbogey+', 'Plus One 42 · The Hybrid 36 · Fossil 33. Banan vann de dragkamperna.'],
+          ].map((row,i)=>(
+            <div key={i} style={{ padding:'7px 0', borderBottom:i<5?`1px solid ${G}14`:'none' }}>
+              <div style={{ fontSize:12, fontWeight:600, color:G }}>{row[0]}</div>
+              <div style={{ fontSize:11, color:'#CABFA8', lineHeight:1.45, marginTop:2 }}>{row[1]}</div>
+            </div>
+          ))}
+        </Card>
+
+        <Card style={{ background:`linear-gradient(135deg, ${CORAL}14, ${G}10)`, border:`1px solid ${CORAL}44` }}>
+          <Lbl>🥃 INFÖR SISTA DAGEN — PARKBANAN</Lbl>
+          <div style={{ fontSize:13, color:CREAM, lineHeight:1.55 }}>
+            En (1) poäng skiljer Mr Vain och The Grinder. Marcus lurar tre slag bakom. Det här avgörs idag.
+            <br/><br/>
+            Hål 16-18 ger <strong style={{color:G}}>dubbla poäng</strong> — ingen är säker, ingen är död. LD på hål 17, NP på hål 3.
+            <br/><br/>
+            <strong style={{color:CREAM}}>Gå ut. Spela smart de första 15. Gå bananas på de sista 3. Vinnaren skriver historia. Förloraren köper champagnen.</strong>
+          </div>
+        </Card>
+        <div style={{ textAlign:'center', fontFamily:'var(--mono)', fontSize:9, color:MUT, letterSpacing:1.5, marginTop:4 }}>
+          DIO 2026 · DOUCHE INVITATIONAL ONLY
+        </div>
+      </div>
+    )
+  }
+
 
   const [showCallModal, setShowCallModal] = useState(false)
   const [activeCall, setActiveCall] = useState(null) // { room, with }
@@ -7734,6 +7833,20 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         {view === 'lounge' && (<>
           <div className="section-title">🎉 The Lounge</div>
 
+          {/* 📊 Helgrapport — alltid åtkomlig */}
+          <details style={{ marginBottom: 14 }}>
+            <summary style={{ cursor:'pointer', listStyle:'none', background:'linear-gradient(135deg, rgba(212,175,55,0.16), rgba(232,99,74,0.12))', borderRadius:14, padding:'14px 16px', border:'1px solid rgba(212,175,55,0.4)', display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{ fontSize:26 }}>📊</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:15, fontWeight:700, color:'#FAF8F0' }}>Helgrapporten</div>
+                <div style={{ fontSize:11, color:'#A89F8E' }}>Ställning, statistik & pepp inför sista dagen</div>
+              </div>
+              <div style={{ fontFamily:'var(--mono)', fontSize:10, color:'#D4AF37', letterSpacing:1 }}>ÖPPNA ▼</div>
+            </summary>
+            <div style={{ padding:'16px 4px 4px' }}>{renderWeekendReport()}</div>
+          </details>
+
+
           {/* 📢 Praktisk info från Hooks — alltid synlig högst upp */}
           <div style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(27,67,50,0.15))', borderRadius: 14, padding: 14, marginBottom: 14, border: '1px solid rgba(212,175,55,0.3)' }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, fontWeight: 700 }}>📢 PRAKTISKT FRÅN HOOKS</div>
@@ -10029,6 +10142,20 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         </>)}
 
       </div>
+
+      {/* ===== 📊 HELGRAPPORT POPUP ===== */}
+      {showReport && (
+        <div onClick={(e)=>{ if(e.target===e.currentTarget) dismissReport() }}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.88)', backdropFilter:'blur(12px)', zIndex:960, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'16px', overflowY:'auto', animation:'fadeIn 0.25s ease' }}>
+          <div style={{ width:'100%', maxWidth:480, background:'linear-gradient(180deg, #1A2B22, #14201A)', borderRadius:18, padding:'20px 16px', border:'1px solid rgba(212,175,55,0.4)', boxShadow:'0 0 50px rgba(212,175,55,0.2)', margin:'auto 0' }}>
+            {renderWeekendReport()}
+            <button onClick={dismissReport}
+              style={{ width:'100%', marginTop:14, padding:14, background:'linear-gradient(135deg, #D4AF37, #B8941F)', border:'none', borderRadius:12, color:'#1A2B22', fontSize:14, fontWeight:700, fontFamily:'var(--mono)', letterSpacing:1, cursor:'pointer' }}>
+              KÖR HÅRT IDAG 🥃
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ===== 🏌️🎯 LD/NP VINNARE-PROMPT ===== */}
       {ldNpPrompt && (() => {
