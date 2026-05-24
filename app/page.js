@@ -5269,21 +5269,21 @@ function DIOApp({ onSwitchMode }) {
   const [showReport, setShowReport] = useState(false)
   useEffect(() => {
     if (typeof window === 'undefined') return
-    try { if (!localStorage.getItem('dio_report_r4_seen')) setTimeout(() => setShowReport(true), 6200) } catch(e){}
+    try { if (!localStorage.getItem('dio_report_r4_v2_seen')) setTimeout(() => setShowReport(true), 6200) } catch(e){}
   }, [])
   const dismissReport = () => {
     setShowReport(false)
-    try { localStorage.setItem('dio_report_r4_seen', '1') } catch(e){}
+    try { localStorage.setItem('dio_report_r4_v2_seen', '1') } catch(e){}
   }
   const renderWeekendReport = () => {
     const G = '#D4AF37', CREAM = '#FAF8F0', MUT = '#A89F8E', GREEN = '#6BBF7F', CORAL = '#E8634A'
     const standings = [
-      { pos:'🥇', nick:'Mr Vain', tot:96, r:'28·37·31', note:'Leder. Med EN (1) poäng. "Bygg-app-istället-för-att-träna-putt" höll precis.' },
-      { pos:'🥈', nick:'The Grinder', tot:95, r:'28·34·33', note:'En ambulerande bartender ligger tvåa. EN poäng bakom. Filip — känn G&T-andedräkten i nacken.' },
-      { pos:'🥉', nick:'Dr Erektor', tot:92, r:'32·28·32', note:'Mest konsistent i fältet (std 1.9). Noll birdies. Optimerar medelmåttan med kirurgisk precision. Mr Excel ler.' },
-      { pos:'4', nick:'The Fossil', tot:86, r:'25·31·30', note:'33 dubbelbogey+. Pianot låter bättre än kortspelet ser ut.' },
-      { pos:'5', nick:'Plus One', tot:84, r:'30·23·31', note:'HCP 40, 380 slag — ändå före Magnus. Slaggivningen är hans enda sanna vän.' },
-      { pos:'6', nick:'The Hybrid', tot:72, r:'24·21·27', note:'NOLL pars på hela helgen. Noll. Johanna vet redan. Hon har starka åsikter.' },
+      { pos:'🥇', nick:'Dr Erektor', tot:99, r:'32·28·32 +7b', note:'Mr Excel SJÄLV leder. Sju streak-bonuspoäng — konsistensen lönar sig till slut. Noll birdies, ändå etta. Optimeringen fungerade till punkt och pricka.' },
+      { pos:'🥈', nick:'Mr Vain', tot:98, r:'28·37·31 +2b', note:'EN (1) poäng bakom. Ledde i rå stableford (96) men Marcus streak-bonusar åt upp försprånget. Allt att spela för idag.' },
+      { pos:'🥉', nick:'The Grinder', tot:94, r:'28·34·33 −1b', note:'En ambulerande bartender ligger trea. Imponerande för någon som dinkar drinkar mellan slagen. 5p från toppen.' },
+      { pos:'4', nick:'The Fossil', tot:92, r:'25·31·30 +6b', note:'Klättrade på +6 streak-bonus och andas tronstriden i nacken. Pianot OCH formen sjunger på slutet.' },
+      { pos:'5', nick:'The Hybrid', tot:71, r:'24·21·27 −1b', note:'Näst sist. NOLL pars på hela helgen. Johanna vet redan. Hon har starka åsikter om hybriden.' },
+      { pos:'6', nick:'Plus One', tot:70, r:'26·20·26 −4b', note:'Jumbo. HCP 40, Tre i rad-kung — men golfen lever sitt eget liv. Farfars intervjuer tröstar i bastun.' },
     ]
     const Card = ({ children, style }) => <div style={{ background:'rgba(255,255,255,0.04)', border:`1px solid ${G}33`, borderRadius:12, padding:14, marginBottom:12, ...style }}>{children}</div>
     const Lbl = ({ children }) => <div style={{ fontFamily:'var(--mono)', fontSize:9, color:G, letterSpacing:2, fontWeight:700, marginBottom:10 }}>{children}</div>
@@ -5317,16 +5317,16 @@ function DIOApp({ onSwitchMode }) {
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
             <div style={{ textAlign:'center', flex:1 }}>
               <div style={{ fontSize:14, fontWeight:700, color:GREEN }}>Gaylords</div>
-              <div style={{ fontFamily:'var(--mono)', fontSize:28, fontWeight:700, color:CREAM }}>193</div>
+              <div style={{ fontFamily:'var(--mono)', fontSize:28, fontWeight:700, color:CREAM }}>220</div>
             </div>
-            <div style={{ fontFamily:'var(--mono)', fontSize:11, color:G }}>+15</div>
+            <div style={{ fontFamily:'var(--mono)', fontSize:11, color:G }}>+19</div>
             <div style={{ textAlign:'center', flex:1 }}>
               <div style={{ fontSize:14, fontWeight:700, color:'#8AB4D6' }}>Stjärtmesarna</div>
-              <div style={{ fontFamily:'var(--mono)', fontSize:28, fontWeight:700, color:CREAM }}>178</div>
+              <div style={{ fontFamily:'var(--mono)', fontSize:28, fontWeight:700, color:CREAM }}>201</div>
             </div>
           </div>
           <div style={{ fontSize:11, color:'#CABFA8', textAlign:'center', marginTop:8, lineHeight:1.45 }}>
-            Gaylords leder varje rond hittills (R1 +1, R2 +12, R3 +2). Stjärtmesarna: ni har 18 hål på er. Och en fårpung att tömma.
+            Stjärtmesarna tog R1 (66–61), men Gaylords slog tillbaka i R2 (+17) och R3 (+7). Stjärtmesarna: ni har 18 hål och en fårpung kvar att tömma.
           </div>
         </Card>
 
@@ -5350,9 +5350,9 @@ function DIOApp({ onSwitchMode }) {
         <Card style={{ background:`linear-gradient(135deg, ${CORAL}14, ${G}10)`, border:`1px solid ${CORAL}44` }}>
           <Lbl>🥃 INFÖR SISTA DAGEN — PARKBANAN</Lbl>
           <div style={{ fontSize:13, color:CREAM, lineHeight:1.55 }}>
-            En (1) poäng skiljer Mr Vain och The Grinder. Marcus lurar tre slag bakom. Det här avgörs idag.
+            En (1) poäng skiljer Dr Erektor och Mr Vain. The Grinder lurar 5p bakom. Det här avgörs idag.
             <br/><br/>
-            Hål 16-18 ger <strong style={{color:G}}>dubbla poäng</strong> — ingen är säker, ingen är död. LD på hål 17, NP på hål 3.
+            Hål 16-18 ger <strong style={{color:G}}>dubbla poäng</strong> — och streak-bonusarna har redan visat att ingen ledning är säker. LD på hål 17, NP på hål 3.
             <br/><br/>
             <strong style={{color:CREAM}}>Gå ut. Spela smart de första 15. Gå bananas på de sista 3. Vinnaren skriver historia. Förloraren köper champagnen.</strong>
           </div>
