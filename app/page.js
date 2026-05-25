@@ -5343,12 +5343,12 @@ function DIOApp({ onSwitchMode }) {
         <Card>
           <Lbl>📊 SIFFROR SOM FÅR MR EXCEL ATT GRÅTA</Lbl>
           {[
-            ['🔥 Bästa runda', 'Mr Vain R2 — 37p (gross 81). Helgens enda riktiga klassrunda.'],
-            ['🐦 Flest birdies', 'The Grinder — 2 st. Mellan drinkarna hann han faktiskt göra något rätt.'],
-            ['🎯 Mest konsistent', 'Dr Erektor — std 1.9. Samma medelmåtta varje dag. Excel-drömmen.'],
-            ['🏞️ Pars hela helgen', 'The Hybrid: 0. Mr Vain: 19. Lite olika filosofier.'],
-            ['💀 Nollornas liga', 'Plus One 17 · The Hybrid 13 · Grinder & Fossil 12 var.'],
-            ['🌋 Dubbelbogey+', 'Plus One 42 · The Hybrid 36 · Fossil 33. Banan vann de dragkamperna.'],
+            ['🔥 Bästa runda', 'Mr Vain R2 — 37p. Helgens enda riktiga klassrunda.'],
+            ['🐦 Flest birdies', 'Mr Vain & The Grinder — 3 var. Delad topp. Bartendern hann faktiskt göra något rätt mellan drinkarna.'],
+            ['🦅 Eagles', 'Noll. Hela helgen. 72 hål × 6 spelare och inte en enda örn. Hooks vann den dragkampen.'],
+            ['🏞️ Flest pars', 'Mr Vain 20 · Dr Erektor 17. I botten: The Hybrid med EN (1) par på fyra ronder.'],
+            ['🎯 Konsistenskungen', 'The Hybrid — std 2.1. Tekniskt sett mest konsistent… han var konsekvent sist. Dr Erektor 2.5 bland de vassa.'],
+            ['💀 Nollornas liga', 'Plus One 28 · The Hybrid 18 · The Fossil 16. Mr Vain bara 7, Dr Erektor 5.'],
           ].map((row,i)=>(
             <div key={i} style={{ padding:'7px 0', borderBottom:i<5?`1px solid ${G}14`:'none' }}>
               <div style={{ fontSize:12, fontWeight:600, color:G }}>{row[0]}</div>
