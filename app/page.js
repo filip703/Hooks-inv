@@ -530,7 +530,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       const { data: teams } = await supabase.from('taby_teams').select('*').order('created_at', { ascending: false }).limit(20)
       if (teams) setTabyTeams(teams)
       // Chat
-      const { data: chatData } = await supabase.from('inv_chat').select('*').order('created_at', { ascending: false }).limit(150)
+      const { data: chatData } = await supabase.from('taby_chat').select('*').order('created_at', { ascending: false }).limit(150)
       if (chatData) setTabyChat(chatData)
 
       // Expenses + payments
@@ -608,8 +608,8 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
           if (data) setTabyExpenses(data)
         }
       ).subscribe(),
-      supabase.channel('inv_chat_taby_rt').on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'inv_chat' },
+      supabase.channel('taby_chat_rt').on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'taby_chat' },
         (payload) => {
           setTabyChat(prev => [payload.new, ...prev].slice(0, 150))
         }
@@ -938,16 +938,16 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     const diffToPar = strokes - par
     if (strokes === 1) {
       showTabyToast(`⛳✨ HOLE-IN-ONE! ${tabyUser.nickname} på hål ${hole}! LEGENDARY!`, 'eagle')
-      supabase.from('inv_chat').insert({ player_id: tabyUser.id, message: `⛳ HOLE-IN-ONE på Täby hål ${hole}! Drinks on me!`, msg_type: 'shoutout' })
+      supabase.from('taby_chat').insert({ player_id: tabyUser.id, message: `⛳ HOLE-IN-ONE på Täby hål ${hole}! Drinks on me!`, msg_type: 'shoutout' })
     } else if (diffToPar <= -3) {
       showTabyToast(`🏆 ALBATROSS! ${tabyUser.nickname} på hål ${hole}! ${strokes} slag på par ${par}!`, 'eagle')
-      supabase.from('inv_chat').insert({ player_id: tabyUser.id, message: `🏆 ALBATROSS på Täby hål ${hole}! ${strokes} slag (par ${par})`, msg_type: 'shoutout' })
+      supabase.from('taby_chat').insert({ player_id: tabyUser.id, message: `🏆 ALBATROSS på Täby hål ${hole}! ${strokes} slag (par ${par})`, msg_type: 'shoutout' })
     } else if (diffToPar === -2) {
       showTabyToast(`🦅 EAGLE! ${tabyUser.nickname} på hål ${hole}! ${strokes} slag på par ${par}!`, 'eagle')
-      supabase.from('inv_chat').insert({ player_id: tabyUser.id, message: `🦅 EAGLE på Täby hål ${hole}! ${strokes} slag (par ${par})`, msg_type: 'shoutout' })
+      supabase.from('taby_chat').insert({ player_id: tabyUser.id, message: `🦅 EAGLE på Täby hål ${hole}! ${strokes} slag (par ${par})`, msg_type: 'shoutout' })
     } else if (diffToPar === -1) {
       showTabyToast(`🐦 Birdie! ${tabyUser.nickname} på hål ${hole}!`, 'birdie')
-      supabase.from('inv_chat').insert({ player_id: tabyUser.id, message: `🐦 Birdie på Täby hål ${hole}! ${strokes} slag (par ${par})`, msg_type: 'shoutout' })
+      supabase.from('taby_chat').insert({ player_id: tabyUser.id, message: `🐦 Birdie på Täby hål ${hole}! ${strokes} slag (par ${par})`, msg_type: 'shoutout' })
     } else if (stab === 0) {
       showTabyToast(`💀 Blowup på hål ${hole}... ${strokes} slag`, 'zero')
     } else {
@@ -1153,7 +1153,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         supabase.from('taby_events').select('*').order('date'),
         supabase.from('taby_h2h').select('*').order('created_at', { ascending: false }),
         supabase.from('taby_bets').select('*').order('created_at', { ascending: false }),
-        supabase.from('inv_chat').select('*').order('created_at', { ascending: false }).limit(150)
+        supabase.from('taby_chat').select('*').order('created_at', { ascending: false }).limit(150)
       ])
       if (players.data) setTabyPlayers(players.data)
       if (rounds.data) setTabyRounds(rounds.data)
@@ -3205,14 +3205,14 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <input value={tabyMsg} onChange={e => setTabyMsg(e.target.value)}
               onKeyDown={async e => {
                 if (e.key === 'Enter' && tabyMsg.trim()) {
-                  await supabase.from('inv_chat').insert({ player_id: tabyUser?.id, message: tabyMsg.trim(), msg_type: 'chat' })
+                  await supabase.from('taby_chat').insert({ player_id: tabyUser?.id, message: tabyMsg.trim(), msg_type: 'chat' })
                   setTabyMsg('')
                 }
               }}
               placeholder="Skriv något..." style={{ flex: 1, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 24, color: '#F0F4FF', padding: '10px 16px', fontSize: 14 }} />
             <button onClick={async () => {
               if (!tabyMsg.trim()) return
-              await supabase.from('inv_chat').insert({ player_id: tabyUser?.id, message: tabyMsg.trim(), msg_type: 'chat' })
+              await supabase.from('taby_chat').insert({ player_id: tabyUser?.id, message: tabyMsg.trim(), msg_type: 'chat' })
               setTabyMsg('')
             }} style={{ background: 'rgba(147,197,253,0.12)', border: '0.5px solid rgba(147,197,253,0.2)', borderRadius: '50%', width: 42, height: 42, color: '#93C5FD', fontSize: 18, cursor: 'pointer', flexShrink: 0 }}>↑</button>
           </div>
