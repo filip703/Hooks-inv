@@ -386,6 +386,18 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     return true
   })
   const [tabySplashExit, setTabySplashExit] = useState(false)
+  const [splashPhotos, setSplashPhotos] = useState([])
+  useEffect(() => {
+    if (!tabySplash) return
+    supabase.from('inv_historia').select('media_url, media_type').eq('media_type', 'image').order('created_at', { ascending: false }).limit(14)
+      .then(({ data }) => {
+        if (!data) return
+        const urls = data.map(d => d.media_url).filter(Boolean)
+        // slumpa + ta 3
+        for (let i = urls.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[urls[i], urls[j]] = [urls[j], urls[i]] }
+        setSplashPhotos(urls.slice(0, 3))
+      })
+  }, [])
   const [tabyView, setTabyView] = useState('leaderboard')
   const [tabyHole, setTabyHole] = useState(1)
   const [tabyPlayers, setTabyPlayers] = useState([])
@@ -1091,23 +1103,33 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         @keyframes lkStar { 0%,100% { opacity: 0.15; } 50% { opacity: 0.9; } }
         @keyframes lkWave { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         @keyframes lkShimmer { 0%,100% { opacity: 0.25; transform: scaleY(1); } 50% { opacity: 0.6; transform: scaleY(1.15); } }
+        @keyframes lkKen { 0% { opacity: 0; transform: scale(1.12); } 12% { opacity: 0.5; } 28% { opacity: 0.5; } 40% { opacity: 0; transform: scale(1.18); } 100% { opacity: 0; } }
       `}</style>
+
+      {/* Foto-montage (gängets bilder) — subtilt bakom overlay */}
+      {splashPhotos.length > 0 && (
+        <div style={{ position:'absolute', inset:0, zIndex:0 }}>
+          {splashPhotos.map((url, i) => (
+            <div key={i} style={{ position:'absolute', inset:0, backgroundImage:`url(${url})`, backgroundSize:'cover', backgroundPosition:'center', animation:`lkKen ${splashPhotos.length*2.4}s ease-in-out infinite ${i*2.4}s` }} />
+          ))}
+          {/* Mörk Midnight-overlay så texten lyser */}
+          <div style={{ position:'absolute', inset:0, background:'linear-gradient(180deg, rgba(6,13,28,0.82) 0%, rgba(12,24,48,0.7) 45%, rgba(10,26,51,0.92) 100%)' }} />
+        </div>
+      )}
 
       {/* Stjärnfält */}
       {[[12,18,2,0],[28,9,1.5,0.6],[44,22,2.5,1.1],[63,12,1.5,0.3],[78,26,2,0.9],[88,15,1.5,1.4],[20,32,1.5,1.7],[71,30,2,0.5],[55,7,1.5,1.2],[36,14,2,2.0],[83,33,1.5,0.2],[7,27,2,1.5]].map(([l,t,s,d],i)=>(
-        <div key={i} style={{ position:'absolute', left:`${l}%`, top:`${t}%`, width:s, height:s, borderRadius:'50%', background:'#E8F0FF', animation:`lkStar ${2.5+d}s ease-in-out infinite ${d}s`, boxShadow:'0 0 6px rgba(232,240,255,0.8)' }} />
+        <div key={i} style={{ position:'absolute', left:`${l}%`, top:`${t}%`, width:s, height:s, borderRadius:'50%', background:'#E8F0FF', animation:`lkStar ${2.5+d}s ease-in-out infinite ${d}s`, boxShadow:'0 0 6px rgba(232,240,255,0.8)', zIndex:1 }} />
       ))}
 
       {/* Måne */}
-      <div style={{ position:'absolute', top:'15%', animation:'lkMoon 1.6s ease 0.2s both' }}>
+      <div style={{ position:'absolute', top:'15%', animation:'lkMoon 1.6s ease 0.2s both', zIndex:1 }}>
         <div style={{ width:84, height:84, borderRadius:'50%', background:'radial-gradient(circle at 38% 35%, #FBF6E3 0%, #F0E6C0 45%, #D4A017 100%)', boxShadow:'0 0 50px rgba(212,160,23,0.45), 0 0 100px rgba(212,160,23,0.2), inset -10px -10px 24px rgba(120,90,20,0.35)' }} />
       </div>
 
       {/* Vatten + månestrimma */}
-      <div style={{ position:'absolute', bottom:0, left:0, right:0, height:'34%', background:'linear-gradient(180deg, rgba(20,41,74,0) 0%, rgba(16,34,64,0.7) 30%, #0A1A33 100%)', overflow:'hidden' }}>
-        {/* Månens reflektion */}
+      <div style={{ position:'absolute', bottom:0, left:0, right:0, height:'34%', background:'linear-gradient(180deg, rgba(20,41,74,0) 0%, rgba(16,34,64,0.7) 30%, #0A1A33 100%)', overflow:'hidden', zIndex:1 }}>
         <div style={{ position:'absolute', top:0, left:'50%', transform:'translateX(-50%)', width:60, height:'100%', background:'linear-gradient(180deg, rgba(240,230,180,0.5), rgba(212,160,23,0.05))', filter:'blur(8px)', animation:'lkShimmer 3s ease-in-out infinite' }} />
-        {/* Vågor */}
         <svg viewBox="0 0 800 80" preserveAspectRatio="none" style={{ position:'absolute', bottom:30, left:0, width:'200%', height:50, animation:'lkWave 9s linear infinite', opacity:0.4 }}>
           <path d="M0,40 Q100,20 200,40 T400,40 T600,40 T800,40 T1000,40 T1200,40 V80 H0 Z" fill="rgba(147,197,253,0.18)" />
         </svg>
@@ -1118,14 +1140,14 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
       {/* Text */}
       <div style={{ position:'relative', zIndex:2, display:'flex', flexDirection:'column', alignItems:'center', marginTop:'4%' }}>
-        <div style={{ animation:'lkFade 0.9s ease 0.5s both', fontFamily:'var(--mono)', fontSize:9, letterSpacing:6, color:'rgba(147,197,253,0.45)', textTransform:'uppercase' }}>The Lake Club</div>
+        <div style={{ animation:'lkFade 0.9s ease 0.5s both', fontFamily:'var(--mono)', fontSize:9, letterSpacing:6, color:'rgba(147,197,253,0.55)', textTransform:'uppercase' }}>The Lake Club</div>
         <div style={{ animation:'lkFade 1s ease 0.8s both, lkGlow 3.5s ease-in-out infinite 1.8s', fontFamily:'var(--serif)', fontSize:40, fontWeight:400, color:'#AECBF5', margin:'10px 0 2px', letterSpacing:3, lineHeight:1 }}>Täby</div>
-        <div style={{ animation:'lkFade 1s ease 1.05s both', fontFamily:'var(--serif)', fontSize:17, fontStyle:'italic', color:'rgba(212,160,23,0.9)', letterSpacing:4 }}>Order of Merit</div>
+        <div style={{ animation:'lkFade 1s ease 1.05s both', fontFamily:'var(--serif)', fontSize:17, fontStyle:'italic', color:'rgba(212,160,23,0.95)', letterSpacing:4 }}>Order of Merit</div>
         <div style={{ animation:'lkLine 0.9s ease 1.4s both', height:1, background:'linear-gradient(90deg, transparent, #D4A017, transparent)', margin:'14px 0' }} />
-        <div style={{ animation:'lkFade 0.9s ease 1.7s both', fontFamily:'var(--mono)', fontSize:10, color:'rgba(212,175,55,0.55)', letterSpacing:4 }}>SÄSONG 2026</div>
-        <div style={{ animation:'lkFade 0.9s ease 2.0s both', fontFamily:'var(--mono)', fontSize:8, color:'rgba(240,244,255,0.25)', letterSpacing:3, marginTop:7 }}>VALLENTUNASJÖN · EST. 1968</div>
+        <div style={{ animation:'lkFade 0.9s ease 1.7s both', fontFamily:'var(--mono)', fontSize:10, color:'rgba(212,175,55,0.6)', letterSpacing:4 }}>SÄSONG 2026</div>
+        <div style={{ animation:'lkFade 0.9s ease 2.0s both', fontFamily:'var(--mono)', fontSize:8, color:'rgba(240,244,255,0.35)', letterSpacing:3, marginTop:7 }}>VALLENTUNASJÖN · EST. 1968</div>
       </div>
-      <div style={{ position:'absolute', bottom:'7%', zIndex:2, animation:'lkFade 1s ease 4s both', fontFamily:'var(--mono)', fontSize:7, color:'rgba(147,197,253,0.2)', letterSpacing:4 }}>APRIL — OKTOBER</div>
+      <div style={{ position:'absolute', bottom:'7%', zIndex:2, animation:'lkFade 1s ease 4s both', fontFamily:'var(--mono)', fontSize:7, color:'rgba(147,197,253,0.3)', letterSpacing:4 }}>APRIL — OKTOBER</div>
     </div>
   )
 
@@ -2822,8 +2844,55 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         const bestHole = playedHoles.sort((a, b) => b.avgStab - a.avgStab)[0]
         const worstHole = playedHoles.sort((a, b) => a.avgStab - b.avgStab)[0]
 
+        // ===== KLUBBHUSET — säsongsledare över hela gruppen =====
+        const groupStats = tabyPlayers.filter(p => p.key !== 'spectator').map(p => {
+          const ps = tabyScores.filter(s => s.player_id === p.id && s.strokes)
+          const rids = [...new Set(ps.map(s => s.round_id))]
+          const rTotals = rids.map(rid => {
+            const rs = ps.filter(s => s.round_id === rid)
+            return { total: rs.reduce((a, sc) => a + (sc.stableford || 0), 0), holes: rs.length, date: tabyRounds.find(r => r.id === rid)?.date }
+          }).filter(r => r.holes >= 18).sort((a, b) => new Date(a.date) - new Date(b.date))
+          const birdies = ps.filter(s => { const par = PARS[s.hole - 1]; return s.strokes <= par - 1 }).length
+          const avg = rTotals.length ? rTotals.reduce((a, r) => a + r.total, 0) / rTotals.length : 0
+          const last3 = rTotals.slice(-3)
+          const form = last3.length ? last3.reduce((a, r) => a + r.total, 0) / last3.length : 0
+          return { p, rounds: rTotals.length, birdies, avg, form, best: rTotals.length ? Math.max(...rTotals.map(r => r.total)) : 0 }
+        }).filter(g => g.rounds > 0)
+
+        const leaderIn = (key) => groupStats.slice().sort((a, b) => b[key] - a[key])[0]
+        const mostActive = groupStats.slice().sort((a, b) => b.rounds - a.rounds)[0]
+        const awards = groupStats.length > 0 ? [
+          { icon: '🐦', label: 'FLEST BIRDIES', g: leaderIn('birdies'), val: (g) => `${g.birdies} st` },
+          { icon: '📈', label: 'BÄST FORM', g: leaderIn('form'), val: (g) => `${g.form.toFixed(1)}p snitt (3)` },
+          { icon: '🎯', label: 'HÖGST SNITT', g: leaderIn('avg'), val: (g) => `${g.avg.toFixed(1)}p` },
+          { icon: '🔥', label: 'MEST AKTIV', g: mostActive, val: (g) => `${g.rounds} rundor` },
+        ] : []
+
         return (
           <div style={{ padding: '0 16px 100px' }}>
+            {/* KLUBBHUSET — säsongsledare */}
+            {awards.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontFamily: 'var(--serif)', fontSize: 19, color: '#D4A017', letterSpacing: 1, marginBottom: 2 }}>Klubbhuset</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 2, marginBottom: 12 }}>SÄSONGENS LEDARE</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {awards.map(({ icon, label, g, val }) => (
+                    <button key={label} onClick={() => setTabyUser(prev => ({ ...prev, statsViewPid: g.p.id }))} style={{ textAlign: 'left', cursor: 'pointer', background: 'linear-gradient(135deg, rgba(212,160,23,0.1), rgba(30,58,95,0.25))', border: '0.5px solid rgba(212,160,23,0.25)', borderRadius: 12, padding: 11 }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,160,23,0.7)', letterSpacing: 1, marginBottom: 7 }}>{icon} {label}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                        {g.p.image_url ? <img src={g.p.image_url} loading="lazy" style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(147,197,253,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#93C5FD' }}>{g.p.name?.charAt(0)}</div>}
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#F0F4FF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.p.nickname}</div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4A017' }}>{val(g)}</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.3)', letterSpacing: 1, marginTop: 10, textAlign: 'center' }}>↓ TRYCK PÅ EN SPELARE FÖR DJUPVY</div>
+              </div>
+            )}
+
             {/* Spelarväljare */}
             <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
               {tabyPlayers.filter(p => p.key !== 'spectator').map(p => {
