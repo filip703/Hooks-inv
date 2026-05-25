@@ -5276,9 +5276,16 @@ function DIOApp({ onSwitchMode }) {
   // 🏆 HALL OF FAME — alla DIO-editioner (major + light)
   const [editions, setEditions] = useState([])
   const [dioCourses, setDioCourses] = useState([])
+  const [lightScores, setLightScores] = useState([])
+  const [lightSetup, setLightSetup] = useState({ courseKey: '', playerKeys: [], name: '' })
+  const [lightHole, setLightHole] = useState(1)
   const refetchEditions = () => supabase.from('dio_editions').select('*').order('year', { ascending: false }).order('sort_order', { ascending: false }).then(({ data }) => { if (data) setEditions(data) })
   const refetchCourses = () => supabase.from('dio_courses').select('*').order('name').then(({ data }) => { if (data) setDioCourses(data) })
+  // Aktiv light-runda = edition_type light + status live
+  const activeLight = editions.find(e => e.edition_type === 'light' && e.status === 'live')
+  const refetchLightScores = (edId) => { if (!edId) { setLightScores([]); return } supabase.from('dio_light_scores').select('*').eq('edition_id', edId).then(({ data }) => { if (data) setLightScores(data) }) }
   useEffect(() => { refetchEditions(); refetchCourses() }, [])
+  useEffect(() => { if (activeLight) refetchLightScores(activeLight.id) }, [activeLight?.id])
   useEffect(() => {
     if (typeof window === 'undefined') return
     try { if (!localStorage.getItem('dio_report_final_seen')) setTimeout(() => setShowReport(true), 6200) } catch(e){}
@@ -5640,6 +5647,145 @@ function DIOApp({ onSwitchMode }) {
               <button onClick={saveCourse} style={{ padding: 12, background: 'linear-gradient(135deg, #D4AF37, #B8941F)', border: 'none', borderRadius: 10, color: '#1A2B22', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>⛳ Spara bana</button>
             </div>
           )}
+        </div>
+      </div>
+    )
+  }
+
+  // 🌤️ DIO LIGHT — live-scoring på vald bana (full stableford)
+  const startLightRound = async () => {
+    if (!lightSetup.courseKey || lightSetup.playerKeys.length === 0) { showToast('Välj bana och minst en spelare', 'zero'); return }
+    const crs = dioCourses.find(c => c.course_key === lightSetup.courseKey)
+    const yr = new Date().getFullYear()
+    const key = `${yr}-light-${Date.now().toString(36).slice(-4)}`
+    const { data, error } = await supabase.from('dio_editions').insert({
+      edition_key: key, year: yr, name: lightSetup.name || `DIO Light: ${crs?.name?.split('—')[0]?.trim() || 'Runda'}`,
+      edition_type: 'light', venue: crs?.name || null, location: crs?.location || null,
+      course_key: lightSetup.courseKey, player_keys: lightSetup.playerKeys, status: 'live',
+      dates_label: new Date().toLocaleDateString('sv-SE'), holes_played: 18, sort_order: yr * 10 + 5
+    }).select().single()
+    if (error) { showToast('Fel: ' + error.message, 'zero'); return }
+    showToast('DIO Light startad! ⛳', 'birdie')
+    setLightHole(1); refetchEditions(); setView('lightplay')
+  }
+  const lightCourse = () => dioCourses.find(c => c.course_key === activeLight?.course_key)
+  const lightHoleData = (hole) => lightCourse()?.holes?.find(h => h.hole === hole) || { par: 4, index: hole }
+  const lightPlayingHcp = (pk) => {
+    const p = players.find(x => x.key === pk); const slope = lightCourse()?.slope || 113
+    return getPlayingHcp(parseFloat(p?.hcp) || 0, slope)
+  }
+  const saveLightScore = async (pk, hole, strokes) => {
+    if (!activeLight) return
+    const hd = lightHoleData(hole)
+    const stab = strokes > 0 ? (calcStableford(strokes, hd.par, lightPlayingHcp(pk), hd.index) || 0) : 0
+    setLightScores(prev => { const f = prev.filter(s => !(s.player_key===pk && s.hole===hole)); return [...f, { edition_id: activeLight.id, player_key: pk, hole, strokes, stableford: stab }] })
+    await supabase.from('dio_light_scores').upsert({ edition_id: activeLight.id, player_key: pk, hole, strokes, stableford: stab }, { onConflict: 'edition_id,player_key,hole' })
+  }
+  const lightTotal = (pk) => lightScores.filter(s => s.player_key === pk).reduce((sum, s) => sum + (s.stableford || 0), 0)
+  const finishLightRound = async () => {
+    if (!activeLight) return
+    const standings = (activeLight.player_keys || []).map(pk => ({ pk, pts: lightTotal(pk) })).sort((a,b) => b.pts - a.pts)
+    const champ = standings[0]
+    const champP = players.find(p => p.key === champ?.pk)
+    if (!confirm(`Avsluta och kröna ${champP?.nickname || champ?.pk} (${champ?.pts}p) som vinnare?`)) return
+    await supabase.from('dio_editions').update({
+      status: 'final', champion_key: champ?.pk, champion_name: champP?.name,
+      champion_score: `${champ?.pts}p`, runner_up_name: players.find(p=>p.key===standings[1]?.pk)?.name || null,
+      highlight: `${champP?.nickname} vann med ${champ?.pts} poäng på ${lightCourse()?.name?.split('—')[0]?.trim()}.`
+    }).eq('id', activeLight.id)
+    showToast(`🏆 ${champP?.nickname} vann DIO Light!`, 'eagle')
+    refetchEditions(); setView('lounge')
+  }
+
+  const renderLightPlay = () => {
+    const G='#D4AF37', CREAM='#FAF8F0', MUT='#A89F8E', GREEN='#6BBF7F', surf='var(--surface2)', bd='var(--card-border)'
+    const inp = { background: surf, border:`1px solid ${bd}`, borderRadius:8, color:CREAM, padding:'8px 10px', fontSize:13, width:'100%', boxSizing:'border-box' }
+    // SETUP-läge
+    if (!activeLight) {
+      const ready = dioCourses.filter(c => c.data_complete)
+      return (
+        <div style={{ padding: '4px 0' }}>
+          <div className="section-title">🌤️ DIO Light</div>
+          <div style={{ background:'var(--surface)', borderRadius:12, padding:16 }}>
+            <div style={{ fontSize:13, color:MUT, marginBottom:14, lineHeight:1.5 }}>Spontanrunda med full stableford på valfri bana. Välj bana, spelare och kör.</div>
+            <div style={{ fontFamily:'var(--mono)', fontSize:9, color:G, letterSpacing:2, marginBottom:8 }}>BANA</div>
+            <select value={lightSetup.courseKey} onChange={e=>setLightSetup({...lightSetup, courseKey:e.target.value})} style={{...inp, marginBottom:14}}>
+              <option value="">— välj bana —</option>
+              {ready.map(c => <option key={c.id} value={c.course_key}>{c.name} (slope {c.slope})</option>)}
+            </select>
+            {ready.length === 0 && <div style={{ fontSize:11, color:'var(--coral)', marginBottom:14 }}>Inga färdiga banor. Lägg till en i Admin → Banor (alla 18 hål).</div>}
+            <div style={{ fontFamily:'var(--mono)', fontSize:9, color:G, letterSpacing:2, marginBottom:8 }}>SPELARE</div>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:16 }}>
+              {activePlayers.filter(p=>p.key!=='spectator').map(p => {
+                const on = lightSetup.playerKeys.includes(p.key)
+                return <button key={p.id} onClick={()=>setLightSetup({...lightSetup, playerKeys: on ? lightSetup.playerKeys.filter(k=>k!==p.key) : [...lightSetup.playerKeys, p.key]})}
+                  style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:20, border:`1px solid ${on?G:bd}`, background:on?`${G}22`:'transparent', color:on?CREAM:MUT, fontSize:12, cursor:'pointer' }}>
+                  <Av p={p} size={20} />{p.nickname}</button>
+              })}
+            </div>
+            <button onClick={startLightRound} style={{ width:'100%', padding:14, background:'linear-gradient(135deg,#D4AF37,#B8941F)', border:'none', borderRadius:10, color:'#1A2B22', fontSize:14, fontWeight:700, cursor:'pointer' }}>⛳ Starta runda</button>
+          </div>
+        </div>
+      )
+    }
+    // SPEL-läge
+    const hd = lightHoleData(lightHole)
+    const standings = (activeLight.player_keys || []).map(pk => ({ pk, pts: lightTotal(pk) })).sort((a,b)=>b.pts-a.pts)
+    return (
+      <div style={{ padding:'4px 0' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+          <div>
+            <div style={{ fontFamily:'var(--serif)', fontSize:18, fontWeight:700, color:CREAM }}>{activeLight.name}</div>
+            <div style={{ fontSize:11, color:MUT }}>{lightCourse()?.name}</div>
+          </div>
+          <button onClick={finishLightRound} style={{ background:`${G}22`, border:`1px solid ${G}`, borderRadius:8, color:G, fontSize:11, fontWeight:700, padding:'8px 12px', cursor:'pointer' }}>🏁 Avsluta</button>
+        </div>
+        {/* Hål-väljare */}
+        <div style={{ display:'flex', gap:4, overflowX:'auto', paddingBottom:8, marginBottom:10 }}>
+          {Array.from({length:18},(_, i)=>i+1).map(h => (
+            <button key={h} onClick={()=>setLightHole(h)} style={{ flexShrink:0, width:34, height:34, borderRadius:8, border:`1px solid ${h===lightHole?G:bd}`, background:h===lightHole?G:'transparent', color:h===lightHole?'#1A2B22':MUT, fontSize:12, fontWeight:700, cursor:'pointer' }}>{h}</button>
+          ))}
+        </div>
+        {/* Aktuellt hål */}
+        <div style={{ background:'var(--surface)', borderRadius:12, padding:14, marginBottom:12 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12 }}>
+            <span style={{ fontFamily:'var(--serif)', fontSize:20, fontWeight:700, color:CREAM }}>Hål {lightHole}</span>
+            <span style={{ fontFamily:'var(--mono)', fontSize:12, color:G }}>PAR {hd.par} · INDEX {hd.index}</span>
+          </div>
+          {(activeLight.player_keys || []).map(pk => {
+            const p = players.find(x=>x.key===pk); if (!p) return null
+            const sc = lightScores.find(s=>s.player_key===pk && s.hole===lightHole)
+            const strokes = sc?.strokes || 0
+            const extra = getStrokesGiven(lightPlayingHcp(pk), hd.index)
+            return (
+              <div key={pk} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:`1px solid ${bd}` }}>
+                <Av p={p} size={30} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:CREAM }}>{p.nickname}</div>
+                  <div style={{ fontSize:9, color:MUT, fontFamily:'var(--mono)' }}>{'●'.repeat(extra)} {sc?.stableford!=null && strokes>0 ? `${sc.stableford}p` : ''}</div>
+                </div>
+                <button onClick={()=>saveLightScore(pk, lightHole, Math.max(0,strokes-1))} style={{ width:34, height:34, borderRadius:8, border:`1px solid ${bd}`, background:surf, color:CREAM, fontSize:18, cursor:'pointer' }}>−</button>
+                <span style={{ fontFamily:'var(--mono)', fontSize:18, fontWeight:700, color:strokes>0?CREAM:MUT, minWidth:24, textAlign:'center' }}>{strokes||'–'}</span>
+                <button onClick={()=>saveLightScore(pk, lightHole, strokes+1)} style={{ width:34, height:34, borderRadius:8, border:`1px solid ${G}`, background:`${G}22`, color:G, fontSize:18, cursor:'pointer' }}>+</button>
+              </div>
+            )
+          })}
+        </div>
+        {/* Leaderboard */}
+        <div style={{ background:'var(--surface)', borderRadius:12, padding:14 }}>
+          <div style={{ fontFamily:'var(--mono)', fontSize:9, color:G, letterSpacing:2, marginBottom:10 }}>🏆 STÄLLNING</div>
+          {standings.map((s,i) => {
+            const p = players.find(x=>x.key===s.pk); const played = lightScores.filter(x=>x.player_key===s.pk && x.strokes>0).length
+            return (
+              <div key={s.pk} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 0', borderBottom:i<standings.length-1?`1px solid ${bd}`:'none' }}>
+                <span style={{ fontFamily:'var(--mono)', fontSize:13, fontWeight:700, color:i===0?G:MUT, minWidth:20 }}>{i+1}</span>
+                {p && <Av p={p} size={24} />}
+                <span style={{ flex:1, fontSize:13, color:CREAM }}>{p?.nickname || s.pk}</span>
+                <span style={{ fontSize:10, color:MUT }}>{played} hål</span>
+                <span style={{ fontFamily:'var(--mono)', fontSize:15, fontWeight:700, color:i===0?G:CREAM }}>{s.pts}p</span>
+              </div>
+            )
+          })}
         </div>
       </div>
     )
@@ -8114,6 +8260,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         })()}
 
         {/* ===== INFO ===== */}
+        {view === 'lightplay' && renderLightPlay()}
+
         {view === 'lounge' && (<>
           <div className="section-title">🎉 The Lounge</div>
 
@@ -10590,6 +10738,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <div style={{ padding: 12 }}>
               {[
                 { key: 'lounge', icon: <span style={{ fontSize: 14 }}>🎉</span>, label: 'The Lounge', desc: 'Musik · Achievements · Hype · Vägg' },
+                { key: 'lightplay', icon: <span style={{ fontSize: 14 }}>🌤️</span>, label: 'DIO Light', desc: 'Spontanrunda · valfri bana · full stableford' },
                 { key: 'teams', icon: <IconSwords size={16} />, label: 'Lag-battle', desc: 'Gaylords vs Stjärtmesarna' },
                 { key: 'inbox', icon: <IconBell size={16} />, label: 'Inkorg', desc: 'Utmaningar & mentions' },
                 { key: 'feed', icon: <IconSmokeSignal size={16} />, label: 'Slask', desc: 'Slasken — där allt händer' },
