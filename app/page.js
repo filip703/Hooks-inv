@@ -5267,6 +5267,13 @@ function DIOApp({ onSwitchMode }) {
 
   // 📊 HELGRAPPORT (efter R1-R3, inför R4) — popup + Lounge
   const [showReport, setShowReport] = useState(false)
+
+  // 🏆 HALL OF FAME — alla DIO-editioner (major + light)
+  const [editions, setEditions] = useState([])
+  useEffect(() => {
+    supabase.from('dio_editions').select('*').order('year', { ascending: false }).order('sort_order', { ascending: false })
+      .then(({ data }) => { if (data) setEditions(data) })
+  }, [])
   useEffect(() => {
     if (typeof window === 'undefined') return
     try { if (!localStorage.getItem('dio_report_final_seen')) setTimeout(() => setShowReport(true), 6200) } catch(e){}
@@ -5422,6 +5429,87 @@ function DIOApp({ onSwitchMode }) {
         </Card>
         <div style={{ textAlign:'center', fontFamily:'var(--mono)', fontSize:9, color:MUT, letterSpacing:1.5, marginTop:4 }}>
           DIO 2026 · DOUCHE INVITATIONAL ONLY
+        </div>
+      </div>
+    )
+  }
+
+  // 🏆 HALL OF FAME — troféskåp över alla DIO-editioner
+  const renderHallOfFame = () => {
+    const G = '#D4AF37', CREAM = '#FAF8F0', MUT = '#A89F8E', GREEN = '#6BBF7F'
+    const majors = editions.filter(e => e.edition_type === 'major')
+    const lights = editions.filter(e => e.edition_type === 'light')
+    const current = majors.find(e => e.champion_key) // senaste året med mästare (sorterat desc)
+    // Titel-räknare
+    const titleCount = {}
+    majors.forEach(e => { if (e.champion_key) titleCount[e.champion_key] = (titleCount[e.champion_key] || 0) + 1 })
+    const multi = Object.entries(titleCount).sort((a,b) => b[1]-a[1])
+    const nameOf = (key) => majors.find(e => e.champion_key === key)?.champion_name || key
+    const Card = ({ children, style }) => <div style={{ background:'rgba(255,255,255,0.04)', border:`1px solid ${G}33`, borderRadius:12, padding:14, marginBottom:12, ...style }}>{children}</div>
+    const Lbl = ({ children }) => <div style={{ fontFamily:'var(--mono)', fontSize:9, color:G, letterSpacing:2, fontWeight:700, marginBottom:10 }}>{children}</div>
+    if (editions.length === 0) return null
+    return (
+      <div>
+        <div style={{ textAlign:'center', marginBottom:16 }}>
+          <div style={{ fontFamily:'var(--mono)', fontSize:10, color:G, letterSpacing:3 }}>EST. 2021 · HOOKS HERRGÅRD</div>
+          <div style={{ fontFamily:'var(--serif)', fontSize:26, fontWeight:700, color:CREAM, lineHeight:1.1, margin:'6px 0' }}>Hall of Fame</div>
+          <div style={{ fontSize:12, color:MUT, fontStyle:'italic' }}>Le Douche de Golf — mästarnas galleri</div>
+        </div>
+
+        {current && (
+          <Card style={{ background:`linear-gradient(135deg, ${G}22, ${G}08)`, border:`1.5px solid ${G}`, textAlign:'center' }}>
+            <div style={{ fontFamily:'var(--mono)', fontSize:9, color:G, letterSpacing:3, marginBottom:6 }}>REGERANDE MÄSTARE · {current.year}</div>
+            <div style={{ fontSize:34 }}>🏆</div>
+            <div style={{ fontFamily:'var(--serif)', fontSize:24, fontWeight:700, color:CREAM, lineHeight:1.1 }}>{current.champion_name}</div>
+            {current.champion_score && <div style={{ fontSize:12, color:'#CABFA8', marginTop:4 }}>{current.champion_score}</div>}
+            {current.highlight && <div style={{ fontSize:11, color:MUT, fontStyle:'italic', marginTop:8, lineHeight:1.5 }}>{current.highlight}</div>}
+          </Card>
+        )}
+
+        <Card>
+          <Lbl>📜 MÄSTARE GENOM TIDERNA</Lbl>
+          {majors.map((e,i) => (
+            <div key={e.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0', borderBottom: i<majors.length-1?`1px solid ${G}14`:'none' }}>
+              <div style={{ fontFamily:'var(--mono)', fontSize:13, fontWeight:700, color:G, minWidth:40 }}>{e.year}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:14, fontWeight:600, color:CREAM }}>{e.champion_name || 'Ej avgjort'}</div>
+                {e.venue && <div style={{ fontSize:10, color:MUT }}>{e.venue}{e.champion_score ? ` · ${e.champion_score}` : ''}</div>}
+              </div>
+              {e.champion_key === current?.champion_key && e.year === current?.year && <div style={{ fontSize:16 }}>👑</div>}
+            </div>
+          ))}
+        </Card>
+
+        {multi.length > 0 && (
+          <Card style={{ background:`linear-gradient(135deg, ${GREEN}14, ${G}08)` }}>
+            <Lbl>🏅 TITELLIGAN</Lbl>
+            {multi.map(([key, n]) => (
+              <div key={key} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0' }}>
+                <span style={{ fontSize:13, color:CREAM, fontWeight: n>1?700:400 }}>{nameOf(key)}</span>
+                <span style={{ fontFamily:'var(--mono)', fontSize:12, color: n>1?G:MUT }}>{'🏆'.repeat(n)} {n>1 ? `×${n}` : ''}</span>
+              </div>
+            ))}
+            <div style={{ fontSize:10, color:MUT, marginTop:8, fontStyle:'italic' }}>Marcus är ensam om att ha tagit fler än en titel. Tvåfaldig Mr Doush.</div>
+          </Card>
+        )}
+
+        {lights.length > 0 && (
+          <Card>
+            <Lbl>🌤️ DIO LIGHT — SPONTANUPPLAGOR</Lbl>
+            {lights.map((e,i) => (
+              <div key={e.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom: i<lights.length-1?`1px solid ${G}14`:'none' }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:CREAM }}>{e.name}</div>
+                  <div style={{ fontSize:10, color:MUT }}>{e.venue || 'okänd bana'}{e.dates_label ? ` · ${e.dates_label}` : ''}</div>
+                </div>
+                <div style={{ fontSize:12, color:G, fontWeight:600 }}>{e.champion_name || '—'}</div>
+              </div>
+            ))}
+          </Card>
+        )}
+
+        <div style={{ textAlign:'center', fontFamily:'var(--mono)', fontSize:9, color:MUT, letterSpacing:1.5, marginTop:4 }}>
+          DOUCHE INVITATIONAL ONLY · EST. 2021
         </div>
       </div>
     )
@@ -7912,8 +8000,20 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             <div style={{ padding:'16px 4px 4px' }}>{renderWeekendReport()}</div>
           </details>
 
+          {/* 🏆 Hall of Fame — mästargalleri */}
+          <details style={{ marginBottom: 14 }}>
+            <summary style={{ cursor:'pointer', listStyle:'none', background:'linear-gradient(135deg, rgba(212,175,55,0.18), rgba(27,67,50,0.15))', borderRadius:14, padding:'14px 16px', border:'1px solid rgba(212,175,55,0.45)', display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{ fontSize:26 }}>🏆</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:15, fontWeight:700, color:'#FAF8F0' }}>Hall of Fame</div>
+                <div style={{ fontSize:11, color:'#A89F8E' }}>Alla DIO-mästare sedan 2021 · regerande: Marcus</div>
+              </div>
+              <div style={{ fontFamily:'var(--mono)', fontSize:10, color:'#D4AF37', letterSpacing:1 }}>ÖPPNA ▼</div>
+            </summary>
+            <div style={{ padding:'16px 4px 4px' }}>{renderHallOfFame()}</div>
+          </details>
 
-          {/* 📢 Praktisk info från Hooks — alltid synlig högst upp */}
+
           <div style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(27,67,50,0.15))', borderRadius: 14, padding: 14, marginBottom: 14, border: '1px solid rgba(212,175,55,0.3)' }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, fontWeight: 700 }}>📢 PRAKTISKT FRÅN HOOKS</div>
 
