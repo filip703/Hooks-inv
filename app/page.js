@@ -5270,10 +5270,10 @@ function DIOApp({ onSwitchMode }) {
 
   // 🏆 HALL OF FAME — alla DIO-editioner (major + light)
   const [editions, setEditions] = useState([])
-  useEffect(() => {
-    supabase.from('dio_editions').select('*').order('year', { ascending: false }).order('sort_order', { ascending: false })
-      .then(({ data }) => { if (data) setEditions(data) })
-  }, [])
+  const [dioCourses, setDioCourses] = useState([])
+  const refetchEditions = () => supabase.from('dio_editions').select('*').order('year', { ascending: false }).order('sort_order', { ascending: false }).then(({ data }) => { if (data) setEditions(data) })
+  const refetchCourses = () => supabase.from('dio_courses').select('*').order('name').then(({ data }) => { if (data) setDioCourses(data) })
+  useEffect(() => { refetchEditions(); refetchCourses() }, [])
   useEffect(() => {
     if (typeof window === 'undefined') return
     try { if (!localStorage.getItem('dio_report_final_seen')) setTimeout(() => setShowReport(true), 6200) } catch(e){}
@@ -5510,6 +5510,131 @@ function DIOApp({ onSwitchMode }) {
 
         <div style={{ textAlign:'center', fontFamily:'var(--mono)', fontSize:9, color:MUT, letterSpacing:1.5, marginTop:4 }}>
           DOUCHE INVITATIONAL ONLY · EST. 2021
+        </div>
+      </div>
+    )
+  }
+
+  // 🏆 ADMIN — skapa/hantera DIO-editioner + banor
+  const [edForm, setEdForm] = useState({ year: new Date().getFullYear(), name: '', edition_type: 'light', venue: '', dates_label: '', champion_key: '', champion_score: '', highlight: '' })
+  const [showCourseForm, setShowCourseForm] = useState(false)
+  const [crsForm, setCrsForm] = useState({ name: '', location: '', slope: 113, holes: Array.from({length:18}, (_,i)=>({ hole:i+1, par:4, index:i+1 })) })
+
+  const saveEdition = async () => {
+    if (!edForm.name || !edForm.year) { showToast('Fyll i år och namn', 'zero'); return }
+    const champ = activePlayers.find(p => p.key === edForm.champion_key)
+    const key = `${edForm.year}-${edForm.edition_type}-${Date.now().toString(36).slice(-4)}`
+    const { error } = await supabase.from('dio_editions').insert({
+      edition_key: key, year: parseInt(edForm.year), name: edForm.name, edition_type: edForm.edition_type,
+      venue: edForm.venue || null, dates_label: edForm.dates_label || null,
+      champion_key: edForm.champion_key || null, champion_name: champ?.name || null,
+      champion_score: edForm.champion_score || null, highlight: edForm.highlight || null,
+      sort_order: parseInt(edForm.year) * 10
+    })
+    if (error) { showToast('Fel: ' + error.message, 'zero'); return }
+    showToast('Edition sparad! 🏆', 'birdie')
+    setEdForm({ year: new Date().getFullYear(), name: '', edition_type: 'light', venue: '', dates_label: '', champion_key: '', champion_score: '', highlight: '' })
+    refetchEditions()
+  }
+  const deleteEdition = async (id, name) => {
+    if (!confirm(`Radera "${name}"? Detta går inte att ångra.`)) return
+    await supabase.from('dio_editions').delete().eq('id', id)
+    showToast('Edition raderad', 'chat'); refetchEditions()
+  }
+  const saveCourse = async () => {
+    if (!crsForm.name) { showToast('Fyll i bannamn', 'zero'); return }
+    const par = crsForm.holes.reduce((s,h)=>s+(parseInt(h.par)||0),0)
+    const key = crsForm.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,40) + '-' + Date.now().toString(36).slice(-3)
+    const complete = crsForm.holes.every(h => h.par && h.index)
+    const { error } = await supabase.from('dio_courses').insert({
+      course_key: key, name: crsForm.name, location: crsForm.location || null,
+      slope: parseInt(crsForm.slope) || 113, par, holes: crsForm.holes, data_complete: complete
+    })
+    if (error) { showToast('Fel: ' + error.message, 'zero'); return }
+    showToast('Bana sparad! ⛳', 'birdie')
+    setShowCourseForm(false)
+    setCrsForm({ name: '', location: '', slope: 113, holes: Array.from({length:18}, (_,i)=>({ hole:i+1, par:4, index:i+1 })) })
+    refetchCourses()
+  }
+
+  const renderAdminDio = () => {
+    const G = 'var(--gold)', surf = 'var(--surface2)', bd = 'var(--card-border)'
+    const inp = { background: surf, border: `1px solid ${bd}`, borderRadius: 8, color: 'var(--cream)', padding: '8px 10px', fontSize: 13, width: '100%', boxSizing: 'border-box' }
+    return (
+      <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: G, letterSpacing: 2, marginBottom: 12 }}>🏆 DIO EDITIONER & BANOR</div>
+
+        {/* Skapa edition */}
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--cream)', marginBottom: 8 }}>Skapa ny edition</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <select value={edForm.edition_type} onChange={e=>setEdForm({...edForm, edition_type:e.target.value})} style={{...inp, flex:1}}>
+              <option value="light">DIO Light</option>
+              <option value="major">DIO Major</option>
+            </select>
+            <input type="number" value={edForm.year} onChange={e=>setEdForm({...edForm, year:e.target.value})} placeholder="År" style={{...inp, width:80}} />
+          </div>
+          <input value={edForm.name} onChange={e=>setEdForm({...edForm, name:e.target.value})} placeholder="Namn, t.ex. DIO Light: Midsommar" style={inp} />
+          <select value={edForm.venue} onChange={e=>setEdForm({...edForm, venue:e.target.value})} style={inp}>
+            <option value="">— välj bana —</option>
+            {dioCourses.map(c => <option key={c.id} value={c.name}>{c.name}{c.data_complete?'':' (ofullständig)'}</option>)}
+          </select>
+          <input value={edForm.dates_label} onChange={e=>setEdForm({...edForm, dates_label:e.target.value})} placeholder="Datum, t.ex. 21 juni 2026" style={inp} />
+          <select value={edForm.champion_key} onChange={e=>setEdForm({...edForm, champion_key:e.target.value})} style={inp}>
+            <option value="">— mästare (valfritt, kan sättas senare) —</option>
+            {activePlayers.filter(p=>p.key!=='spectator').map(p => <option key={p.id} value={p.key}>{p.name} ({p.nickname})</option>)}
+          </select>
+          <input value={edForm.champion_score} onChange={e=>setEdForm({...edForm, champion_score:e.target.value})} placeholder="Resultat, t.ex. 38p" style={inp} />
+          <input value={edForm.highlight} onChange={e=>setEdForm({...edForm, highlight:e.target.value})} placeholder="Höjdpunkt (kort mening)" style={inp} />
+          <button onClick={saveEdition} style={{ padding: 12, background: 'linear-gradient(135deg, #D4AF37, #B8941F)', border: 'none', borderRadius: 10, color: '#1A2B22', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>＋ Spara edition</button>
+        </div>
+
+        {/* Lista editioner */}
+        <div style={{ marginTop: 12, borderTop: `1px solid ${bd}`, paddingTop: 10 }}>
+          {editions.map(e => (
+            <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: `1px solid ${bd}` }}>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: G, minWidth: 38 }}>{e.year}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: 'var(--cream)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{e.name}{e.edition_type==='light'?' 🌤️':''}</div>
+                <div style={{ fontSize: 10, color: 'var(--cream-muted)' }}>{e.champion_name || 'ej avgjord'}</div>
+              </div>
+              <button onClick={()=>deleteEdition(e.id, e.name)} style={{ background:'transparent', border:`1px solid ${bd}`, borderRadius:6, color:'var(--coral)', fontSize:11, padding:'4px 8px', cursor:'pointer' }}>✕</button>
+            </div>
+          ))}
+        </div>
+
+        {/* Banor */}
+        <div style={{ marginTop: 16, borderTop: `1px solid ${bd}`, paddingTop: 12 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--cream)' }}>Banor ({dioCourses.length})</div>
+            <button onClick={()=>setShowCourseForm(!showCourseForm)} style={{ background:'transparent', border:`1px solid ${G}`, borderRadius:6, color:G, fontSize:11, padding:'4px 10px', cursor:'pointer' }}>{showCourseForm?'Stäng':'＋ Ny bana'}</button>
+          </div>
+          {dioCourses.map(c => (
+            <div key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 0', fontSize:12, color:'var(--cream-muted)' }}>
+              <span style={{ flex:1 }}>{c.name}</span>
+              <span style={{ fontFamily:'var(--mono)', fontSize:10, color: c.data_complete?'var(--green)':'var(--coral)' }}>{c.data_complete?'✓ klar':'ofullständig'}</span>
+            </div>
+          ))}
+          {showCourseForm && (
+            <div style={{ marginTop: 10, display:'flex', flexDirection:'column', gap:8 }}>
+              <input value={crsForm.name} onChange={e=>setCrsForm({...crsForm, name:e.target.value})} placeholder="Bannamn, t.ex. Bro Hof Stadium" style={inp} />
+              <div style={{ display:'flex', gap:8 }}>
+                <input value={crsForm.location} onChange={e=>setCrsForm({...crsForm, location:e.target.value})} placeholder="Plats" style={{...inp, flex:1}} />
+                <input type="number" value={crsForm.slope} onChange={e=>setCrsForm({...crsForm, slope:e.target.value})} placeholder="Slope" style={{...inp, width:90}} />
+              </div>
+              <div style={{ fontSize: 10, color:'var(--cream-muted)' }}>Par + index per hål (index 1 = svårast):</div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:6 }}>
+                {crsForm.holes.map((h,i)=>(
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:4, background:surf, borderRadius:6, padding:'4px 6px' }}>
+                    <span style={{ fontSize:10, color:G, minWidth:26 }}>H{h.hole}</span>
+                    <input type="number" value={h.par} onChange={e=>{const hs=[...crsForm.holes];hs[i]={...h,par:parseInt(e.target.value)||0};setCrsForm({...crsForm,holes:hs})}} style={{...inp, padding:'3px', width:38, textAlign:'center'}} title="par" />
+                    <input type="number" value={h.index} onChange={e=>{const hs=[...crsForm.holes];hs[i]={...h,index:parseInt(e.target.value)||0};setCrsForm({...crsForm,holes:hs})}} style={{...inp, padding:'3px', width:38, textAlign:'center'}} title="index" />
+                  </div>
+                ))}
+              </div>
+              <button onClick={saveCourse} style={{ padding: 12, background: 'linear-gradient(135deg, #D4AF37, #B8941F)', border: 'none', borderRadius: 10, color: '#1A2B22', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>⛳ Spara bana</button>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -9890,6 +10015,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         {/* ===== SETTINGS (ADMIN ONLY) ===== */}
         {view === 'settings' && isAdmin && (<>
           <div className="section-title">⚙️ Admin Settings</div>
+
+          {renderAdminDio()}
 
           {/* HCP per spelare */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 14, marginBottom: 14 }}>
