@@ -292,6 +292,7 @@ export default function Home() {
     }
     const s = localStorage.getItem('app_mode')
     if (s === 'dio' || s === 'taby') setAppMode(s)
+    else setAppMode('taby') // Täby OOM är standardläge — DIO nås via "byt läge" eller ?mode=dio
   }, [])
   useEffect(() => { if (appMode && typeof window !== 'undefined') { localStorage.setItem('app_mode', appMode); document.documentElement.setAttribute('data-mode', appMode) } }, [appMode])
 
@@ -1079,16 +1080,52 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     </div>
   )
 
-  // Splash
+  // Splash — Midnight Lake (måne, skimrande vatten, stjärnor)
   if (tabySplash) return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'linear-gradient(180deg, #0C1830 0%, #1E3A5F 40%, #0C1830 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: tabySplashExit ? 0 : 1, transition: 'opacity 0.7s ease' }}>
-      <style>{`@keyframes tabyFadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } @keyframes tabyGlow { 0%,100% { text-shadow: 0 0 20px rgba(147,197,253,0.3); } 50% { text-shadow: 0 0 40px rgba(147,197,253,0.6); } } @keyframes tabyLine { from { width: 0; } to { width: 120px; } } @keyframes tabyPlayerSlide { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }`}</style>
-      <div style={{ animation: 'tabyFadeUp 0.8s ease 0.3s both', fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: 5, color: 'rgba(147,197,253,0.4)', textTransform: 'uppercase' }}>The Lake Club</div>
-      <div style={{ animation: 'tabyFadeUp 0.8s ease 0.6s both, tabyGlow 3s ease-in-out infinite 1.5s', fontFamily: 'var(--serif)', fontSize: 32, color: '#93C5FD', margin: '8px 0 4px', letterSpacing: 2 }}>Täby Order of Merit</div>
-      <div style={{ animation: 'tabyLine 0.6s ease 1s both', height: 1, background: 'linear-gradient(90deg, transparent, #D4A017, transparent)', margin: '8px 0' }} />
-      <div style={{ animation: 'tabyFadeUp 0.8s ease 1.2s both', fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(212,175,55,0.5)', letterSpacing: 3 }}>SÄSONG 2026</div>
-      <div style={{ animation: 'tabyFadeUp 0.8s ease 1.5s both', fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(240,244,255,0.2)', letterSpacing: 2, marginTop: 6 }}>VALLENTUNASJÖN · EST. 1968</div>
-      <div style={{ animation: 'tabyFadeUp 0.8s ease 4s both', marginTop: 24, fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(147,197,253,0.15)', letterSpacing: 3 }}>APRIL — OKTOBER</div>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, overflow: 'hidden', background: 'linear-gradient(180deg, #060D1C 0%, #0C1830 45%, #14294A 72%, #0A1A33 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: tabySplashExit ? 0 : 1, transition: 'opacity 0.7s ease' }}>
+      <style>{`
+        @keyframes lkFade { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes lkGlow { 0%,100% { text-shadow: 0 0 24px rgba(147,197,253,0.35), 0 0 60px rgba(147,197,253,0.12); } 50% { text-shadow: 0 0 42px rgba(147,197,253,0.6), 0 0 90px rgba(147,197,253,0.25); } }
+        @keyframes lkLine { from { width: 0; opacity: 0; } to { width: 160px; opacity: 1; } }
+        @keyframes lkMoon { from { opacity: 0; transform: translateY(-12px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes lkStar { 0%,100% { opacity: 0.15; } 50% { opacity: 0.9; } }
+        @keyframes lkWave { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        @keyframes lkShimmer { 0%,100% { opacity: 0.25; transform: scaleY(1); } 50% { opacity: 0.6; transform: scaleY(1.15); } }
+      `}</style>
+
+      {/* Stjärnfält */}
+      {[[12,18,2,0],[28,9,1.5,0.6],[44,22,2.5,1.1],[63,12,1.5,0.3],[78,26,2,0.9],[88,15,1.5,1.4],[20,32,1.5,1.7],[71,30,2,0.5],[55,7,1.5,1.2],[36,14,2,2.0],[83,33,1.5,0.2],[7,27,2,1.5]].map(([l,t,s,d],i)=>(
+        <div key={i} style={{ position:'absolute', left:`${l}%`, top:`${t}%`, width:s, height:s, borderRadius:'50%', background:'#E8F0FF', animation:`lkStar ${2.5+d}s ease-in-out infinite ${d}s`, boxShadow:'0 0 6px rgba(232,240,255,0.8)' }} />
+      ))}
+
+      {/* Måne */}
+      <div style={{ position:'absolute', top:'15%', animation:'lkMoon 1.6s ease 0.2s both' }}>
+        <div style={{ width:84, height:84, borderRadius:'50%', background:'radial-gradient(circle at 38% 35%, #FBF6E3 0%, #F0E6C0 45%, #D4A017 100%)', boxShadow:'0 0 50px rgba(212,160,23,0.45), 0 0 100px rgba(212,160,23,0.2), inset -10px -10px 24px rgba(120,90,20,0.35)' }} />
+      </div>
+
+      {/* Vatten + månestrimma */}
+      <div style={{ position:'absolute', bottom:0, left:0, right:0, height:'34%', background:'linear-gradient(180deg, rgba(20,41,74,0) 0%, rgba(16,34,64,0.7) 30%, #0A1A33 100%)', overflow:'hidden' }}>
+        {/* Månens reflektion */}
+        <div style={{ position:'absolute', top:0, left:'50%', transform:'translateX(-50%)', width:60, height:'100%', background:'linear-gradient(180deg, rgba(240,230,180,0.5), rgba(212,160,23,0.05))', filter:'blur(8px)', animation:'lkShimmer 3s ease-in-out infinite' }} />
+        {/* Vågor */}
+        <svg viewBox="0 0 800 80" preserveAspectRatio="none" style={{ position:'absolute', bottom:30, left:0, width:'200%', height:50, animation:'lkWave 9s linear infinite', opacity:0.4 }}>
+          <path d="M0,40 Q100,20 200,40 T400,40 T600,40 T800,40 T1000,40 T1200,40 V80 H0 Z" fill="rgba(147,197,253,0.18)" />
+        </svg>
+        <svg viewBox="0 0 800 80" preserveAspectRatio="none" style={{ position:'absolute', bottom:14, left:0, width:'200%', height:60, animation:'lkWave 6s linear infinite reverse', opacity:0.5 }}>
+          <path d="M0,40 Q100,55 200,40 T400,40 T600,40 T800,40 T1000,40 T1200,40 V80 H0 Z" fill="rgba(93,140,200,0.22)" />
+        </svg>
+      </div>
+
+      {/* Text */}
+      <div style={{ position:'relative', zIndex:2, display:'flex', flexDirection:'column', alignItems:'center', marginTop:'4%' }}>
+        <div style={{ animation:'lkFade 0.9s ease 0.5s both', fontFamily:'var(--mono)', fontSize:9, letterSpacing:6, color:'rgba(147,197,253,0.45)', textTransform:'uppercase' }}>The Lake Club</div>
+        <div style={{ animation:'lkFade 1s ease 0.8s both, lkGlow 3.5s ease-in-out infinite 1.8s', fontFamily:'var(--serif)', fontSize:40, fontWeight:400, color:'#AECBF5', margin:'10px 0 2px', letterSpacing:3, lineHeight:1 }}>Täby</div>
+        <div style={{ animation:'lkFade 1s ease 1.05s both', fontFamily:'var(--serif)', fontSize:17, fontStyle:'italic', color:'rgba(212,160,23,0.9)', letterSpacing:4 }}>Order of Merit</div>
+        <div style={{ animation:'lkLine 0.9s ease 1.4s both', height:1, background:'linear-gradient(90deg, transparent, #D4A017, transparent)', margin:'14px 0' }} />
+        <div style={{ animation:'lkFade 0.9s ease 1.7s both', fontFamily:'var(--mono)', fontSize:10, color:'rgba(212,175,55,0.55)', letterSpacing:4 }}>SÄSONG 2026</div>
+        <div style={{ animation:'lkFade 0.9s ease 2.0s both', fontFamily:'var(--mono)', fontSize:8, color:'rgba(240,244,255,0.25)', letterSpacing:3, marginTop:7 }}>VALLENTUNASJÖN · EST. 1968</div>
+      </div>
+      <div style={{ position:'absolute', bottom:'7%', zIndex:2, animation:'lkFade 1s ease 4s both', fontFamily:'var(--mono)', fontSize:7, color:'rgba(147,197,253,0.2)', letterSpacing:4 }}>APRIL — OKTOBER</div>
     </div>
   )
 
