@@ -5269,21 +5269,21 @@ function DIOApp({ onSwitchMode }) {
   const [showReport, setShowReport] = useState(false)
   useEffect(() => {
     if (typeof window === 'undefined') return
-    try { if (!localStorage.getItem('dio_report_r4_v2_seen')) setTimeout(() => setShowReport(true), 6200) } catch(e){}
+    try { if (!localStorage.getItem('dio_report_final_seen')) setTimeout(() => setShowReport(true), 6200) } catch(e){}
   }, [])
   const dismissReport = () => {
     setShowReport(false)
-    try { localStorage.setItem('dio_report_r4_v2_seen', '1') } catch(e){}
+    try { localStorage.setItem('dio_report_final_seen', '1') } catch(e){}
   }
   const renderWeekendReport = () => {
     const G = '#D4AF37', CREAM = '#FAF8F0', MUT = '#A89F8E', GREEN = '#6BBF7F', CORAL = '#E8634A'
     const standings = [
-      { pos:'🥇', nick:'Mr Vain', tot:96, r:'28·37·31', note:'Tillbaka på tronen där han hör hemma. Den enda som inte tappade ett enda streak-poäng — noll baklås hela helgen. Bygg-app-istället-för-att-träna-putt håller faktiskt.' },
-      { pos:'🥈', nick:'The Grinder', tot:92, r:'28·34·33 −3b', note:'Bartendern tappade 3p på Cold Turkey (nollor i rad). Hade han dinkat en mindre drink hade det kanske vänt. 4p från toppen.' },
-      { pos:'🥉', nick:'Dr Erektor', tot:91, r:'32·28·32 −1b', note:'Mr Excel föll från "ledare" till trea när vi bytte till RIKTIGA birdies. Noll gross-birdies hela helgen — modellen gillade netto-par lite väl mycket.' },
-      { pos:'4', nick:'The Fossil', tot:84, r:'25·31·30 −2b', note:'Klättrar inte längre på netto-streaks. Pianot spelar fortfarande bättre än kortleken ser ut.' },
-      { pos:'5', nick:'The Hybrid', tot:69, r:'24·21·27 −3b', note:'Näst sist. 0 pars, 0 birdies, och nu 0 gratisbonus. Johanna har noterat allt och har åsikter.' },
-      { pos:'6', nick:'Plus One', tot:64, r:'26·20·26 −8b', note:'Jumbo med −8 i Cold Turkey. HCP 40 ger slag men inga mirakel. Tre i rad-tronen står dock stadig.' },
+      { pos:'🏆', nick:'Dr Erektor', tot:126, r:'32·28·32·35 · vann särspel', note:'MR DOUSH 2026. Andra titeln (2021 + 2026). Lika på 126 efter 72 hål, knäckte särspelet. Mr Excel räknade rätt hela vägen.' },
+      { pos:'🥈', nick:'Mr Vain', tot:126, r:'28·37·31·30', note:'Lika i topp på 126 — föll i särspelet. En lip-out på 18, 1 mm från par som hade avgjort allt. Så nära.' },
+      { pos:'🥉', nick:'The Grinder', tot:125, r:'28·34·33·33', note:'EN poäng från särspel. Hookade OB på 18 — den driven kostade titeln. 40-meters chip på 17 höll honom vid liv ända in.' },
+      { pos:'4', nick:'The Fossil', tot:113, r:'25·31·30·29', note:'Stabil hela vägen, men toppen var ouppnåelig. Pianot vann fler kvällar än banan.' },
+      { pos:'5', nick:'The Hybrid', tot:92, r:'24·21·27·24', note:'Räddade sig från jumbo med EN poäng. Johanna fick goda nyheter för en gångs skull.' },
+      { pos:'6', nick:'Plus One', tot:91, r:'26·20·26·27', note:'JUMBO med en (1) poäng. HCP 40 och Tre i rad-tronen — men golfens sista plats blev hans. Farfars intervjuer tröstar.' },
     ]
     const Card = ({ children, style }) => <div style={{ background:'rgba(255,255,255,0.04)', border:`1px solid ${G}33`, borderRadius:12, padding:14, marginBottom:12, ...style }}>{children}</div>
     const Lbl = ({ children }) => <div style={{ fontFamily:'var(--mono)', fontSize:9, color:G, letterSpacing:2, fontWeight:700, marginBottom:10 }}>{children}</div>
@@ -5291,12 +5291,22 @@ function DIOApp({ onSwitchMode }) {
       <div>
         <div style={{ textAlign:'center', marginBottom:16 }}>
           <div style={{ fontFamily:'var(--mono)', fontSize:10, color:G, letterSpacing:3 }}>DIO 2026 · HOOKS HERRGÅRD</div>
-          <div style={{ fontFamily:'var(--serif)', fontSize:26, fontWeight:700, color:CREAM, lineHeight:1.1, margin:'6px 0' }}>Helgrapporten</div>
-          <div style={{ fontSize:12, color:MUT, fontStyle:'italic' }}>Tre ronder spelade. En kvar. Allt att spela för.</div>
+          <div style={{ fontFamily:'var(--serif)', fontSize:26, fontWeight:700, color:CREAM, lineHeight:1.1, margin:'6px 0' }}>Slutrapporten</div>
+          <div style={{ fontSize:12, color:MUT, fontStyle:'italic' }}>Fyra ronder. 72 hål. Avgjort i särspel.</div>
         </div>
 
+        <Card style={{ background:`linear-gradient(135deg, ${G}22, ${G}08)`, border:`1.5px solid ${G}`, textAlign:'center' }}>
+          <div style={{ fontFamily:'var(--mono)', fontSize:9, color:G, letterSpacing:3, marginBottom:6 }}>MR DOUSH 2026</div>
+          <div style={{ fontSize:34, marginBottom:2 }}>🏆</div>
+          <div style={{ fontFamily:'var(--serif)', fontSize:24, fontWeight:700, color:CREAM, lineHeight:1.1 }}>Dr Erektor</div>
+          <div style={{ fontSize:12, color:'#CABFA8', marginTop:4 }}>Marcus Ullholm · andra titeln (2021 + 2026)</div>
+          <div style={{ fontSize:11, color:MUT, fontStyle:'italic', marginTop:8, lineHeight:1.5 }}>
+            Lika på 126 efter 72 hål. Avgjort i särspel på par 3 — där Mr Excel till sist räknade rätt.
+          </div>
+        </Card>
+
         <Card>
-          <Lbl>👑 TRONSTRIDEN — NETTO STABLEFORD</Lbl>
+          <Lbl>👑 SLUTSTÄLLNING — 4 RONDER</Lbl>
           {standings.map((s,i) => (
             <div key={i} style={{ display:'flex', gap:10, padding:'8px 0', borderBottom: i<5?`1px solid ${G}1A`:'none' }}>
               <div style={{ fontSize:16, minWidth:26, textAlign:'center' }}>{s.pos}</div>
@@ -5313,20 +5323,20 @@ function DIOApp({ onSwitchMode }) {
         </Card>
 
         <Card style={{ background:`linear-gradient(135deg, ${G}14, ${GREEN}1A)` }}>
-          <Lbl>⚔️ LAGSTRIDEN — 2 BÄSTA / RONDA</Lbl>
+          <Lbl>⚔️ LAGSTRIDEN — SLUTRESULTAT</Lbl>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
             <div style={{ textAlign:'center', flex:1 }}>
-              <div style={{ fontSize:14, fontWeight:700, color:GREEN }}>Gaylords</div>
-              <div style={{ fontFamily:'var(--mono)', fontSize:28, fontWeight:700, color:CREAM }}>220</div>
+              <div style={{ fontSize:14, fontWeight:700, color:GREEN }}>Gaylords 🏆</div>
+              <div style={{ fontFamily:'var(--mono)', fontSize:28, fontWeight:700, color:CREAM }}>293</div>
             </div>
-            <div style={{ fontFamily:'var(--mono)', fontSize:11, color:G }}>+19</div>
+            <div style={{ fontFamily:'var(--mono)', fontSize:11, color:G }}>+16</div>
             <div style={{ textAlign:'center', flex:1 }}>
               <div style={{ fontSize:14, fontWeight:700, color:'#8AB4D6' }}>Stjärtmesarna</div>
-              <div style={{ fontFamily:'var(--mono)', fontSize:28, fontWeight:700, color:CREAM }}>201</div>
+              <div style={{ fontFamily:'var(--mono)', fontSize:28, fontWeight:700, color:CREAM }}>277</div>
             </div>
           </div>
           <div style={{ fontSize:11, color:'#CABFA8', textAlign:'center', marginTop:8, lineHeight:1.45 }}>
-            Stjärtmesarna tog R1 (66–61), men Gaylords slog tillbaka i R2 (+17) och R3 (+7). Stjärtmesarna: ni har 18 hål och en fårpung kvar att tömma.
+            Stjärtmesarna tog R1 (66–61) och R4 (76–73). Men Gaylords R2 (+17) och R3 (+7) var för tunga. Gaylords vinner lagtiteln med 16.
           </div>
         </Card>
 
@@ -5348,13 +5358,13 @@ function DIOApp({ onSwitchMode }) {
         </Card>
 
         <Card style={{ background:`linear-gradient(135deg, ${CORAL}14, ${G}10)`, border:`1px solid ${CORAL}44` }}>
-          <Lbl>🥃 INFÖR SISTA DAGEN — PARKBANAN</Lbl>
+          <Lbl>🎬 SÅ SLUTADE DET — PARKBANAN, HÅL 18 + SÄRSPEL</Lbl>
           <div style={{ fontSize:13, color:CREAM, lineHeight:1.55 }}>
-            Fyra (4) poäng skiljer Mr Vain och The Grinder. Dr Erektor lurar 5p bakom. Det här avgörs idag.
+            Inför 18 var det <strong style={{color:G}}>helt lika</strong> i toppen. The Grinder hookade OB — long gone. Dr Erektor mitt i fairway, Mr Vain i vattnet vid green.
             <br/><br/>
-            Hål 16-18 ger <strong style={{color:G}}>dubbla poäng</strong> — ingen ledning är säker. LD på hål 17, NP på hål 3.
+            Marcus 8m för birdie, Filip 3m för par efter droppen. Marcus brassade ~2m förbi. Filip för par… <strong style={{color:CORAL}}>lip-out, 1 mm</strong>. Marcus, darrande, missade för vinst. <strong style={{color:G}}>Särspel.</strong>
             <br/><br/>
-            <strong style={{color:CREAM}}>Gå ut. Spela smart de första 15. Gå bananas på de sista 3. Vinnaren skriver historia. Förloraren köper champagnen.</strong>
+            Par 3. Marcus på green, missar birdien. Filip chippar nära men det räcker inte. <strong style={{color:CREAM}}>Dr Erektor knäcker den och tar sin andra titel.</strong> Vilken final.
           </div>
         </Card>
 
@@ -10207,7 +10217,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             {renderWeekendReport()}
             <button onClick={dismissReport}
               style={{ width:'100%', marginTop:14, padding:14, background:'linear-gradient(135deg, #D4AF37, #B8941F)', border:'none', borderRadius:12, color:'#1A2B22', fontSize:14, fontWeight:700, fontFamily:'var(--mono)', letterSpacing:1, cursor:'pointer' }}>
-              KÖR HÅRT IDAG 🥃
+              SKÅL FÖR DIO 2026 🥃
             </button>
           </div>
         </div>
