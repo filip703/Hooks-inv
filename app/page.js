@@ -3153,7 +3153,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   <div style={{ flex: 1, maxWidth: '75%' }}>
                     {!isMe && <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: '#D4A017', marginBottom: 2 }}>{p?.nickname}</div>}
                     <div style={{ background: isShout ? 'rgba(212,160,23,0.1)' : isMe ? 'rgba(147,197,253,0.1)' : 'rgba(30,58,95,0.5)', borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px', padding: '8px 10px', fontSize: 13, color: isShout ? '#D4A017' : '#F0F4FF', lineHeight: 1.4 }}>
-                      {m.image_url && <img src={m.image_url} style={{ width: '100%', borderRadius: 6, marginBottom: 4 }} />}
+                      {m.image_url && <img src={m.image_url} loading="lazy" style={{ width: '100%', borderRadius: 6, marginBottom: 4 }} />}
                       {m.message}
                     </div>
                   </div>
@@ -5102,11 +5102,16 @@ function DIOApp({ onSwitchMode }) {
   useEffect(() => { fetchAll(); fetchChat(); fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments(); fetchOdds(); fetchHistoria() }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds])
 
   // Auto-refresh när appen blir synlig (PWA: när man växlar tillbaka)
+  // EGRESS-OPTIMERAD: throttlad till max 1 gång/60s + hoppar över tunga delar
+  // (historia/h2h/props/payments hålls live av realtime, behöver ej hämtas vid varje fokus)
+  const lastFocusFetch = useRef(0)
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        fetchAll(); fetchChat(); fetchExpenses(); fetchH2h(); fetchProps(); fetchPayments(); fetchOdds(); fetchHistoria()
-      }
+      if (document.visibilityState !== 'visible') return
+      const now = Date.now()
+      if (now - lastFocusFetch.current < 60000) return // max 1 omladdning/min
+      lastFocusFetch.current = now
+      fetchAll(); fetchChat()
     }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', onVisible)
@@ -5114,7 +5119,7 @@ function DIOApp({ onSwitchMode }) {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', onVisible)
     }
-  }, [fetchAll, fetchChat, fetchExpenses, fetchH2h, fetchProps, fetchPayments, fetchOdds])
+  }, [fetchAll, fetchChat])
   useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth' }) }, [chat])
 
   // Realtime
