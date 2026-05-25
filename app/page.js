@@ -453,6 +453,42 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [tabyChat, setTabyChat] = useState([])
   // Chat form state
   const [tabyMsg, setTabyMsg] = useState('')
+  const tabyChatEnd = useRef(null)
+  const tabyChatScroll = useRef(null)
+  const tabyFileRef = useRef(null)
+  // Auto-scroll till senaste meddelande
+  useEffect(() => {
+    if (tabyView === 'feed') setTimeout(() => tabyChatEnd.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+  }, [tabyChat, tabyView])
+  // Skicka textmeddelande
+  const sendTabyMsg = async () => {
+    if (!tabyMsg.trim() || !tabyUser?.id) return
+    const text = tabyMsg.trim()
+    setTabyMsg('')
+    // Optimistisk: visa direkt för avsändaren (exakt som DIO)
+    setTabyChat(prev => [{ id: 'tmp-' + Date.now(), player_id: tabyUser.id, message: text, msg_type: 'chat', created_at: new Date().toISOString() }, ...prev])
+    await supabase.from('taby_chat').insert({ player_id: tabyUser.id, message: text, msg_type: 'chat' })
+  }
+  // Ladda upp bild/video (komprimeras automatiskt)
+  const uploadTabyImg = async (file) => {
+    if (!file || !tabyUser?.id) return
+    const isVideo = file.type.startsWith('video/')
+    if (!isVideo) file = await compressImage(file)
+    const path = `taby-chat/${Date.now()}.${file.name.split('.').pop()}`
+    const { error } = await supabase.storage.from('inv-images').upload(path, file, { contentType: file.type })
+    if (error) { showTabyToast('Kunde inte ladda upp', 'zero'); return }
+    const url = `https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/${path}`
+    setTabyChat(prev => [{ id: 'tmp-' + Date.now(), player_id: tabyUser.id, message: isVideo ? '🎬' : '📸', image_url: url, msg_type: isVideo ? 'video' : 'image', created_at: new Date().toISOString() }, ...prev])
+    await supabase.from('taby_chat').insert({ player_id: tabyUser.id, message: isVideo ? '🎬' : '📸', image_url: url, msg_type: isVideo ? 'video' : 'image' })
+  }
+  // Radera meddelande (eget eller admin)
+  const deleteTabyMsg = async (m) => {
+    const canDel = m.player_id === tabyUser?.id || tabyUser?.is_admin || tabyUser?.key === 'filip' || tabyUser?.key === 'marcus'
+    if (!canDel) return
+    if (!confirm('Radera meddelandet?')) return
+    setTabyChat(prev => prev.filter(x => x.id !== m.id))
+    await supabase.from('taby_chat').delete().eq('id', m.id)
+  }
   const [showTabyMenu, setShowTabyMenu] = useState(false)
   const [showBollSetup, setShowBollSetup] = useState(false)
   const [showEventResultModal, setShowEventResultModal] = useState(null)
@@ -622,8 +658,10 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       ).subscribe(),
       supabase.channel('taby_chat_rt').on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'taby_chat' },
-        (payload) => {
-          setTabyChat(prev => [payload.new, ...prev].slice(0, 150))
+        () => {
+          // Re-fetch hela listan (ersätter optimistiska tmp-rader, dedupar) — exakt som DIO
+          supabase.from('taby_chat').select('*').order('created_at', { ascending: false }).limit(150)
+            .then(({ data }) => { if (data) setTabyChat(data) })
         }
       ).subscribe(),
     ]
@@ -3242,49 +3280,102 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {/* CHAT / FEED (Täby)                        */}
       {/* ======================================== */}
       {tabyView === 'feed' && (() => {
-        const feedMessages = tabyChat.filter(m => !m.msg_type || m.msg_type === 'chat' || m.msg_type === 'shoutout')
+        const feedMessages = [...tabyChat]
+          .filter(m => !m.msg_type || ['chat','shoutout','image','video'].includes(m.msg_type))
+          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        const today = new Date(); today.setHours(0,0,0,0)
+        const yest = new Date(today); yest.setDate(today.getDate() - 1)
+        const dateLabel = (ts) => {
+          const d = new Date(ts); d.setHours(0,0,0,0)
+          if (d.getTime() === today.getTime()) return 'IDAG'
+          if (d.getTime() === yest.getTime()) return 'IGÅR'
+          return d.toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'short' }).toUpperCase()
+        }
+        const renderText = (text, isMe) => {
+          if (!text) return text
+          return text.split(/(@\w+|https?:\/\/[^\s]+)/g).map((part, j) => {
+            if (!part) return null
+            if (part.startsWith('@')) return <span key={j} style={{ color: isMe ? '#FFE89A' : '#D4A017', fontWeight: 600 }}>{part}</span>
+            if (/^https?:\/\//.test(part)) return <a key={j} href={part} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{ color: isMe ? '#0F3A5C' : '#93C5FD', textDecoration: 'underline', wordBreak: 'break-all' }}>{part}</a>
+            return part
+          })
+        }
+        const canDelMsg = (m) => m.player_id === tabyUser?.id || tabyUser?.is_admin || tabyUser?.key === 'filip' || tabyUser?.key === 'marcus'
+        const mentionMatch = tabyMsg.match(/@(\w*)$/)
+        const mentionSugg = mentionMatch ? tabyPlayers.filter(p => p.key !== 'spectator' && (p.nickname?.toLowerCase().includes(mentionMatch[1].toLowerCase()) || p.name?.split(' ')[0].toLowerCase().includes(mentionMatch[1].toLowerCase()))) : []
+        let lastDay = null, lastSender = null
         return (
-        <div style={{ padding: '0 16px 80px' }}>
-          <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#93C5FD', marginBottom: 4 }}>💬 Chat</div>
-          <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)', marginBottom: 12 }}>Birdies, trash talk och gänget</div>
+        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 140px)', padding: '0 12px' }}>
+          <div style={{ flexShrink: 0, padding: '4px 4px 10px' }}>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#93C5FD' }}>💬 Chat</div>
+            <div style={{ fontSize: 11, color: 'rgba(240,244,255,0.4)' }}>Birdies, trash talk och gänget</div>
+          </div>
 
-          {/* Chat list */}
-          <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 12, maxHeight: 'calc(100vh - 320px)', overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column-reverse', marginBottom: 12 }}>
-            {feedMessages.map((m, i) => {
+          {/* Meddelanden */}
+          <div ref={tabyChatScroll} style={{ flex: 1, overflowY: 'auto', background: 'rgba(147,197,253,0.04)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column' }}>
+            {feedMessages.length === 0 && <div style={{ textAlign: 'center', color: 'rgba(240,244,255,0.3)', fontSize: 12, padding: 30, fontFamily: 'var(--mono)' }}>Inga meddelanden än. Säg något!</div>}
+            {feedMessages.map((m) => {
               const p = tabyPlayers.find(pl => pl.id === m.player_id) || tabyAllPlayers.find(pl => pl.id === m.player_id)
               const isMe = m.player_id === tabyUser?.id
               const isShout = m.msg_type === 'shoutout'
-              return (
-                <div key={m.id} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '0.5px solid rgba(147,197,253,0.04)', flexDirection: isMe ? 'row-reverse' : 'row' }}>
-                  {p?.image_url ? <img src={p.image_url} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(147,197,253,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#93C5FD', flexShrink: 0 }}>{p?.name?.charAt(0) || '?'}</div>}
-                  <div style={{ flex: 1, maxWidth: '75%' }}>
-                    {!isMe && <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: '#D4A017', marginBottom: 2 }}>{p?.nickname}</div>}
-                    <div style={{ background: isShout ? 'rgba(212,160,23,0.1)' : isMe ? 'rgba(147,197,253,0.1)' : 'rgba(30,58,95,0.5)', borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px', padding: '8px 10px', fontSize: 13, color: isShout ? '#D4A017' : '#F0F4FF', lineHeight: 1.4 }}>
-                      {m.image_url && <img src={m.image_url} loading="lazy" style={{ width: '100%', borderRadius: 6, marginBottom: 4 }} />}
-                      {m.message}
+              const dayKey = new Date(m.created_at).toDateString()
+              const showDay = dayKey !== lastDay; lastDay = dayKey
+              const showAvatar = !isMe && !isShout && (lastSender !== m.player_id || showDay)
+              lastSender = isShout ? null : m.player_id
+              const ts = new Date(m.created_at).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })
+              const out = []
+              if (showDay) out.push(<div key={`d-${dayKey}`} style={{ alignSelf: 'center', margin: '10px 0 8px', padding: '3px 12px', borderRadius: 12, background: 'rgba(30,58,95,0.6)', fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.6)', letterSpacing: 1.5 }}>{dateLabel(m.created_at)}</div>)
+              if (isShout) {
+                out.push(
+                  <div key={m.id} onDoubleClick={() => canDelMsg(m) && deleteTabyMsg(m)} style={{ alignSelf: 'center', maxWidth: '88%', margin: '4px 0', padding: '8px 14px', background: 'rgba(212,160,23,0.12)', border: '0.5px solid rgba(212,160,23,0.35)', borderRadius: 12, textAlign: 'center' }}>
+                    <div style={{ fontSize: 13, color: '#D4A017', fontFamily: 'var(--serif)' }}>{m.message}</div>
+                    <div style={{ fontSize: 8, color: 'rgba(212,160,23,0.4)', fontFamily: 'var(--mono)', marginTop: 3 }}>{ts}</div>
+                  </div>
+                )
+                return out
+              }
+              out.push(
+                <div key={m.id} onDoubleClick={() => canDelMsg(m) && deleteTabyMsg(m)} style={{ display: 'flex', gap: 8, margin: '2px 0', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end' }}>
+                  {!isMe && (showAvatar
+                    ? (p?.image_url ? <img src={p.image_url} loading="lazy" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(147,197,253,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#93C5FD', flexShrink: 0 }}>{p?.name?.charAt(0) || '?'}</div>)
+                    : <div style={{ width: 28, flexShrink: 0 }} />)}
+                  <div style={{ maxWidth: '74%' }}>
+                    {showAvatar && <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: '#D4A017', marginBottom: 2, marginLeft: 4 }}>{p?.nickname}</div>}
+                    <div style={{ background: isMe ? 'rgba(147,197,253,0.18)' : 'rgba(30,58,95,0.55)', borderRadius: isMe ? '14px 14px 3px 14px' : '14px 14px 14px 3px', padding: '8px 11px', fontSize: 14, color: '#F0F4FF', lineHeight: 1.4, wordBreak: 'break-word' }}>
+                      {m.image_url && (m.msg_type === 'video'
+                        ? <video src={m.image_url} controls preload="none" style={{ width: '100%', borderRadius: 8, marginBottom: m.message && m.message !== '🎬' ? 4 : 0 }} />
+                        : <img src={m.image_url} loading="lazy" style={{ width: '100%', borderRadius: 8, marginBottom: m.message && m.message !== '📸' ? 4 : 0 }} />)}
+                      {m.message && m.message !== '📸' && m.message !== '🎬' && <div>{renderText(m.message, isMe)}</div>}
+                      <div style={{ fontSize: 8, color: 'rgba(240,244,255,0.35)', fontFamily: 'var(--mono)', textAlign: 'right', marginTop: 2 }}>{ts}</div>
                     </div>
                   </div>
                 </div>
               )
+              return out
             })}
+            <div ref={tabyChatEnd} />
           </div>
 
+          {/* @-autocomplete */}
+          {mentionSugg.length > 0 && (
+            <div style={{ display: 'flex', gap: 4, padding: '8px 0 0', flexWrap: 'wrap', flexShrink: 0 }}>
+              {mentionSugg.map(p => (
+                <button key={p.id} onClick={() => setTabyMsg(tabyMsg.replace(/@\w*$/, `@${p.name.split(' ')[0]} `))} style={{ fontSize: 11, padding: '4px 8px', background: 'rgba(30,58,95,0.6)', border: '0.5px solid rgba(147,197,253,0.2)', borderRadius: 6, color: '#93C5FD', cursor: 'pointer' }}>@{p.name.split(' ')[0]}</button>
+              ))}
+            </div>
+          )}
+
           {/* Input */}
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ flexShrink: 0, display: 'flex', gap: 8, padding: '10px 0 12px' }}>
+            <label title="Bild eller video" style={{ background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: '50%', width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, cursor: 'pointer', flexShrink: 0 }}>
+              📷<input ref={tabyFileRef} type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) uploadTabyImg(e.target.files[0]) }} />
+            </label>
             <input value={tabyMsg} onChange={e => setTabyMsg(e.target.value)}
-              onKeyDown={async e => {
-                if (e.key === 'Enter' && tabyMsg.trim()) {
-                  await supabase.from('taby_chat').insert({ player_id: tabyUser?.id, message: tabyMsg.trim(), msg_type: 'chat' })
-                  setTabyMsg('')
-                }
-              }}
-              placeholder="Skriv något..." style={{ flex: 1, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 24, color: '#F0F4FF', padding: '10px 16px', fontSize: 14 }} />
-            <button onClick={async () => {
-              if (!tabyMsg.trim()) return
-              await supabase.from('taby_chat').insert({ player_id: tabyUser?.id, message: tabyMsg.trim(), msg_type: 'chat' })
-              setTabyMsg('')
-            }} style={{ background: 'rgba(147,197,253,0.12)', border: '0.5px solid rgba(147,197,253,0.2)', borderRadius: '50%', width: 42, height: 42, color: '#93C5FD', fontSize: 18, cursor: 'pointer', flexShrink: 0 }}>↑</button>
+              onKeyDown={e => { if (e.key === 'Enter') sendTabyMsg() }}
+              placeholder="Skriv något... @namn för att tagga" style={{ flex: 1, minWidth: 0, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 24, color: '#F0F4FF', padding: '10px 16px', fontSize: 16, outline: 'none' }} />
+            <button onClick={sendTabyMsg} style={{ background: 'rgba(147,197,253,0.18)', border: '0.5px solid rgba(147,197,253,0.3)', borderRadius: '50%', width: 42, height: 42, color: '#93C5FD', fontSize: 18, cursor: 'pointer', flexShrink: 0 }}>↑</button>
           </div>
+          <div style={{ flexShrink: 0, textAlign: 'center', fontSize: 8, color: 'rgba(240,244,255,0.25)', fontFamily: 'var(--mono)', paddingBottom: 4 }}>Dubbeltryck på eget meddelande för att radera</div>
         </div>
         )
       })()}
