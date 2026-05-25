@@ -943,14 +943,16 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     return { last: sorted[0], count: sorted.length, bestStab: Math.max(...sorted.map(s => s.stableford || 0)) }
   }
 
-  // Check for hot hand / cold turkey in current round
+  // Check for hot hand / cold turkey in current round (samma regel som DIO: RIKTIGA gross-birdies, 2 i rad)
   const getTabyStreak = () => {
-    if (!newRound || !tabyUser) return { hot: 0, cold: 0 }
+    if (!newRound || !tabyUser) return { hot: 0, cold: 0, currentHot: 0, currentCold: 0 }
     const sc = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === tabyUser.id && s.strokes).sort((a,b) => a.hole - b.hole)
     let hotRun = 0, coldRun = 0, currentHot = 0, currentCold = 0
     sc.forEach(s => {
-      if ((s.stableford || 0) >= 3) { currentHot++; currentCold = 0; if (currentHot === 3) hotRun++; if (currentHot > 3) hotRun++ }
-      else if (s.stableford === 0) { currentCold++; currentHot = 0; if (currentCold === 3) coldRun++; if (currentCold > 3) coldRun++ }
+      const par = PARS[s.hole - 1]
+      const isBirdie = s.strokes > 0 && s.strokes < par // riktig gross-birdie
+      if (isBirdie) { currentHot++; currentCold = 0; if (currentHot >= 2) hotRun++ }
+      else if ((s.stableford || 0) === 0) { currentCold++; currentHot = 0; if (currentCold >= 2) coldRun++ }
       else { currentHot = 0; currentCold = 0 }
     })
     return { hot: hotRun, cold: coldRun, currentHot, currentCold }
