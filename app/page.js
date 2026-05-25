@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven, holeImages, buildRoastPrompt } from '../lib/courses'
 import { TABY_GPS, TABY_HOLES, TABY_COURSE, distanceToGreen, distanceToTee, haversineDistance } from '../lib/courses-taby'
+import { compressImage } from '../lib/imageCompress'
 import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio, playCasinoSound as playCasinoSoundLib } from '../lib/sounds'
 import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush, sendPush } from '../lib/push'
 import { AugustaBadge, LakeBadge, IconTrophy, IconFlag, IconLeaderboard, IconScorecard, IconMenu, IconSwords, IconChat, IconSmokeSignal, IconWallet, IconDice, IconCamera, IconInfo, IconUser, IconSettings, IconBell, IconSun, IconMoon, IconRefresh, IconLock, IconSwish, IconGreenJacket, IconGolfBall } from '../lib/icons'
@@ -3350,8 +3351,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     <label style={{ display: 'block', cursor: 'pointer' }}>
                       <input type="file" accept="image/*" style={{ display: 'none' }}
                         onChange={async (e) => {
-                          const file = e.target.files?.[0]
+                          let file = e.target.files?.[0]
                           if (!file) return
+                          file = await compressImage(file)
                           showTabyToast(`Laddar upp hål ${holeNum}...`, 'score')
                           const ext = file.name.split('.').pop().toLowerCase()
                           const path = `taby/holes/hole-${holeNum}.${ext}`
@@ -6383,8 +6385,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
   const uploadImg = async file => {
     if (!file || !user || !supabase) return
-    const path = `chat/${Date.now()}.${file.name.split('.').pop()}`
     const isVideo = file.type.startsWith('video/')
+    if (!isVideo) file = await compressImage(file)   // krymp foton innan upload
+    const path = `chat/${Date.now()}.${file.name.split('.').pop()}`
     const { error } = await supabase.storage.from('inv-images').upload(path, file, { contentType: file.type })
     if (!error) {
       const url = `https://swagnjpgddfakncovglo.supabase.co/storage/v1/object/public/inv-images/${path}`
@@ -9143,9 +9146,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   const uploadOne = async (item) => {
                     setHistoriaQueue(q => q.map(x => x.id === item.id ? { ...x, status: 'uploading' } : x))
                     try {
-                      const ext = item.file.name.split('.').pop()?.toLowerCase() || 'jpg'
+                      const uploadFile = item.file.type.startsWith('video/') ? item.file : await compressImage(item.file)
+                      const ext = uploadFile.name.split('.').pop()?.toLowerCase() || 'jpg'
                       const path = 'historia/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext
-                      const { error: upErr } = await supabase.storage.from('inv-images').upload(path, item.file, { contentType: item.file.type, upsert: false })
+                      const { error: upErr } = await supabase.storage.from('inv-images').upload(path, uploadFile, { contentType: uploadFile.type, upsert: false })
                       if (upErr) throw upErr
                       const url = supabase.storage.from('inv-images').getPublicUrl(path).data.publicUrl
                       const { error: dbErr } = await supabase.from('inv_historia').insert({
