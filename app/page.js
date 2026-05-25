@@ -943,19 +943,25 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     return { last: sorted[0], count: sorted.length, bestStab: Math.max(...sorted.map(s => s.stableford || 0)) }
   }
 
-  // Check for hot hand / cold turkey in current round (samma regel som DIO: RIKTIGA gross-birdies, 2 i rad)
+  // Hot/cold-indikatorer i rundan. Returnerar BÅDA:
+  // - net (Hot Hand på 3p stableford i rad — bra formindikator)
+  // - gross (riktiga birdies i rad, strokes<par — samma som DIO)
   const getTabyStreak = () => {
-    if (!newRound || !tabyUser) return { hot: 0, cold: 0, currentHot: 0, currentCold: 0 }
+    const empty = { currentHot: 0, currentCold: 0, currentHotGross: 0, hot: 0, cold: 0 }
+    if (!newRound || !tabyUser) return empty
     const sc = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === tabyUser.id && s.strokes).sort((a,b) => a.hole - b.hole)
-    let hotRun = 0, coldRun = 0, currentHot = 0, currentCold = 0
+    let hotRun = 0, coldRun = 0, currentHot = 0, currentCold = 0, currentHotGross = 0
     sc.forEach(s => {
       const par = PARS[s.hole - 1]
-      const isBirdie = s.strokes > 0 && s.strokes < par // riktig gross-birdie
-      if (isBirdie) { currentHot++; currentCold = 0; if (currentHot >= 2) hotRun++ }
-      else if ((s.stableford || 0) === 0) { currentCold++; currentHot = 0; if (currentCold >= 2) coldRun++ }
-      else { currentHot = 0; currentCold = 0 }
+      const isGrossBirdie = s.strokes > 0 && s.strokes < par
+      // Netto-form (3p stableford)
+      if ((s.stableford || 0) >= 3) { currentHot++; if (currentHot >= 3) hotRun++ } else { currentHot = 0 }
+      // Nollor
+      if ((s.stableford || 0) === 0) { currentCold++; if (currentCold >= 3) coldRun++ } else { currentCold = 0 }
+      // Riktiga gross-birdies i rad
+      if (isGrossBirdie) currentHotGross++; else currentHotGross = 0
     })
-    return { hot: hotRun, cold: coldRun, currentHot, currentCold }
+    return { hot: hotRun, cold: coldRun, currentHot, currentCold, currentHotGross }
   }
 
   const saveHoleScore = async (hole, strokes, forPlayerId = null) => {
@@ -1608,6 +1614,37 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               </div>
             ))}
           </div>
+          {/* 👑 SÄSONGSMÄSTARE — leder Order of Merit just nu */}
+          {(() => {
+            const leader = playerStats[0]
+            if (!leader || (leader.stats?.fullRounds || 0) < 1) return null
+            return (
+              <button onClick={() => (setTabyUser(prev => ({ ...prev, statsViewPid: leader.id })), setTabyView('stats'))}
+                style={{ width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 14, padding: 16, borderRadius: 18, position: 'relative', overflow: 'hidden',
+                  background: 'linear-gradient(135deg, rgba(212,160,23,0.22), rgba(20,41,74,0.5))', border: '1px solid rgba(212,160,23,0.55)' }}>
+                <div style={{ position: 'absolute', top: -18, right: -10, fontSize: 90, opacity: 0.08, transform: 'rotate(12deg)' }}>🏆</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: '#D4A017', letterSpacing: 3, marginBottom: 10 }}>👑 LEDER ORDER OF MERIT · 2026</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ position: 'relative' }}>
+                    {leader.image_url
+                      ? <img src={leader.image_url} loading="lazy" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid #D4A017' }} />
+                      : <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(212,160,23,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: '#D4A017', border: '2px solid #D4A017' }}>{leader.name?.charAt(0)}</div>}
+                    <div style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', fontSize: 20 }}>👑</div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'var(--serif)', fontSize: 24, color: '#FAF8F0', lineHeight: 1 }}>{leader.nickname}</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(212,160,23,0.85)', marginTop: 5, letterSpacing: 1 }}>{leader.name}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 28, fontWeight: 700, color: '#D4A017', lineHeight: 1 }}>{leader.stats?.pi || '—'}</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(147,197,253,0.5)', letterSpacing: 1.5, marginTop: 3 }}>PERFORMANCE INDEX</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.4)', marginTop: 4 }}>{leader.stats?.fullRounds || 0} rundor</div>
+                  </div>
+                </div>
+              </button>
+            )
+          })()}
+
           <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 16, border: '0.5px solid rgba(147,197,253,0.1)', overflow: 'hidden' }}>
             <div style={{ padding: '10px 14px 6px', fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 2 }}>ORDER OF MERIT</div>
             {playerStats.map((pl, idx) => {
@@ -1985,18 +2022,18 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: '#D4A017', fontWeight: 600 }}>{totalStab}p stableford</div>
               </div>
 
-              {/* Streak indicator */}
+              {/* Streak indicator — netto-form (3p) + riktiga birdies + nollor */}
               {(() => {
                 const streak = getTabyStreak()
-                if (streak.hot > 0 || streak.cold > 0 || streak.currentHot >= 2 || streak.currentCold >= 2) {
-                  return (
-                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                      {streak.currentHot >= 2 && <div style={{ flex: 1, padding: '8px 10px', background: 'rgba(74,222,128,0.08)', borderRadius: 8, border: '0.5px solid rgba(74,222,128,0.2)', fontSize: 11, color: '#4ADE80' }}>🔥 HOT HAND: {streak.currentHot} i rad</div>}
-                      {streak.currentCold >= 2 && <div style={{ flex: 1, padding: '8px 10px', background: 'rgba(232,99,74,0.08)', borderRadius: 8, border: '0.5px solid rgba(232,99,74,0.2)', fontSize: 11, color: '#E8634A' }}>❄️ COLD TURKEY: {streak.currentCold} nollor</div>}
-                    </div>
-                  )
-                }
-                return null
+                const show = streak.currentHot >= 2 || streak.currentHotGross >= 2 || streak.currentCold >= 2
+                if (!show) return null
+                return (
+                  <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                    {streak.currentHot >= 2 && <div style={{ flex: '1 1 45%', padding: '8px 10px', background: 'rgba(74,222,128,0.08)', borderRadius: 8, border: '0.5px solid rgba(74,222,128,0.2)', fontSize: 11, color: '#4ADE80' }}>🔥 HOT HAND: {streak.currentHot} × 3p+ i rad</div>}
+                    {streak.currentHotGross >= 2 && <div style={{ flex: '1 1 45%', padding: '8px 10px', background: 'rgba(212,160,23,0.1)', borderRadius: 8, border: '0.5px solid rgba(212,160,23,0.3)', fontSize: 11, color: '#D4A017' }}>🦅 {streak.currentHotGross} birdies i rad!</div>}
+                    {streak.currentCold >= 2 && <div style={{ flex: '1 1 45%', padding: '8px 10px', background: 'rgba(232,99,74,0.08)', borderRadius: 8, border: '0.5px solid rgba(232,99,74,0.2)', fontSize: 11, color: '#E8634A' }}>❄️ COLD TURKEY: {streak.currentCold} nollor</div>}
+                  </div>
+                )
               })()}
 
               {/* MOTSTÅNDARNA - other players in this round */}
