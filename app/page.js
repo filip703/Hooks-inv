@@ -387,10 +387,24 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   })
   const [tabySplashExit, setTabySplashExit] = useState(false)
   const [rosterPlayers, setRosterPlayers] = useState([])
+  const [rosterHero, setRosterHero] = useState(null) // key för den som leder
   useEffect(() => {
     if (!tabySplash) return
-    supabase.from('inv_players').select('key, nickname, name, image_url, taby_hcp').eq('taby_active', true).neq('key', 'spectator').order('taby_hcp', { nullsFirst: false })
-      .then(({ data }) => { if (data) setRosterPlayers(data.filter(p => p.image_url)) })
+    supabase.from('inv_players').select('key, nickname, name, image_url, taby_hcp, id').eq('taby_active', true).neq('key', 'spectator').order('taby_hcp', { nullsFirst: false })
+      .then(async ({ data }) => {
+        if (!data) return
+        const withImg = data.filter(p => p.image_url)
+        setRosterPlayers(withImg)
+        // Ledaren = högst snitt-stableford (min 2 rundor) — premium hjälte-accent
+        const { data: sc } = await supabase.from('taby_scores').select('player_id, round_id, stableford')
+        if (sc && sc.length) {
+          const byP = {}
+          sc.forEach(s => { (byP[s.player_id] ||= { sum: 0, rounds: new Set() }); byP[s.player_id].sum += (s.stableford || 0); byP[s.player_id].rounds.add(s.round_id) })
+          let best = null, bestAvg = -1
+          withImg.forEach(p => { const d = byP[p.id]; if (d && d.rounds.size >= 2) { const avg = d.sum / d.rounds.size; if (avg > bestAvg) { bestAvg = avg; best = p.key } } })
+          if (best) setRosterHero(best)
+        }
+      })
   }, [])
   const [tabyView, setTabyView] = useState('leaderboard')
   const [tabyHole, setTabyHole] = useState(1)
@@ -536,8 +550,8 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'dark')
     document.documentElement.setAttribute('data-mode', 'taby')
-    const t1 = setTimeout(() => setTabySplashExit(true), 5500)
-    const t2 = setTimeout(() => setTabySplash(false), 6200)
+    const t1 = setTimeout(() => setTabySplashExit(true), 6800)
+    const t2 = setTimeout(() => setTabySplash(false), 7500)
     // Load taby players
     const loadData = async () => {
       const { data: players } = await supabase.from('inv_players').select('*').eq('taby_active', true).order('taby_hcp')
@@ -1134,57 +1148,70 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
   // Splash — "The Roster": cinematisk lagpresentation med era ansikten
   if (tabySplash) {
-    const roster = rosterPlayers.slice(0, 6)
-    const introDone = roster.length * 0.32 + 1.0 // när alla ansikten är inne
+    const all = rosterPlayers.slice(0, 6)
+    const hero = all.find(p => p.key === rosterHero) || null
+    const others = hero ? all.filter(p => p.key !== hero.key) : all
+    const STEP = 0.42 // lugnare tempo mellan ansikten
+    const heroAt = 0.6
+    const othersStart = hero ? heroAt + 0.8 : 0.6
+    const introDone = othersStart + others.length * STEP + 0.6
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, overflow: 'hidden', background: 'radial-gradient(120% 90% at 50% 18%, #15294A 0%, #0C1830 45%, #060D1C 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: tabySplashExit ? 0 : 1, transition: 'opacity 0.7s ease' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, overflow: 'hidden', background: 'radial-gradient(120% 90% at 50% 22%, #15294A 0%, #0C1830 48%, #060D1C 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: tabySplashExit ? 0 : 1, transition: 'opacity 0.8s ease' }}>
         <style>{`
-          @keyframes rsFace { 0% { opacity: 0; transform: translateY(22px) scale(0.82); filter: blur(6px); } 60% { filter: blur(0); } 100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
-          @keyframes rsName { from { opacity: 0; } to { opacity: 1; } }
-          @keyframes rsSweep { 0% { left: -40%; opacity: 0; } 30% { opacity: 1; } 100% { left: 110%; opacity: 0; } }
+          @keyframes rsFace { 0% { opacity: 0; transform: translateY(16px) scale(0.9); filter: blur(5px); } 70% { filter: blur(0); } 100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
+          @keyframes rsName { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
           @keyframes rsLine { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
-          @keyframes rsTitle { from { opacity: 0; transform: translateY(14px); letter-spacing: 8px; } to { opacity: 1; transform: translateY(0); letter-spacing: 3px; } }
-          @keyframes rsFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-          @keyframes rsGlow { 0%,100% { box-shadow: 0 0 0 1.5px rgba(212,160,23,0.5), 0 4px 18px rgba(0,0,0,0.5); } 50% { box-shadow: 0 0 0 1.5px rgba(212,160,23,0.95), 0 0 22px rgba(212,160,23,0.4); } }
-          @keyframes rsStar { 0%,100% { opacity: 0.12; } 50% { opacity: 0.7; } }
+          @keyframes rsTitle { from { opacity: 0; transform: translateY(12px); letter-spacing: 9px; } to { opacity: 1; transform: translateY(0); letter-spacing: 3px; } }
+          @keyframes rsFadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+          @keyframes rsHeroGlow { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+          @keyframes rsCrown { 0% { opacity: 0; transform: translate(-50%, 6px) rotate(-12deg); } 100% { opacity: 1; transform: translate(-50%, 0) rotate(0); } }
+          @keyframes rsStar { 0%,100% { opacity: 0.1; } 50% { opacity: 0.55; } }
         `}</style>
 
-        {/* Subtilt stjärnstoft */}
-        {[[14,16,1.5,0],[30,10,2,0.7],[48,20,1.5,1.2],[68,12,2,0.4],[82,22,1.5,1.0],[90,14,1.5,1.5],[22,28,1.5,1.8],[60,26,2,0.6],[8,24,1.5,1.3]].map(([l,t,s,d],i)=>(
-          <div key={i} style={{ position:'absolute', left:`${l}%`, top:`${t}%`, width:s, height:s, borderRadius:'50%', background:'#E8F0FF', animation:`rsStar ${2.6+d}s ease-in-out infinite ${d}s`, boxShadow:'0 0 5px rgba(232,240,255,0.7)' }} />
+        {/* Subtilt stjärnstoft — färre, lugnare */}
+        {[[16,15,1.5,0],[34,11,1.5,1.1],[52,19,1.5,0.6],[70,13,1.5,1.6],[86,20,1.5,0.9],[24,25,1.5,1.3],[78,27,1.5,0.4]].map(([l,t,s,d],i)=>(
+          <div key={i} style={{ position:'absolute', left:`${l}%`, top:`${t}%`, width:s, height:s, borderRadius:'50%', background:'#E8F0FF', animation:`rsStar ${3.4+d}s ease-in-out infinite ${d}s`, boxShadow:'0 0 4px rgba(232,240,255,0.6)' }} />
         ))}
 
         {/* Topp-etikett */}
-        <div style={{ position:'absolute', top:'13%', textAlign:'center', animation:'rsFadeUp 0.9s ease 0.2s both' }}>
-          <div style={{ fontFamily:'var(--mono)', fontSize:9, letterSpacing:6, color:'rgba(147,197,253,0.5)' }}>THE LAKE CLUB · PRESENTERAR</div>
-          <div style={{ fontFamily:'var(--mono)', fontSize:8, letterSpacing:4, color:'rgba(212,160,23,0.55)', marginTop:8 }}>STARTFÄLTET · SÄSONG 2026</div>
+        <div style={{ position:'absolute', top:'12%', textAlign:'center', animation:'rsFadeUp 1.1s ease 0.2s both' }}>
+          <div style={{ fontFamily:'var(--mono)', fontSize:8, letterSpacing:7, color:'rgba(147,197,253,0.4)' }}>THE LAKE CLUB</div>
+          <div style={{ fontFamily:'var(--mono)', fontSize:7, letterSpacing:4, color:'rgba(212,160,23,0.45)', marginTop:9 }}>STARTFÄLTET · SÄSONG 2026</div>
         </div>
 
-        {/* Roster — ansikten tonar in en efter en */}
-        <div style={{ position:'relative', display:'flex', flexWrap:'wrap', justifyContent:'center', alignItems:'flex-start', gap:'14px 10px', maxWidth:340, padding:'0 16px', marginBottom:24 }}>
-          {roster.map((p, i) => (
-            <div key={p.key} style={{ width:88, display:'flex', flexDirection:'column', alignItems:'center', animation:`rsFace 0.7s cubic-bezier(0.2,0.7,0.3,1) ${0.4 + i*0.32}s both` }}>
-              <div style={{ borderRadius:'50%', padding:2, animation:`rsGlow 3s ease-in-out infinite ${introDone}s` }}>
-                <img src={p.image_url} alt="" style={{ width:62, height:62, borderRadius:'50%', objectFit:'cover', border:'1.5px solid rgba(212,160,23,0.7)' }} />
-              </div>
-              <div style={{ marginTop:7, fontFamily:'var(--serif)', fontSize:12, color:'#F0F4FF', whiteSpace:'nowrap', animation:`rsName 0.6s ease ${0.6 + i*0.32}s both` }}>{p.nickname}</div>
-              <div style={{ fontFamily:'var(--mono)', fontSize:7, color:'rgba(147,197,253,0.45)', letterSpacing:0.5, marginTop:2, animation:`rsName 0.6s ease ${0.7 + i*0.32}s both` }}>HCP {p.taby_hcp ?? '—'}</div>
+        {/* Hjälten — ledaren, stor med krona */}
+        {hero && (
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginBottom:30 }}>
+            <div style={{ position:'relative', animation:`rsFace 0.9s cubic-bezier(0.2,0.7,0.3,1) ${heroAt}s both` }}>
+              {/* Mjuk statisk guldglow (ej pulserande) */}
+              <div style={{ position:'absolute', inset:-14, borderRadius:'50%', background:'radial-gradient(circle, rgba(212,160,23,0.35), transparent 70%)', animation:`rsHeroGlow 1.4s ease ${heroAt+0.3}s both` }} />
+              <div style={{ position:'absolute', top:-26, left:'50%', fontSize:26, animation:`rsCrown 0.7s cubic-bezier(0.2,0.7,0.3,1) ${heroAt+0.5}s both`, zIndex:2 }}>👑</div>
+              <img src={hero.image_url} alt="" style={{ position:'relative', width:104, height:104, borderRadius:'50%', objectFit:'cover', border:'2px solid #D4A017', boxShadow:'0 8px 30px rgba(0,0,0,0.5)' }} />
+            </div>
+            <div style={{ marginTop:14, fontFamily:'var(--serif)', fontSize:22, color:'#F0F4FF', animation:`rsName 0.8s ease ${heroAt+0.6}s both` }}>{hero.nickname}</div>
+            <div style={{ fontFamily:'var(--mono)', fontSize:8, letterSpacing:3, color:'rgba(212,160,23,0.85)', marginTop:6, animation:`rsName 0.8s ease ${heroAt+0.75}s both` }}>LEDER ORDER OF MERIT</div>
+          </div>
+        )}
+
+        {/* Övriga — lugn rad under */}
+        <div style={{ display:'flex', flexWrap:'wrap', justifyContent:'center', alignItems:'flex-start', gap:'18px 16px', maxWidth:330, padding:'0 16px' }}>
+          {others.map((p, i) => (
+            <div key={p.key} style={{ width:64, display:'flex', flexDirection:'column', alignItems:'center', animation:`rsFace 0.8s cubic-bezier(0.2,0.7,0.3,1) ${othersStart + i*STEP}s both` }}>
+              <img src={p.image_url} alt="" style={{ width:52, height:52, borderRadius:'50%', objectFit:'cover', border:'1px solid rgba(147,197,253,0.35)' }} />
+              <div style={{ marginTop:7, fontFamily:'var(--serif)', fontSize:11, color:'rgba(240,244,255,0.85)', whiteSpace:'nowrap', animation:`rsName 0.7s ease ${othersStart + i*STEP + 0.2}s both` }}>{p.nickname}</div>
             </div>
           ))}
-          {/* Guld-svep över rostern */}
-          <div style={{ position:'absolute', top:0, bottom:0, width:'40%', background:'linear-gradient(90deg, transparent, rgba(212,160,23,0.18), transparent)', animation:`rsSweep 1.4s ease ${introDone}s both`, pointerEvents:'none' }} />
         </div>
 
         {/* Titel landar sist */}
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
-          <div style={{ width:200, height:1, background:'linear-gradient(90deg, transparent, #D4A017, transparent)', animation:`rsLine 0.8s ease ${introDone + 0.2}s both` }} />
-          <div style={{ fontFamily:'var(--serif)', fontSize:30, fontWeight:400, color:'#AECBF5', margin:'16px 0 2px', animation:`rsTitle 1s cubic-bezier(0.2,0.7,0.3,1) ${introDone + 0.3}s both` }}>Täby</div>
-          <div style={{ fontFamily:'var(--serif)', fontSize:16, fontStyle:'italic', color:'rgba(212,160,23,0.95)', letterSpacing:4, animation:`rsFadeUp 0.9s ease ${introDone + 0.6}s both` }}>Order of Merit</div>
-          <div style={{ width:200, height:1, background:'linear-gradient(90deg, transparent, #D4A017, transparent)', marginTop:16, animation:`rsLine 0.8s ease ${introDone + 0.2}s both` }} />
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginTop:34 }}>
+          <div style={{ width:180, height:1, background:'linear-gradient(90deg, transparent, rgba(212,160,23,0.8), transparent)', animation:`rsLine 1s ease ${introDone}s both` }} />
+          <div style={{ fontFamily:'var(--serif)', fontSize:28, fontWeight:400, color:'#AECBF5', margin:'14px 0 2px', animation:`rsTitle 1.2s cubic-bezier(0.2,0.7,0.3,1) ${introDone + 0.15}s both` }}>Täby</div>
+          <div style={{ fontFamily:'var(--serif)', fontSize:15, fontStyle:'italic', color:'rgba(212,160,23,0.95)', letterSpacing:4, animation:`rsFadeUp 1s ease ${introDone + 0.5}s both` }}>Order of Merit</div>
         </div>
 
-        <div style={{ position:'absolute', bottom:'7%', textAlign:'center', animation:`rsFadeUp 1s ease ${introDone + 0.9}s both` }}>
-          <div style={{ fontFamily:'var(--mono)', fontSize:8, color:'rgba(240,244,255,0.3)', letterSpacing:3 }}>VALLENTUNASJÖN · APRIL — OKTOBER</div>
+        <div style={{ position:'absolute', bottom:'6%', textAlign:'center', animation:`rsFadeUp 1.1s ease ${introDone + 0.9}s both` }}>
+          <div style={{ fontFamily:'var(--mono)', fontSize:7, color:'rgba(240,244,255,0.25)', letterSpacing:3 }}>VALLENTUNASJÖN · APRIL — OKTOBER</div>
         </div>
       </div>
     )
