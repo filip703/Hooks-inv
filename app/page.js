@@ -386,17 +386,11 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     return true
   })
   const [tabySplashExit, setTabySplashExit] = useState(false)
-  const [splashPhotos, setSplashPhotos] = useState([])
+  const [rosterPlayers, setRosterPlayers] = useState([])
   useEffect(() => {
     if (!tabySplash) return
-    supabase.from('inv_historia').select('media_url, media_type').eq('media_type', 'image').order('created_at', { ascending: false }).limit(14)
-      .then(({ data }) => {
-        if (!data) return
-        const urls = data.map(d => d.media_url).filter(Boolean)
-        // slumpa + ta 3
-        for (let i = urls.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[urls[i], urls[j]] = [urls[j], urls[i]] }
-        setSplashPhotos(urls.slice(0, 3))
-      })
+    supabase.from('inv_players').select('key, nickname, name, image_url, taby_hcp').eq('taby_active', true).neq('key', 'spectator').order('taby_hcp', { nullsFirst: false })
+      .then(({ data }) => { if (data) setRosterPlayers(data.filter(p => p.image_url)) })
   }, [])
   const [tabyView, setTabyView] = useState('leaderboard')
   const [tabyHole, setTabyHole] = useState(1)
@@ -1138,64 +1132,63 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
     </div>
   )
 
-  // Splash — Midnight Lake (måne, skimrande vatten, stjärnor)
-  if (tabySplash) return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, overflow: 'hidden', background: 'linear-gradient(180deg, #060D1C 0%, #0C1830 45%, #14294A 72%, #0A1A33 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: tabySplashExit ? 0 : 1, transition: 'opacity 0.7s ease' }}>
-      <style>{`
-        @keyframes lkFade { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes lkGlow { 0%,100% { text-shadow: 0 0 24px rgba(147,197,253,0.35), 0 0 60px rgba(147,197,253,0.12); } 50% { text-shadow: 0 0 42px rgba(147,197,253,0.6), 0 0 90px rgba(147,197,253,0.25); } }
-        @keyframes lkLine { from { width: 0; opacity: 0; } to { width: 160px; opacity: 1; } }
-        @keyframes lkMoon { from { opacity: 0; transform: translateY(-12px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        @keyframes lkStar { 0%,100% { opacity: 0.15; } 50% { opacity: 0.9; } }
-        @keyframes lkWave { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        @keyframes lkShimmer { 0%,100% { opacity: 0.25; transform: scaleY(1); } 50% { opacity: 0.6; transform: scaleY(1.15); } }
-        @keyframes lkKen { 0% { opacity: 0; transform: scale(1.12); } 12% { opacity: 0.5; } 28% { opacity: 0.5; } 40% { opacity: 0; transform: scale(1.18); } 100% { opacity: 0; } }
-      `}</style>
+  // Splash — "The Roster": cinematisk lagpresentation med era ansikten
+  if (tabySplash) {
+    const roster = rosterPlayers.slice(0, 6)
+    const introDone = roster.length * 0.32 + 1.0 // när alla ansikten är inne
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, overflow: 'hidden', background: 'radial-gradient(120% 90% at 50% 18%, #15294A 0%, #0C1830 45%, #060D1C 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: tabySplashExit ? 0 : 1, transition: 'opacity 0.7s ease' }}>
+        <style>{`
+          @keyframes rsFace { 0% { opacity: 0; transform: translateY(22px) scale(0.82); filter: blur(6px); } 60% { filter: blur(0); } 100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
+          @keyframes rsName { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes rsSweep { 0% { left: -40%; opacity: 0; } 30% { opacity: 1; } 100% { left: 110%; opacity: 0; } }
+          @keyframes rsLine { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
+          @keyframes rsTitle { from { opacity: 0; transform: translateY(14px); letter-spacing: 8px; } to { opacity: 1; transform: translateY(0); letter-spacing: 3px; } }
+          @keyframes rsFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+          @keyframes rsGlow { 0%,100% { box-shadow: 0 0 0 1.5px rgba(212,160,23,0.5), 0 4px 18px rgba(0,0,0,0.5); } 50% { box-shadow: 0 0 0 1.5px rgba(212,160,23,0.95), 0 0 22px rgba(212,160,23,0.4); } }
+          @keyframes rsStar { 0%,100% { opacity: 0.12; } 50% { opacity: 0.7; } }
+        `}</style>
 
-      {/* Foto-montage (gängets bilder) — subtilt bakom overlay */}
-      {splashPhotos.length > 0 && (
-        <div style={{ position:'absolute', inset:0, zIndex:0 }}>
-          {splashPhotos.map((url, i) => (
-            <div key={i} style={{ position:'absolute', inset:0, backgroundImage:`url(${url})`, backgroundSize:'cover', backgroundPosition:'center', animation:`lkKen ${splashPhotos.length*2.4}s ease-in-out infinite ${i*2.4}s` }} />
-          ))}
-          {/* Mörk Midnight-overlay så texten lyser */}
-          <div style={{ position:'absolute', inset:0, background:'linear-gradient(180deg, rgba(6,13,28,0.82) 0%, rgba(12,24,48,0.7) 45%, rgba(10,26,51,0.92) 100%)' }} />
+        {/* Subtilt stjärnstoft */}
+        {[[14,16,1.5,0],[30,10,2,0.7],[48,20,1.5,1.2],[68,12,2,0.4],[82,22,1.5,1.0],[90,14,1.5,1.5],[22,28,1.5,1.8],[60,26,2,0.6],[8,24,1.5,1.3]].map(([l,t,s,d],i)=>(
+          <div key={i} style={{ position:'absolute', left:`${l}%`, top:`${t}%`, width:s, height:s, borderRadius:'50%', background:'#E8F0FF', animation:`rsStar ${2.6+d}s ease-in-out infinite ${d}s`, boxShadow:'0 0 5px rgba(232,240,255,0.7)' }} />
+        ))}
+
+        {/* Topp-etikett */}
+        <div style={{ position:'absolute', top:'13%', textAlign:'center', animation:'rsFadeUp 0.9s ease 0.2s both' }}>
+          <div style={{ fontFamily:'var(--mono)', fontSize:9, letterSpacing:6, color:'rgba(147,197,253,0.5)' }}>THE LAKE CLUB · PRESENTERAR</div>
+          <div style={{ fontFamily:'var(--mono)', fontSize:8, letterSpacing:4, color:'rgba(212,160,23,0.55)', marginTop:8 }}>STARTFÄLTET · SÄSONG 2026</div>
         </div>
-      )}
 
-      {/* Stjärnfält */}
-      {[[12,18,2,0],[28,9,1.5,0.6],[44,22,2.5,1.1],[63,12,1.5,0.3],[78,26,2,0.9],[88,15,1.5,1.4],[20,32,1.5,1.7],[71,30,2,0.5],[55,7,1.5,1.2],[36,14,2,2.0],[83,33,1.5,0.2],[7,27,2,1.5]].map(([l,t,s,d],i)=>(
-        <div key={i} style={{ position:'absolute', left:`${l}%`, top:`${t}%`, width:s, height:s, borderRadius:'50%', background:'#E8F0FF', animation:`lkStar ${2.5+d}s ease-in-out infinite ${d}s`, boxShadow:'0 0 6px rgba(232,240,255,0.8)', zIndex:1 }} />
-      ))}
+        {/* Roster — ansikten tonar in en efter en */}
+        <div style={{ position:'relative', display:'flex', flexWrap:'wrap', justifyContent:'center', alignItems:'flex-start', gap:'14px 10px', maxWidth:340, padding:'0 16px', marginBottom:24 }}>
+          {roster.map((p, i) => (
+            <div key={p.key} style={{ width:88, display:'flex', flexDirection:'column', alignItems:'center', animation:`rsFace 0.7s cubic-bezier(0.2,0.7,0.3,1) ${0.4 + i*0.32}s both` }}>
+              <div style={{ borderRadius:'50%', padding:2, animation:`rsGlow 3s ease-in-out infinite ${introDone}s` }}>
+                <img src={p.image_url} alt="" style={{ width:62, height:62, borderRadius:'50%', objectFit:'cover', border:'1.5px solid rgba(212,160,23,0.7)' }} />
+              </div>
+              <div style={{ marginTop:7, fontFamily:'var(--serif)', fontSize:12, color:'#F0F4FF', whiteSpace:'nowrap', animation:`rsName 0.6s ease ${0.6 + i*0.32}s both` }}>{p.nickname}</div>
+              <div style={{ fontFamily:'var(--mono)', fontSize:7, color:'rgba(147,197,253,0.45)', letterSpacing:0.5, marginTop:2, animation:`rsName 0.6s ease ${0.7 + i*0.32}s both` }}>HCP {p.taby_hcp ?? '—'}</div>
+            </div>
+          ))}
+          {/* Guld-svep över rostern */}
+          <div style={{ position:'absolute', top:0, bottom:0, width:'40%', background:'linear-gradient(90deg, transparent, rgba(212,160,23,0.18), transparent)', animation:`rsSweep 1.4s ease ${introDone}s both`, pointerEvents:'none' }} />
+        </div>
 
-      {/* Måne */}
-      <div style={{ position:'absolute', top:'15%', animation:'lkMoon 1.6s ease 0.2s both', zIndex:1 }}>
-        <div style={{ width:84, height:84, borderRadius:'50%', background:'radial-gradient(circle at 38% 35%, #FBF6E3 0%, #F0E6C0 45%, #D4A017 100%)', boxShadow:'0 0 50px rgba(212,160,23,0.45), 0 0 100px rgba(212,160,23,0.2), inset -10px -10px 24px rgba(120,90,20,0.35)' }} />
+        {/* Titel landar sist */}
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
+          <div style={{ width:200, height:1, background:'linear-gradient(90deg, transparent, #D4A017, transparent)', animation:`rsLine 0.8s ease ${introDone + 0.2}s both` }} />
+          <div style={{ fontFamily:'var(--serif)', fontSize:30, fontWeight:400, color:'#AECBF5', margin:'16px 0 2px', animation:`rsTitle 1s cubic-bezier(0.2,0.7,0.3,1) ${introDone + 0.3}s both` }}>Täby</div>
+          <div style={{ fontFamily:'var(--serif)', fontSize:16, fontStyle:'italic', color:'rgba(212,160,23,0.95)', letterSpacing:4, animation:`rsFadeUp 0.9s ease ${introDone + 0.6}s both` }}>Order of Merit</div>
+          <div style={{ width:200, height:1, background:'linear-gradient(90deg, transparent, #D4A017, transparent)', marginTop:16, animation:`rsLine 0.8s ease ${introDone + 0.2}s both` }} />
+        </div>
+
+        <div style={{ position:'absolute', bottom:'7%', textAlign:'center', animation:`rsFadeUp 1s ease ${introDone + 0.9}s both` }}>
+          <div style={{ fontFamily:'var(--mono)', fontSize:8, color:'rgba(240,244,255,0.3)', letterSpacing:3 }}>VALLENTUNASJÖN · APRIL — OKTOBER</div>
+        </div>
       </div>
-
-      {/* Vatten + månestrimma */}
-      <div style={{ position:'absolute', bottom:0, left:0, right:0, height:'34%', background:'linear-gradient(180deg, rgba(20,41,74,0) 0%, rgba(16,34,64,0.7) 30%, #0A1A33 100%)', overflow:'hidden', zIndex:1 }}>
-        <div style={{ position:'absolute', top:0, left:'50%', transform:'translateX(-50%)', width:60, height:'100%', background:'linear-gradient(180deg, rgba(240,230,180,0.5), rgba(212,160,23,0.05))', filter:'blur(8px)', animation:'lkShimmer 3s ease-in-out infinite' }} />
-        <svg viewBox="0 0 800 80" preserveAspectRatio="none" style={{ position:'absolute', bottom:30, left:0, width:'200%', height:50, animation:'lkWave 9s linear infinite', opacity:0.4 }}>
-          <path d="M0,40 Q100,20 200,40 T400,40 T600,40 T800,40 T1000,40 T1200,40 V80 H0 Z" fill="rgba(147,197,253,0.18)" />
-        </svg>
-        <svg viewBox="0 0 800 80" preserveAspectRatio="none" style={{ position:'absolute', bottom:14, left:0, width:'200%', height:60, animation:'lkWave 6s linear infinite reverse', opacity:0.5 }}>
-          <path d="M0,40 Q100,55 200,40 T400,40 T600,40 T800,40 T1000,40 T1200,40 V80 H0 Z" fill="rgba(93,140,200,0.22)" />
-        </svg>
-      </div>
-
-      {/* Text */}
-      <div style={{ position:'relative', zIndex:2, display:'flex', flexDirection:'column', alignItems:'center', marginTop:'4%' }}>
-        <div style={{ animation:'lkFade 0.9s ease 0.5s both', fontFamily:'var(--mono)', fontSize:9, letterSpacing:6, color:'rgba(147,197,253,0.55)', textTransform:'uppercase' }}>The Lake Club</div>
-        <div style={{ animation:'lkFade 1s ease 0.8s both, lkGlow 3.5s ease-in-out infinite 1.8s', fontFamily:'var(--serif)', fontSize:40, fontWeight:400, color:'#AECBF5', margin:'10px 0 2px', letterSpacing:3, lineHeight:1 }}>Täby</div>
-        <div style={{ animation:'lkFade 1s ease 1.05s both', fontFamily:'var(--serif)', fontSize:17, fontStyle:'italic', color:'rgba(212,160,23,0.95)', letterSpacing:4 }}>Order of Merit</div>
-        <div style={{ animation:'lkLine 0.9s ease 1.4s both', height:1, background:'linear-gradient(90deg, transparent, #D4A017, transparent)', margin:'14px 0' }} />
-        <div style={{ animation:'lkFade 0.9s ease 1.7s both', fontFamily:'var(--mono)', fontSize:10, color:'rgba(212,175,55,0.6)', letterSpacing:4 }}>SÄSONG 2026</div>
-        <div style={{ animation:'lkFade 0.9s ease 2.0s both', fontFamily:'var(--mono)', fontSize:8, color:'rgba(240,244,255,0.35)', letterSpacing:3, marginTop:7 }}>VALLENTUNASJÖN · EST. 1968</div>
-      </div>
-      <div style={{ position:'absolute', bottom:'7%', zIndex:2, animation:'lkFade 1s ease 4s both', fontFamily:'var(--mono)', fontSize:7, color:'rgba(147,197,253,0.3)', letterSpacing:4 }}>APRIL — OKTOBER</div>
-    </div>
-  )
+    )
+  }
 
   // Current round scores for user
   const roundScores = (newRound && tabyUser) ? tabyScores.filter(s => s.round_id === newRound.id && s.player_id === tabyUser.id) : []
