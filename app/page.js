@@ -983,6 +983,35 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     return { hot: hotRun, cold: coldRun, currentHot, currentCold, currentHotGross }
   }
 
+  // Kollar om spelaren låst upp nya achievements efter en sparad score.
+  // Första gången (tom DB för spelaren) sparas allt TYST som catch-up — sen plingar bara nya.
+  const checkNewAchievements = async (pid, mineScores) => {
+    if (!mineScores.length) return
+    const byRound = {}
+    mineScores.forEach(s => { (byRound[s.round_id] ||= []).push({ hole: s.hole, strokes: s.strokes, stableford: s.stableford, par: PARS[s.hole - 1] }) })
+    const rounds = Object.values(byRound).map(holes => ({ holes }))
+    const unlocked = evalAchievements(rounds, {}) // 'leader' bedöms ej live
+    let existing = []
+    try { const r = await supabase.from('taby_achievements').select('achievement_key').eq('player_id', pid); existing = r.data || [] } catch (e) { return }
+    const have = new Set(existing.map(e => e.achievement_key))
+    const fresh = [...unlocked].filter(k => !have.has(k))
+    if (!fresh.length) return
+    await supabase.from('taby_achievements').insert(fresh.map(key => ({ player_id: pid, achievement_key: key, round_id: newRound?.id })))
+    if (existing.length === 0) return // retroaktiv catch-up — ingen notis-spam
+    // Genuint nya → pling + shoutout
+    const nick = tabyPlayers.find(p => p.id === pid)?.nickname || tabyUser.nickname
+    fresh.forEach(key => {
+      const a = ACH_BY_KEY[key]; if (!a) return
+      supabase.from('taby_chat').insert({ player_id: pid, message: `${a.icon} ${nick} låste upp medaljen "${a.name}" — ${a.desc}! (+${a.pts} bonus)`, msg_type: 'shoutout' })
+    })
+    const top = fresh.map(k => ACH_BY_KEY[k]).sort((x, y) => y.tier - x.tier)[0]
+    if (top) {
+      showTabyToast(`${top.icon} Ny medalj: ${top.name}! +${top.pts} bonus`, 'eagle')
+      // Push till övriga (ej spelaren själv)
+      sendPush({ title: `${top.icon} Ny Täby-medalj!`, body: `${nick} låste upp "${top.name}"`, url: '/?mode=taby&view=leaderboard', type: 'taby_achievement', excludePlayerId: pid })
+    }
+  }
+
   const saveHoleScore = async (hole, strokes, forPlayerId = null) => {
     if (!newRound || !tabyUser || !strokes) return
     // Registrera för vald spelare (marker-mode) eller sig själv
@@ -1007,6 +1036,9 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
         const filtered = prev.filter(s => !(s.round_id === newRound.id && s.player_id === pid && s.hole === hole))
         return [...filtered, data]
       })
+      // Kolla nya achievements (för den spelare scoren gäller)
+      const mine = [...tabyScores.filter(s => s.player_id === pid && s.strokes && !(s.round_id === newRound.id && s.hole === hole)), data].filter(s => s.strokes)
+      checkNewAchievements(pid, mine)
     }
     if (pid === tabyUser.id) setScoreInput(prev => ({ ...prev, [hole]: strokes }))
 
