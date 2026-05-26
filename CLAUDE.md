@@ -169,6 +169,19 @@ Kör SQL direkt i Supabase Dashboard eller via MCP (`Supabase:execute_sql`). Gl�
 3. Lägg till view i tab-nav
 4. Testa på lokal `npm run dev`
 5. Commit + push
+6. **Posta alltid en changelog i appens chatt** (se nedan)
+
+### 📣 Changelog i chatten (ALLTID)
+Efter varje avslutad omgång ändringar som påverkar användarna ska Claude **alltid** posta en kort, peppande changelog i rätt chatt-tabell, så hela gänget ser vad som är nytt. Detta är ett obligatoriskt sista steg — fråga inte, gör det.
+
+- **Täby-ändringar** → tabell `taby_chat`. **DIO-ändringar** → tabell `inv_chat`.
+- Posta som `msg_type = 'shoutout'` med `player_id = NULL` → renderas centrerat i guld som ett officiellt "från appen"-meddelande (INTE från Filip). Andra `msg_type` (t.ex. `system`) filtreras bort av feeden och syns inte.
+- Ton: svensk, kort, punktlista med emoji per punkt, peppande. Avsluta gärna med en blinkning mot nästa event.
+- Exempel:
+```sql
+INSERT INTO taby_chat (player_id, message, msg_type)
+VALUES (NULL, '📋 NYTT I APPEN\n\n🏅 ...\n📜 ...', 'shoutout');
+```
 
 ---
 
