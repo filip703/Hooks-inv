@@ -408,6 +408,8 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       })
   }, [])
   const [tabyView, setTabyView] = useState('leaderboard')
+  const [tabyHistRound, setTabyHistRound] = useState(null) // vald historisk runda
+  const [tabyHistExpand, setTabyHistExpand] = useState(null) // expanderad spelare i detaljvy
   const [tabyHole, setTabyHole] = useState(1)
   const [tabyPlayers, setTabyPlayers] = useState([])
   const [tabyUser, setTabyUser] = useState(null)
@@ -433,6 +435,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [h2hMatrixOpen, setH2hMatrixOpen] = useState(false)
   const [tabyToast, setTabyToast] = useState(null)
   const [tabySpectatePid, setTabySpectatePid] = useState(null)
+  const [tabyRoundDetail, setTabyRoundDetail] = useState(null) // round_id för historisk runddetalj
   const [tabyBanguideOpen, setTabyBanguideOpen] = useState(false)
   const tabyToastT = useRef(null)
   // GPS state
@@ -1447,7 +1450,86 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         )
       })()}
 
-      {/* SPECTATOR MODE */}
+      {/* HISTORISK RUNDDETALJ — hela scorekortet för alla deltagare */}
+      {tabyRoundDetail && (() => {
+        const round = tabyRounds.find(r => r.id === tabyRoundDetail)
+        if (!round) return null
+        const rScores = tabyScores.filter(s => s.round_id === tabyRoundDetail)
+        const pids = round.player_ids?.length ? round.player_ids : [...new Set(rScores.map(s => s.player_id))]
+        const parts = pids.map(pid => {
+          const pl = tabyPlayers.find(p => p.id === pid) || tabyAllPlayers.find(p => p.id === pid)
+          const sc = rScores.filter(s => s.player_id === pid)
+          const byHole = {}; sc.forEach(s => { byHole[s.hole] = s })
+          const totStab = sc.reduce((a, s) => a + (s.stableford || 0), 0)
+          const totStr = sc.reduce((a, s) => a + (s.strokes || 0), 0)
+          return { pl, byHole, totStab, totStr, holes: sc.length }
+        }).filter(p => p.pl).sort((a, b) => b.totStab - a.totStab)
+        const cellCol = (strokes, par) => {
+          if (!strokes) return 'rgba(147,197,253,0.04)'
+          const d = strokes - par
+          if (d <= -2) return 'rgba(212,160,23,0.35)'
+          if (d === -1) return 'rgba(74,222,128,0.3)'
+          if (d === 0) return 'rgba(147,197,253,0.18)'
+          if (d === 1) return 'rgba(240,244,255,0.06)'
+          return 'rgba(232,99,74,0.22)'
+        }
+        const dateStr = new Date(round.date || round.created_at).toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'long' })
+        const typeLabel = round.event_name || (round.type === 'event' ? 'Event' : round.type === 'group' ? 'Grupprunda' : round.type === 'solo' ? 'Solorunda' : 'Runda')
+        return (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'linear-gradient(180deg, #0C1830, #060D1C)', overflowY: 'auto', padding: '20px 0 60px' }}>
+            <div style={{ padding: '0 16px', maxWidth: 700, margin: '0 auto' }}>
+              <button onClick={() => setTabyRoundDetail(null)} style={{ background: 'none', border: 'none', color: '#93C5FD', fontSize: 15, cursor: 'pointer', marginBottom: 14 }}>← Tillbaka</button>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#D4A017', textTransform: 'capitalize' }}>{typeLabel}</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(147,197,253,0.5)', letterSpacing: 1, marginBottom: 4, textTransform: 'capitalize' }}>{dateStr} · Täby GK · {parts.length} spelare</div>
+              {round.notes && <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(240,244,255,0.4)', marginBottom: 12 }}>{round.notes}</div>}
+
+              {/* Scorekort-matris (horisontell scroll) */}
+              <div style={{ overflowX: 'auto', marginTop: 14, WebkitOverflowScrolling: 'touch' }}>
+                <table style={{ borderCollapse: 'collapse', fontFamily: 'var(--mono)', fontSize: 11 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ position: 'sticky', left: 0, background: '#0C1830', padding: '6px 8px', textAlign: 'left', color: 'rgba(147,197,253,0.5)', fontSize: 8, letterSpacing: 1, minWidth: 78 }}>HÅL</th>
+                      {Array.from({ length: 18 }, (_, h) => <th key={h} style={{ padding: '6px 0', minWidth: 22, color: 'rgba(240,244,255,0.5)', fontWeight: 400 }}>{h + 1}</th>)}
+                      <th style={{ padding: '6px 8px', color: '#D4A017', fontSize: 9 }}>TOT</th>
+                    </tr>
+                    <tr>
+                      <th style={{ position: 'sticky', left: 0, background: '#0C1830', padding: '3px 8px', textAlign: 'left', color: 'rgba(212,160,23,0.5)', fontSize: 8, letterSpacing: 1 }}>PAR</th>
+                      {PARS.map((p, h) => <th key={h} style={{ padding: '3px 0', color: 'rgba(212,160,23,0.45)', fontWeight: 400, fontSize: 9 }}>{p}</th>)}
+                      <th style={{ padding: '3px 8px', color: 'rgba(212,160,23,0.45)', fontSize: 9 }}>{PARS.reduce((a, b) => a + b, 0)}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parts.map(({ pl, byHole, totStab, totStr }, idx) => (
+                      <tr key={pl.id} style={{ borderTop: '0.5px solid rgba(147,197,253,0.06)' }}>
+                        <td style={{ position: 'sticky', left: 0, background: '#0C1830', padding: '6px 8px', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {idx === 0 && <span style={{ fontSize: 10 }}>👑</span>}
+                            <span style={{ color: idx === 0 ? '#D4A017' : '#F0F4FF', fontSize: 11 }}>{pl.nickname}</span>
+                          </div>
+                        </td>
+                        {Array.from({ length: 18 }, (_, h) => {
+                          const s = byHole[h + 1]
+                          return <td key={h} style={{ padding: '5px 0', textAlign: 'center', background: cellCol(s?.strokes, PARS[h]), color: '#F0F4FF' }}>{s?.strokes || '·'}</td>
+                        })}
+                        <td style={{ padding: '6px 8px', textAlign: 'center', color: idx === 0 ? '#D4A017' : '#93C5FD', fontWeight: 700 }}>{totStab}p<div style={{ fontSize: 8, color: 'rgba(240,244,255,0.35)', fontWeight: 400 }}>{totStr}sl</div></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Färgförklaring */}
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 14, fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(240,244,255,0.5)' }}>
+                <span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'rgba(212,160,23,0.35)', marginRight: 4, verticalAlign: 'middle' }} />Eagle+</span>
+                <span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'rgba(74,222,128,0.3)', marginRight: 4, verticalAlign: 'middle' }} />Birdie</span>
+                <span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'rgba(147,197,253,0.18)', marginRight: 4, verticalAlign: 'middle' }} />Par</span>
+                <span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'rgba(232,99,74,0.22)', marginRight: 4, verticalAlign: 'middle' }} />Dubbel+</span>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {tabySpectatePid && (() => {
         const spectator = tabyPlayers.find(p => p.id === tabySpectatePid)
         if (!spectator) return null
@@ -3175,13 +3257,13 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             {/* RUNDHISTORIK */}
             {roundTotals.length > 0 && (
               <div style={{ background: 'rgba(147,197,253,0.03)', borderRadius: 14, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 2, marginBottom: 10 }}>RUNDHISTORIK</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 2, marginBottom: 10 }}>RUNDHISTORIK <span style={{ color: 'rgba(147,197,253,0.3)' }}>· TRYCK FÖR HELA SCOREKORTET</span></div>
                 {roundTotals.slice().reverse().map((r, i) => {
                   const round = tabyRounds.find(rt => rt.id === r.roundId)
                   const avg = roundTotals.reduce((s, x) => s + x.total, 0) / roundTotals.length
                   const aboveAvg = r.total > avg
                   return (
-                    <div key={r.roundId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < roundTotals.length-1 ? '0.5px solid rgba(147,197,253,0.06)' : 'none' }}>
+                    <div key={r.roundId} onClick={() => setTabyRoundDetail(r.roundId)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < roundTotals.length-1 ? '0.5px solid rgba(147,197,253,0.06)' : 'none', cursor: 'pointer' }}>
                       <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(147,197,253,0.4)', width: 60 }}>{r.date}</div>
                       <div style={{ flex: 1 }}>
                         <div style={{ height: 4, borderRadius: 2, background: 'rgba(147,197,253,0.08)', overflow: 'hidden' }}>
@@ -3190,6 +3272,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                       </div>
                       <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 700, color: aboveAvg ? '#4ADE80' : '#93C5FD', minWidth: 36, textAlign: 'right' }}>{r.total}p</div>
                       <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.3)', minWidth: 28 }}>{r.strokes}sl</div>
+                      <div style={{ color: 'rgba(147,197,253,0.3)', fontSize: 12 }}>›</div>
                     </div>
                   )
                 })}
