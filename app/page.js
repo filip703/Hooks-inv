@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { courses, getPlayingHcp, calcStableford, checkStreaks, getShoutout, getZeroRoast, specialHoles, walkupMusic, pepTalks, guideUrls, getRandomRoast, venueImages, achievements, flyovers, playlists, getStrokesGiven, holeImages, buildRoastPrompt } from '../lib/courses'
 import { TABY_GPS, TABY_HOLES, TABY_COURSE, distanceToGreen, distanceToTee, haversineDistance } from '../lib/courses-taby'
 import { compressImage } from '../lib/imageCompress'
+import { TABY_ACHIEVEMENTS, ACH_BY_KEY, evalAchievements, topAchievement, medalPoints } from '../lib/taby-achievements'
 import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio, playCasinoSound as playCasinoSoundLib } from '../lib/sounds'
 import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush, sendPush } from '../lib/push'
 import { AugustaBadge, LakeBadge, IconTrophy, IconFlag, IconLeaderboard, IconScorecard, IconMenu, IconSwords, IconChat, IconSmokeSignal, IconWallet, IconDice, IconCamera, IconInfo, IconUser, IconSettings, IconBell, IconSun, IconMoon, IconRefresh, IconLock, IconSwish, IconGreenJacket, IconGolfBall } from '../lib/icons'
@@ -763,6 +764,16 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     const h2hPct = h2hTotal > 0 ? Math.round(h2hWins / h2hTotal * 100) : 0
 
     return { roundCount, totalStableford, totalStrokes, pi, avgStrokes, best8, fullRounds: roundStableford.length, eventPoints, eventResults, h2hWins, h2hPct }
+  }
+
+  // Achievements per spelare — grupperar scores per runda och utvärderar katalogen
+  const getPlayerAchievements = (playerId, isLeader = false) => {
+    const ps = tabyScores.filter(s => s.player_id === playerId && s.strokes)
+    const byRound = {}
+    ps.forEach(s => { (byRound[s.round_id] ||= []).push({ hole: s.hole, strokes: s.strokes, stableford: s.stableford, par: PARS[s.hole - 1] }) })
+    const rounds = Object.values(byRound).map(holes => ({ holes }))
+    const unlocked = evalAchievements(rounds, { isLeader })
+    return { unlocked, top: topAchievement(unlocked), medals: medalPoints(unlocked), count: unlocked.size }
   }
 
   // Create new round
@@ -1670,6 +1681,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             {playerStats.map((pl, idx) => {
               const sparkVals = getSparklineValues(pl.id)
               const st = pl.stats
+              const ach = getPlayerAchievements(pl.id, idx === 0)
               const hasEventPts = (st.eventPoints || 0) > 0
 
               // Kolla om spelaren har en aktiv (pågående) runda just nu
@@ -1730,6 +1742,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 13, color: '#F0F4FF', fontWeight: idx === 0 ? 600 : 400 }}>{pl.nickname}</span>
+                      {ach.top && <span title={ach.top.name} style={{ fontSize: 12 }}>{ach.top.icon}</span>}
                       {activeRound && <span style={{ fontSize: 8, color: '#4ADE80', fontFamily: 'var(--mono)', fontWeight: 700, letterSpacing: 1 }}>🔴 {activeHoles}/18 · {activeStab}p</span>}
                       {!activeRound && <TrendArrow />}
                       {!activeRound && sparkVals.length >= 2 && <Sparkline values={sparkVals} width={50} height={14} color={idx === 0 ? '#D4A017' : '#93C5FD'} />}
@@ -3041,6 +3054,35 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                 )}
               </div>
             </div>
+
+            {/* ACHIEVEMENTS / MEDALJER */}
+            {(() => {
+              const pAch = getPlayerAchievements(statsPlayerId, playerStats[0]?.id === statsPlayerId)
+              const tierRing = { 1: 'rgba(147,197,253,0.5)', 2: 'rgba(212,160,23,0.55)', 3: '#D4A017' }
+              return (
+                <div style={{ background: 'rgba(147,197,253,0.03)', borderRadius: 14, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#93C5FD', letterSpacing: 2 }}>MERIT-MEDALJER</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 700, color: '#D4A017' }}>{pAch.medals}</span>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(212,160,23,0.6)', letterSpacing: 1 }}>BONUS · {pAch.count}/{TABY_ACHIEVEMENTS.length}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                    {TABY_ACHIEVEMENTS.map(a => {
+                      const on = pAch.unlocked.has(a.key)
+                      return (
+                        <div key={a.key} title={`${a.name} — ${a.desc}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '9px 4px', borderRadius: 10, background: on ? 'rgba(212,160,23,0.07)' : 'rgba(147,197,253,0.02)', border: on ? `0.5px solid ${tierRing[a.tier]}` : '0.5px solid rgba(147,197,253,0.05)', opacity: on ? 1 : 0.35 }}>
+                          <div style={{ fontSize: 19, filter: on ? 'none' : 'grayscale(1)' }}>{on ? a.icon : '🔒'}</div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 6.5, color: on ? '#F0F4FF' : 'rgba(147,197,253,0.4)', letterSpacing: 0.3, textAlign: 'center', lineHeight: 1.2 }}>{a.name}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(147,197,253,0.3)', letterSpacing: 0.5, marginTop: 10, textAlign: 'center' }}>BONUSPOÄNG PÅVERKAR EJ ORDER OF MERIT</div>
+                </div>
+              )
+            })()}
 
             {/* HÅL-STATISTIK VISUELL */}
             <div style={{ background: 'rgba(147,197,253,0.03)', borderRadius: 14, padding: 14, marginBottom: 14, border: '0.5px solid rgba(147,197,253,0.08)' }}>
