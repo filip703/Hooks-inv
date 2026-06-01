@@ -1068,7 +1068,19 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     const scoringPlayer = pid === tabyUser.id ? tabyUser : tabyPlayers.find(p => p.id === pid) || tabyUser
     const par = PARS[hole - 1]
     const holeData = holes[hole - 1]
-    const extra = getExtra(holeData.i, scoringPlayer.taby_hcp || scoringPlayer.hcp)
+    // Hämta FÄRSK HCP från DB — undviker cache-bugg där localStorage-tabyUser har gammal HCP
+    let liveHcp = scoringPlayer.taby_hcp || scoringPlayer.hcp
+    try {
+      const { data: freshPlayer } = await supabase.from('inv_players').select('taby_hcp, hcp').eq('id', pid).single()
+      if (freshPlayer) {
+        liveHcp = freshPlayer.taby_hcp || freshPlayer.hcp
+        // Synca localStorage om det är min egen profil och HCP ändrats
+        if (pid === tabyUser.id && liveHcp !== (tabyUser.taby_hcp || tabyUser.hcp)) {
+          setTabyUser(prev => ({ ...prev, taby_hcp: freshPlayer.taby_hcp, hcp: freshPlayer.hcp }))
+        }
+      }
+    } catch (e) { /* fall back till cached värde */ }
+    const extra = getExtra(holeData.i, liveHcp)
     const fmt = newRound.format || 'stableford'
     const stab = fmt === 'stroke' ? null : calcStab(strokes, par, extra)
 
