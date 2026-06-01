@@ -723,7 +723,8 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   }
 
   // Get playing HCP (slope adjusted)
-  const getPlayingHcp = (hcp) => Math.round((hcp || 0) * 130 / 113)
+  // Capar HCP till 0-36 (SGF max) - skydd mot data-bugs som typ "147" istället för "14.7"
+  const getPlayingHcp = (hcp) => Math.round(Math.min(36, Math.max(0, hcp || 0)) * 130 / 113)
 
   // Get extra strokes for a specific hole
   const getExtra = (holeIdx, hcp) => {
@@ -3825,13 +3826,20 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '0.5px solid rgba(147,197,253,0.06)' }}>
                 {p.image_url ? <img src={p.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
                 <div style={{ flex: 1, fontSize: 13, color: '#F0F4FF' }}>{p.nickname} <span style={{ color: 'rgba(147,197,253,0.4)', fontSize: 10 }}>({p.name?.split(' ')[0]})</span></div>
-                <input type="number" step="0.1" defaultValue={p.taby_hcp ?? p.hcp} style={{ width: 60, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 6, color: '#F0F4FF', padding: '4px 6px', fontSize: 14, textAlign: 'center', fontFamily: 'var(--mono)' }}
+                <input type="number" step="0.1" min="0" max="36" defaultValue={p.taby_hcp ?? p.hcp} style={{ width: 60, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 6, color: '#F0F4FF', padding: '4px 6px', fontSize: 14, textAlign: 'center', fontFamily: 'var(--mono)' }}
                   onBlur={async (e) => {
-                    const v = parseFloat(e.target.value)
-                    if (!isNaN(v) && v !== parseFloat(p.taby_hcp ?? p.hcp)) {
-                      await supabase.from('inv_players').update({ taby_hcp: v, hcp_updated_at: new Date().toISOString() }).eq('id', p.id)
+                    let v = parseFloat(e.target.value)
+                    if (isNaN(v)) return
+                    // Capa till SGF-max 0-36
+                    const capped = Math.min(36, Math.max(0, v))
+                    if (capped !== v) {
+                      e.target.value = capped
+                      showTabyToast(`HCP capad till ${capped} (max 36)`, 'zero')
+                    }
+                    if (capped !== parseFloat(p.taby_hcp ?? p.hcp)) {
+                      await supabase.from('inv_players').update({ taby_hcp: capped, hcp_updated_at: new Date().toISOString() }).eq('id', p.id)
                       fetchTabyPlayers()
-                      showTabyToast(`${p.nickname} Täby-HCP → ${v}`, 'birdie')
+                      showTabyToast(`${p.nickname} Täby-HCP → ${capped}`, 'birdie')
                     }
                   }} />
               </div>
