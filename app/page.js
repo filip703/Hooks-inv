@@ -1016,6 +1016,51 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     }
   }
 
+  // Kollar om spelaren just blev klar med 18 hål → shoutout i chatten + push till alla utanför rundan.
+  // Anti-spam via taby_rounds.completion_shoutouts (uuid-array av spelare som redan blivit shoutoutade).
+  const checkRoundCompletion = async (pid, mineScores) => {
+    if (!newRound) return
+    const inRound = mineScores.filter(s => s.round_id === newRound.id && s.strokes)
+    if (inRound.length < 18) return
+    // Hämta färsk runda från DB (annars läser vi stale completion_shoutouts från setNewRound-cachen)
+    const { data: freshRound } = await supabase.from('taby_rounds').select('completion_shoutouts, player_ids').eq('id', newRound.id).single()
+    if (!freshRound) return
+    const posted = freshRound.completion_shoutouts || []
+    if (posted.includes(pid)) return // redan postad
+    const player = tabyPlayers.find(p => p.id === pid) || tabyUser
+    const totalStab = inRound.reduce((a, s) => a + (s.stableford || 0), 0)
+    const totalStr = inRound.reduce((a, s) => a + (s.strokes || 0), 0)
+    const totalPar = PARS.reduce((a, p) => a + p, 0)
+    const vsPar = totalStr - totalPar
+    const vsParStr = vsPar > 0 ? `+${vsPar}` : vsPar === 0 ? 'E' : `${vsPar}`
+    // Berömnande ton beroende på poäng
+    const flair = totalStab >= 40 ? '🔥 Hett!' : totalStab >= 36 ? '💪 Riktigt bra!' : totalStab >= 30 ? '👏 Solid.' : totalStab >= 24 ? '👍 OK runda.' : '🥃 Bättre lycka nästa gång.'
+    // Posta shoutout i chatten
+    await supabase.from('taby_chat').insert({
+      player_id: pid,
+      message: `⛳ ${player.nickname} är klar med rundan!\n${totalStab}p · ${totalStr} slag (${vsParStr}) · 18 hål · Täby GK\n${flair}`,
+      msg_type: 'shoutout'
+    })
+    // Markera som postad i DB
+    const newPosted = [...posted, pid]
+    await supabase.from('taby_rounds').update({ completion_shoutouts: newPosted }).eq('id', newRound.id)
+    setNewRound(prev => prev ? { ...prev, completion_shoutouts: newPosted } : prev)
+    // Push till alla taby-spelare utanför rundan (inkl spelaren själv exkluderas + deltagare)
+    const inRoundIds = new Set(freshRound.player_ids || [])
+    for (const p of tabyPlayers) {
+      if (p.key === 'spectator') continue
+      if (inRoundIds.has(p.id)) continue
+      sendPush({
+        title: `⛳ ${player.nickname} klar med Täby-rundan!`,
+        body: `${totalStab}p på 18 hål · ${totalStr} slag · ${flair}`,
+        targetPlayerId: p.id,
+        url: 'https://hooks-inv.vercel.app/?taby_only=1',
+        type: 'taby_round_complete'
+      }).catch(() => {})
+    }
+    showTabyToast(`🎉 Runda klar! ${totalStab}p`, 'eagle')
+  }
+
   const saveHoleScore = async (hole, strokes, forPlayerId = null) => {
     if (!newRound || !tabyUser || !strokes) return
     // Registrera för vald spelare (marker-mode) eller sig själv
@@ -1043,6 +1088,8 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       // Kolla nya achievements (för den spelare scoren gäller)
       const mine = [...tabyScores.filter(s => s.player_id === pid && s.strokes && !(s.round_id === newRound.id && s.hole === hole)), data].filter(s => s.strokes)
       checkNewAchievements(pid, mine)
+      // Kolla om rundan är klar (18 hål) → shoutout + push
+      checkRoundCompletion(pid, mine)
     }
     if (pid === tabyUser.id) setScoreInput(prev => ({ ...prev, [hole]: strokes }))
 
@@ -1207,6 +1254,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         <style>{`
           @keyframes rsFace { 0% { opacity: 0; transform: translateY(16px) scale(0.9); filter: blur(5px); } 70% { filter: blur(0); } 100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
           @keyframes rsName { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+          @keyframes tabyLivePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.78); } }
           @keyframes rsLine { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
           @keyframes rsTitle { from { opacity: 0; transform: translateY(12px); letter-spacing: 9px; } to { opacity: 1; transform: translateY(0); letter-spacing: 3px; } }
           @keyframes rsFadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -1858,7 +1906,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 13, color: '#F0F4FF', fontWeight: idx === 0 ? 600 : 400 }}>{pl.nickname}</span>
                       {ach.top && <span title={ach.top.name} style={{ fontSize: 12 }}>{ach.top.icon}</span>}
-                      {activeRound && <span style={{ fontSize: 8, color: '#4ADE80', fontFamily: 'var(--mono)', fontWeight: 700, letterSpacing: 1 }}>🔴 {activeHoles}/18 · {activeStab}p</span>}
+                      {activeRound && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 6px', borderRadius: 4, background: 'rgba(232,99,74,0.15)', border: '0.5px solid rgba(232,99,74,0.4)' }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#E8634A', animation: 'tabyLivePulse 1.4s ease-in-out infinite', boxShadow: '0 0 6px rgba(232,99,74,0.7)' }} />
+                          <span style={{ fontSize: 8, color: '#E8634A', fontFamily: 'var(--mono)', fontWeight: 700, letterSpacing: 1 }}>LIVE · {activeHoles}/18 · {activeStab}p</span>
+                        </span>
+                      )}
                       {!activeRound && <TrendArrow />}
                       {!activeRound && sparkVals.length >= 2 && <Sparkline values={sparkVals} width={50} height={14} color={idx === 0 ? '#D4A017' : '#93C5FD'} />}
                     </div>
