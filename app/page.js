@@ -6026,6 +6026,7 @@ function DIOApp({ onSwitchMode }) {
 
   const [crsApiCourse, setCrsApiCourse] = useState(null) // full course data med tees
   const [crsApiSelectedTee, setCrsApiSelectedTee] = useState('')
+  const [crsFormKey, setCrsFormKey] = useState(0) // force re-render av hålinputs
 
   const searchCoursesApi = async () => {
     if (!crsApiQuery.trim()) return
@@ -6059,6 +6060,7 @@ function DIOApp({ onSwitchMode }) {
       slope: tee.slope_rating || tee.slope || 113,
       holes
     })
+    setCrsFormKey(k => k + 1) // tvinga React att re-rendera hålinputs
   }
 
   const selectCourseFromApi = (result) => {
@@ -6214,7 +6216,7 @@ function DIOApp({ onSwitchMode }) {
                 <input type="number" value={crsForm.slope} onChange={e=>setCrsForm({...crsForm, slope:e.target.value})} placeholder="Slope" style={{...inp, width:90}} />
               </div>
               <div style={{ fontSize: 10, color:'var(--cream-muted)' }}>Par + index per hål (index 1 = svårast):</div>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:6 }}>
+              <div key={crsFormKey} style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:6 }}>
                 {crsForm.holes.map((h,i)=>(
                   <div key={i} style={{ display:'flex', alignItems:'center', gap:4, background:surf, borderRadius:6, padding:'4px 6px' }}>
                     <span style={{ fontSize:10, color:G, minWidth:26 }}>H{h.hole}</span>
