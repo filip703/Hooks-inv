@@ -6019,6 +6019,51 @@ function DIOApp({ onSwitchMode }) {
   const [edForm, setEdForm] = useState({ year: new Date().getFullYear(), name: '', edition_type: 'light', venue: '', dates_label: '', champion_key: '', champion_score: '', highlight: '' })
   const [showCourseForm, setShowCourseForm] = useState(false)
   const [crsForm, setCrsForm] = useState({ name: '', location: '', slope: 113, holes: Array.from({length:18}, (_,i)=>({ hole:i+1, par:4, index:i+1 })) })
+  const [crsApiQuery, setCrsApiQuery] = useState('')
+  const [crsApiResults, setCrsApiResults] = useState([])
+  const [crsApiLoading, setCrsApiLoading] = useState(false)
+  const [crsApiError, setCrsApiError] = useState('')
+
+  const searchCoursesApi = async () => {
+    if (!crsApiQuery.trim()) return
+    setCrsApiLoading(true); setCrsApiError(''); setCrsApiResults([])
+    try {
+      const res = await fetch(`/api/courses?action=search&q=${encodeURIComponent(crsApiQuery)}`)
+      const data = await res.json()
+      if (data.error) { setCrsApiError(data.error); return }
+      const courses = data.courses || data.data || data.results || []
+      setCrsApiResults(courses.slice(0, 8))
+      if (courses.length === 0) setCrsApiError('Inga banor hittades.')
+    } catch (e) { setCrsApiError('Sökning misslyckades.') }
+    finally { setCrsApiLoading(false) }
+  }
+
+  const selectCourseFromApi = async (result) => {
+    setCrsApiLoading(true); setCrsApiError('')
+    try {
+      // Hämta full bandata med hål-info
+      const res = await fetch(`/api/courses?action=course&id=${result.id}`)
+      const data = await res.json()
+      if (data.error) { setCrsApiError(data.error); return }
+      const course = data.course || data
+      // Mappa API-hål till vårt format
+      const apiHoles = course.holes || course.tees?.[0]?.holes || []
+      const holes = Array.from({length:18}, (_,i) => {
+        const h = apiHoles.find(x => (x.number || x.hole_number || x.hole) === i+1)
+        return { hole: i+1, par: h?.par || 4, index: h?.handicap || h?.stroke_index || h?.index || (i+1) }
+      })
+      const tee = course.tees?.find(t => t.tee_name?.toLowerCase().includes('gul') || t.tee_name?.toLowerCase().includes('yellow')) || course.tees?.[0]
+      setCrsForm({
+        name: course.club_name || result.club_name || '',
+        location: course.location || result.location || '',
+        slope: tee?.slope_rating || tee?.slope || course.slope_rating || 113,
+        holes
+      })
+      setCrsApiResults([])
+      setCrsApiQuery('')
+    } catch (e) { setCrsApiError('Kunde inte hämta bandata.') }
+    finally { setCrsApiLoading(false) }
+  }
 
   const saveEdition = async () => {
     if (!edForm.name || !edForm.year) { showToast('Fyll i år och namn', 'zero'); return }
@@ -6117,6 +6162,34 @@ function DIOApp({ onSwitchMode }) {
           ))}
           {showCourseForm && (
             <div style={{ marginTop: 10, display:'flex', flexDirection:'column', gap:8 }}>
+              {/* API-sökning */}
+              <div style={{ background:'rgba(212,175,55,0.06)', border:'1px solid rgba(212,175,55,0.2)', borderRadius:10, padding:10 }}>
+                <div style={{ fontFamily:'var(--mono)', fontSize:9, color:G, letterSpacing:2, marginBottom:6 }}>🔍 SÖK BANA VIA API</div>
+                <div style={{ display:'flex', gap:6, marginBottom: crsApiResults.length>0 ? 8 : 0 }}>
+                  <input
+                    value={crsApiQuery}
+                    onChange={e=>setCrsApiQuery(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==='Enter') searchCoursesApi() }}
+                    placeholder="Sök bana, t.ex. Bro Hof..."
+                    style={{...inp, flex:1, marginBottom:0}}
+                  />
+                  <button onClick={searchCoursesApi} disabled={crsApiLoading} style={{ padding:'8px 12px', background:'linear-gradient(135deg,#D4AF37,#B8941F)', border:'none', borderRadius:8, color:'#1A2B22', fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+                    {crsApiLoading ? '...' : 'Sök'}
+                  </button>
+                </div>
+                {crsApiResults.length > 0 && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                    {crsApiResults.map(r => (
+                      <button key={r.id} onClick={()=>selectCourseFromApi(r)} style={{ textAlign:'left', padding:'8px 10px', background:'var(--surface)', border:'1px solid var(--card-border)', borderRadius:8, color:'var(--cream)', fontSize:12, cursor:'pointer' }}>
+                        <div style={{ fontWeight:600 }}>{r.club_name}</div>
+                        <div style={{ fontSize:10, color:'var(--cream-muted)', marginTop:2 }}>{r.location} · {r.holes?.length || 18} hål</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {crsApiError && <div style={{ fontSize:11, color:'var(--coral)', marginTop:4 }}>{crsApiError}</div>}
+              </div>
+              <div style={{ fontSize:10, color:'var(--cream-muted)', textAlign:'center' }}>— eller fyll i manuellt —</div>
               <input value={crsForm.name} onChange={e=>setCrsForm({...crsForm, name:e.target.value})} placeholder="Bannamn, t.ex. Bro Hof Stadium" style={inp} />
               <div style={{ display:'flex', gap:8 }}>
                 <input value={crsForm.location} onChange={e=>setCrsForm({...crsForm, location:e.target.value})} placeholder="Plats" style={{...inp, flex:1}} />
