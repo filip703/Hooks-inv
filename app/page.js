@@ -747,8 +747,12 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     const totalStrokes = playerScores.reduce((s, sc) => s + (sc.strokes || 0), 0)
     const roundStableford = roundIds.map(rid => {
       const rs = playerScores.filter(s => s.round_id === rid)
-      return { roundId: rid, total: rs.reduce((s, sc) => s + (sc.stableford || 0), 0), strokes: rs.reduce((s, sc) => s + (sc.strokes || 0), 0), holes: rs.length }
-    }).filter(r => r.holes === 18)
+      const holes = rs.length
+      const rawStab = rs.reduce((s, sc) => s + (sc.stableford || 0), 0)
+      // 9-hals-rundor multipliceras x2 for 18-hals-ekvivalens (SGF-standard)
+      const total = holes === 9 ? rawStab * 2 : rawStab
+      return { roundId: rid, total, strokes: rs.reduce((s, sc) => s + (sc.strokes || 0), 0), holes, is9h: holes === 9 }
+    }).filter(r => r.holes === 18 || r.holes === 9)
     const best8 = [...roundStableford].sort((a, b) => b.total - a.total).slice(0, 8)
     const pi = best8.length > 0 ? Math.round(best8.reduce((s, r) => s + r.total, 0) / best8.length * 10) / 10 : 0
     const avgStrokes = roundStableford.length > 0 ? Math.round(roundStableford.reduce((s, r) => s + r.strokes, 0) / roundStableford.length * 10) / 10 : 0
