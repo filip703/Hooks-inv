@@ -737,7 +737,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   }
 
   // Get player stats from scores
-  const EVENT_MERIT_POINTS = { 1: 25, 2: 18, 3: 12, 4: 8, 5: 5, 6: 2 }
+  const EVENT_MERIT_POINTS = { 1: 3.5, 2: 2.0, 3: 1.0, 4: 0.5, 5: 0.5, 6: 0.5 }  // Alt 2: kraftig trappa, deltagande belönas, missade = 0
 
   const getPlayerStats = (playerId) => {
     const playerScores = tabyScores.filter(s => s.player_id === playerId)
@@ -1341,20 +1341,14 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
   const vsParStr = totalStrokes - parPlayed
   const phcp = getPlayingHcp(tabyUser?.taby_hcp || tabyUser?.hcp || 0)
 
-  // Stats for leaderboard — räknar meritTotal (viktad, normaliserad) + sorterar på vald key
+  // Stats for leaderboard — Alt 2: enkel modell, OOM = bas-PI + event-bonus
   const rawPlayerStats = tabyPlayers.map(p => ({ ...p, stats: getPlayerStats(p.id) }))
-  const maxPi = Math.max(...rawPlayerStats.map(p => p.stats.pi || 0), 0.01)
-  const maxEv = Math.max(...rawPlayerStats.map(p => p.stats.eventPoints || 0), 0.01)
-  const maxH2H = Math.max(...rawPlayerStats.map(p => p.stats.h2hPct || 0), 0.01)
-  const maxAkt = 12
   const playerStats = rawPlayerStats.map(p => {
     const s = p.stats
-    const piNorm = Math.round(((s.pi || 0) / maxPi) * 100 * 10) / 10
-    const evNorm = Math.round(((s.eventPoints || 0) / maxEv) * 100 * 10) / 10
-    const h2hNorm = Math.round(((s.h2hPct || 0) / maxH2H) * 100 * 10) / 10
-    const aktNorm = Math.round((Math.min(s.fullRounds || 0, maxAkt) / maxAkt) * 100 * 10) / 10
-    const meritTotal = Math.round((piNorm * 0.50 + evNorm * 0.35 + h2hNorm * 0.10 + aktNorm * 0.05) * 10) / 10
-    return { ...p, stats: { ...s, piNorm, evNorm, h2hNorm, aktNorm, meritTotal } }
+    const basPi = s.pi || 0
+    const eventBonus = s.eventPoints || 0  // Nya skalan: 3.5/2.0/1.0/0.5/0.5/0.5, missade = 0
+    const meritTotal = Math.round((basPi + eventBonus) * 10) / 10
+    return { ...p, stats: { ...s, basPi, eventBonus, meritTotal } }
   }).sort((a, b) => (b.stats[tabySortBy] || 0) - (a.stats[tabySortBy] || 0))
 
   // MAIN APP
@@ -1871,13 +1865,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
           })()}
 
           <div style={{ background: 'rgba(147,197,253,0.04)', borderRadius: 16, border: '0.5px solid rgba(147,197,253,0.1)', overflow: 'hidden' }}>
-            <div style={{ padding: '10px 14px 6px', fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 2 }}>ORDER OF MERIT — SORTERAD PÅ {({meritTotal:'TOTAL',pi:'PI',eventPoints:'EVENTS',h2hPct:'H2H %',fullRounds:'AKTIVITET'})[tabySortBy]}</div>
+            <div style={{ padding: '10px 14px 6px', fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.4)', letterSpacing: 2 }}>ORDER OF MERIT — SORTERAD PÅ {({meritTotal:'TOTAL',pi:'BAS-PI',eventBonus:'EVENT-BONUS',fullRounds:'RUNDOR'})[tabySortBy]}</div>
             <div style={{ display: 'flex', gap: 4, padding: '0 10px 8px', overflowX: 'auto', scrollbarWidth: 'none' }}>
               {[
                 { k: 'meritTotal', l: 'Total', c: '#D4A017' },
-                { k: 'pi', l: 'PI', c: '#93C5FD' },
-                { k: 'eventPoints', l: 'Events', c: '#D4A017' },
-                { k: 'h2hPct', l: 'H2H', c: '#4ADE80' },
+                { k: 'pi', l: 'Bas-PI', c: '#93C5FD' },
+                { k: 'eventBonus', l: 'Event-bonus', c: '#D4A017' },
                 { k: 'fullRounds', l: 'Rundor', c: '#E8634A' }
               ].map(opt => (
                 <button key={opt.k} onClick={() => setTabySortBy(opt.k)} style={{
@@ -1979,10 +1972,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                       <div style={{ fontFamily: 'var(--mono)', fontSize: 7, color: 'rgba(147,197,253,0.4)', letterSpacing: 1.2, marginTop: 2 }}>MERIT</div>
                       <div style={{ display:'flex', gap:6, justifyContent:'flex-end', marginTop:3, flexWrap:'wrap' }}>
                         <span style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.7)' }}>PI {st.pi || 0}</span>
-                        {(st.h2hWins > 0 || (st.h2hPct === 0 && (tabyH2H||[]).some(m => (m.player1_id===pl.id||m.player2_id===pl.id) && m.winner_id))) && (
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(74,222,128,0.8)' }}>H2H {st.h2hPct}%</span>
-                        )}
-                        {hasEventPts && <span style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,160,23,0.8)' }}>Ev {st.eventPoints}</span>}
+                        {(st.eventBonus || 0) > 0 && <span style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,160,23,0.8)' }}>+{st.eventBonus} event</span>}
                       </div>
                     </div>
                     <span style={{ fontSize: 10, color: 'rgba(147,197,253,0.4)', marginLeft: 4 }}>ⓘ</span>
@@ -2001,11 +1991,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
             const myH2H = (tabyH2H || []).filter(m => m.player1_id === pl.id || m.player2_id === pl.id)
             const h2hDecided = myH2H.filter(m => m.winner_id !== null)
             const h2hDraw = myH2H.filter(m => m.winner_id === null)
+            // Alt 2: bara två delar av totalen
             const catRows = [
-              { key: 'pi', label: 'Performance Index', weight: 50, raw: s.pi, rawLabel: 'snitt-p', norm: s.piNorm, contrib: Math.round(s.piNorm * 0.50 * 10) / 10, color: '#93C5FD' },
-              { key: 'ev', label: 'Events', weight: 35, raw: s.eventPoints, rawLabel: 'event-p', norm: s.evNorm, contrib: Math.round(s.evNorm * 0.35 * 10) / 10, color: '#D4A017' },
-              { key: 'h2h', label: 'Head-to-Head', weight: 10, raw: s.h2hPct + '%', rawLabel: (s.h2hWins || 0) + '-' + Math.max(0, h2hDecided.length - (s.h2hWins || 0)), norm: s.h2hNorm, contrib: Math.round(s.h2hNorm * 0.10 * 10) / 10, color: '#4ADE80' },
-              { key: 'akt', label: 'Aktivitet', weight: 5, raw: s.fullRounds || 0, rawLabel: 'rundor (cap 12)', norm: s.aktNorm, contrib: Math.round(s.aktNorm * 0.05 * 10) / 10, color: '#E8634A' }
+              { key: 'pi', label: 'Bas-PI', raw: s.basPi || 0, rawLabel: 'snitt av 8 bästa rundor', color: '#93C5FD' },
+              { key: 'ev', label: 'Event-bonus', raw: '+' + (s.eventBonus || 0), rawLabel: (s.eventResults || []).length + ' event-placeringar', color: '#D4A017' },
             ]
             return (
               <div onClick={() => setMeritBreakdownPid(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(6,14,30,0.85)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backdropFilter: 'blur(8px)' }}>
@@ -2023,7 +2012,8 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                   {/* Total-siffra */}
                   <div style={{ textAlign: 'center', padding: '20px 16px', marginBottom: 18, background: 'linear-gradient(135deg, rgba(212,160,23,0.15), rgba(212,160,23,0.05))', border: '1px solid rgba(212,160,23,0.35)', borderRadius: 14 }}>
                     <div style={{ fontFamily: 'var(--mono)', fontSize: 44, fontWeight: 700, color: '#D4A017', lineHeight: 1 }}>{s.meritTotal ?? 0}</div>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)', letterSpacing: 2, marginTop: 8 }}>MERIT-POÄNG (VIKTAD TOTAL)</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)', letterSpacing: 2, marginTop: 8 }}>TOTAL PI (BAS + EVENT-BONUS)</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.6)', marginTop: 6 }}>{s.basPi || 0} + {s.eventBonus || 0} bonus</div>
                   </div>
 
                   {/* Kategori-tabellen */}
@@ -2031,26 +2021,23 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(147,197,253,0.5)', letterSpacing: 2, marginBottom: 10 }}>SÅ RÄKNADES DET</div>
                     {catRows.map(cat => (
                       <div key={cat.key} style={{ marginBottom: 12, padding: 12, background: 'rgba(12,24,48,0.5)', border: `0.5px solid ${cat.color}30`, borderRadius: 10 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div>
-                            <div style={{ fontSize: 12, color: cat.color, fontWeight: 600 }}>{cat.label}</div>
-                            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.4)', marginTop: 2 }}>{cat.weight}% av totalen</div>
+                            <div style={{ fontSize: 13, color: cat.color, fontWeight: 600 }}>{cat.label}</div>
+                            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)', marginTop: 2 }}>{cat.rawLabel}</div>
                           </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 700, color: cat.color }}>+{cat.contrib}</div>
-                            <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(240,244,255,0.4)', marginTop: 2 }}>till total</div>
-                          </div>
-                        </div>
-                        {/* Progress bar */}
-                        <div style={{ height: 4, borderRadius: 2, background: 'rgba(147,197,253,0.08)', overflow: 'hidden', marginBottom: 6 }}>
-                          <div style={{ height: '100%', width: `${cat.norm}%`, background: cat.color, transition: 'width 0.3s' }} />
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)' }}>
-                          <span>Din siffra: {cat.raw} {cat.rawLabel}</span>
-                          <span>Normaliserat: {cat.norm}%</span>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 700, color: cat.color }}>{cat.raw}</div>
                         </div>
                       </div>
                     ))}
+                    <div style={{ padding: '10px 12px', marginTop: 4, marginBottom: 12, background: 'rgba(212,160,23,0.08)', border: '0.5px solid rgba(212,160,23,0.25)', borderRadius: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.6)', letterSpacing: 1.5 }}>EVENT-BONUS-SKALA</div>
+                      </div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(240,244,255,0.7)', marginTop: 5, lineHeight: 1.7 }}>
+                        🥇 +3.5 &nbsp;·&nbsp; 🥈 +2.0 &nbsp;·&nbsp; 🥉 +1.0 &nbsp;·&nbsp; 4:a +0.5 &nbsp;·&nbsp; 5:a +0.5 &nbsp;·&nbsp; 6:a +0.5 &nbsp;·&nbsp; ej med = 0
+                      </div>
+                    </div>
                   </div>
 
                   {/* Bästa 8 rundor */}
