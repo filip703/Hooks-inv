@@ -397,7 +397,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
         const withImg = data.filter(p => p.image_url)
         setRosterPlayers(withImg)
         // Ledaren = högst snitt-stableford (min 2 rundor) — premium hjälte-accent
-        const { data: sc } = await supabase.from('taby_scores').select('player_id, round_id, stableford').limit(99999)
+        const { data: sc } = await supabase.from('taby_scores').select('player_id, round_id, stableford').range(0, 99999)
         if (sc && sc.length) {
           const byP = {}
           sc.forEach(s => { (byP[s.player_id] ||= { sum: 0, rounds: new Set() }); byP[s.player_id].sum += (s.stableford || 0); byP[s.player_id].rounds.add(s.round_id) })
@@ -545,8 +545,8 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     if (data) setTabyRounds(data)
   }
   const fetchTabyScores = async () => {
-    const { data } = await supabase.from('taby_scores').select('*').limit(99999)
-    if (data) setTabyScores(data)
+    const data = await fetchAllTabyScores('*')
+    if (data && data.length) setTabyScores(data)
   }
   const fetchTabyEvents = async () => {
     const { data } = await supabase.from('taby_events').select('*').order('date')
@@ -574,8 +574,8 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       // Load rounds + scores
       const { data: rounds } = await supabase.from('taby_rounds').select('*').order('date', { ascending: false })
       if (rounds) setTabyRounds(rounds)
-      const { data: scores } = await supabase.from('taby_scores').select('*').limit(99999)
-      if (scores) setTabyScores(scores)
+      const scores = await fetchAllTabyScores('*')
+      if (scores && scores.length) setTabyScores(scores)
       // Load events
       const { data: events } = await supabase.from('taby_events').select('*').order('date')
       if (events) setTabyEvents(events)
@@ -737,6 +737,24 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   }
 
   // Get player stats from scores
+  // Hämtar ALLA taby_scores via chained pagination (bypassar Supabase max_rows 1000)
+  const fetchAllTabyScores = async (selectFields = '*') => {
+    const all = []
+    let from = 0
+    const batchSize = 1000
+    while (true) {
+      const { data, error } = await supabase.from('taby_scores')
+        .select(selectFields)
+        .range(from, from + batchSize - 1)
+      if (error || !data || data.length === 0) break
+      all.push(...data)
+      if (data.length < batchSize) break
+      from += batchSize
+      if (from > 500000) break  // safety-cap på 500k rader
+    }
+    return all
+  }
+
   const EVENT_MERIT_POINTS = { 1: 3.5, 2: 2.0, 3: 1.0, 4: 0.5, 5: 0.5, 6: 0.5 }  // Alt 2: kraftig trappa, deltagande belönas, missade = 0
 
   const getPlayerStats = (playerId) => {
@@ -1373,18 +1391,20 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
   // MAIN APP
   return (
     <PullToRefresh color="#93C5FD" bg="rgba(12,24,48,0.85)" onRefresh={async () => {
-      const [players, rounds, scores, events, h2h, bets, chat] = await Promise.all([
+      // Alla utom scores hamtas i Promise.all (inga limit-problem)
+      const [players, rounds, events, h2h, bets, chat] = await Promise.all([
         supabase.from('inv_players').select('*').eq('taby_active', true).order('taby_hcp'),
         supabase.from('taby_rounds').select('*').order('date', { ascending: false }),
-        supabase.from('taby_scores').select('*').limit(99999),
         supabase.from('taby_events').select('*').order('date'),
         supabase.from('taby_h2h').select('*').order('created_at', { ascending: false }),
         supabase.from('taby_bets').select('*').order('created_at', { ascending: false }),
         supabase.from('taby_chat').select('*').order('created_at', { ascending: false }).limit(150)
       ])
+      // Scores paginerar separat via helper (bypassar 1000-limiten)
+      const scoresData = await fetchAllTabyScores('*')
       if (players.data) setTabyPlayers(players.data)
       if (rounds.data) setTabyRounds(rounds.data)
-      if (scores.data) setTabyScores(scores.data)
+      if (scoresData && scoresData.length) setTabyScores(scoresData)
       if (events.data) setTabyEvents(events.data)
       if (h2h.data) setTabyH2H(h2h.data)
       if (bets.data) setTabyBets(bets.data)
