@@ -1047,9 +1047,19 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       message: `⛳ ${player.nickname} är klar med rundan!\n${totalStab}p · ${totalStr} slag (${vsParStr}) · 18 hål · Täby GK\n${flair}`,
       msg_type: 'shoutout'
     })
-    // Markera som postad i DB
+    // Markera som postad i DB + stäng rundan om ALLA spelare klara med 18 hål
     const newPosted = [...posted, pid]
-    await supabase.from('taby_rounds').update({ completion_shoutouts: newPosted }).eq('id', newRound.id)
+    // Hämta alla scores för rundan för att kolla vem som är klar
+    const { data: allScores } = await supabase.from('taby_scores').select('player_id, hole, strokes').eq('round_id', newRound.id)
+    const holesPerPlayer = {}
+    ;(allScores || []).filter(s => s.strokes).forEach(s => {
+      if (!holesPerPlayer[s.player_id]) holesPerPlayer[s.player_id] = new Set()
+      holesPerPlayer[s.player_id].add(s.hole)
+    })
+    const allPlayersDone = (freshRound.player_ids || []).every(playerId => (holesPerPlayer[playerId]?.size || 0) >= 18)
+    const updateData = { completion_shoutouts: newPosted }
+    if (allPlayersDone) { updateData.status = 'completed'; updateData.completed_at = new Date().toISOString() }
+    await supabase.from('taby_rounds').update(updateData).eq('id', newRound.id)
     setNewRound(prev => prev ? { ...prev, completion_shoutouts: newPosted } : prev)
     // Push till alla taby-spelare utanför rundan (inkl spelaren själv exkluderas + deltagare)
     const inRoundIds = new Set(freshRound.player_ids || [])
