@@ -2288,12 +2288,25 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'rgba(240,244,255,0.5)', fontWeight: 500 }}>{totalStrokes} slag {vsParStr > 0 ? `+${vsParStr}` : vsParStr} vs par</div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
                   <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>Spel-HCP: {phcp}</div>
                   <div style={{ fontSize: 9, color: 'rgba(147,197,253,0.4)', fontFamily: 'var(--mono)' }}>Netto: {totalStrokes > 0 ? totalStrokes - Math.round(phcp * holesPlayed / 18) : '—'}</div>
-                  <div style={{ flex: 1 }} />
-                  <button onClick={() => setShowEndRoundModal(true)} style={{ padding: '2px 10px', borderRadius: 6, cursor: 'pointer', background: 'rgba(232,99,74,0.08)', border: '0.5px solid rgba(232,99,74,0.25)', color: '#E8634A', fontSize: 9, fontFamily: 'var(--mono)', letterSpacing: 0.5 }}>Avsluta runda</button>
                 </div>
+                {/* Prominent "Slutfor runda"-knapp — storre, hela bredden, tydlig CTA */}
+                <button onClick={() => setShowEndRoundModal(true)} style={{
+                  width: '100%', marginTop: 10, padding: '12px 16px', borderRadius: 10, cursor: 'pointer',
+                  background: holesPlayed >= 18
+                    ? 'linear-gradient(135deg, rgba(74,222,128,0.18), rgba(74,222,128,0.08))'
+                    : 'rgba(232,99,74,0.08)',
+                  border: holesPlayed >= 18
+                    ? '1px solid rgba(74,222,128,0.4)'
+                    : '0.5px solid rgba(232,99,74,0.3)',
+                  color: holesPlayed >= 18 ? '#4ADE80' : '#E8634A',
+                  fontSize: 13, fontFamily: 'var(--mono)', fontWeight: 600, letterSpacing: 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                }}>
+                  {holesPlayed >= 18 ? '🏁 Slutfor rundan' : `Avsluta i fortid (${holesPlayed}/18 hal)`}
+                </button>
               </div>
               {/* Hole list — Gamebook-inspirerad, klickbar rad = fullscreen */}
               <div style={{ borderRadius: 12, overflow: 'hidden', border: '0.5px solid rgba(147,197,253,0.08)', marginBottom: 8 }}>
