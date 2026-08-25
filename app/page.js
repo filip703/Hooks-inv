@@ -397,7 +397,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
         const withImg = data.filter(p => p.image_url)
         setRosterPlayers(withImg)
         // Ledaren = högst snitt-stableford (min 2 rundor) — premium hjälte-accent
-        const { data: sc } = await supabase.from('taby_scores').select('player_id, round_id, stableford')
+        const { data: sc } = await supabase.from('taby_scores').select('player_id, round_id, stableford').range(0, 99999)
         if (sc && sc.length) {
           const byP = {}
           sc.forEach(s => { (byP[s.player_id] ||= { sum: 0, rounds: new Set() }); byP[s.player_id].sum += (s.stableford || 0); byP[s.player_id].rounds.add(s.round_id) })
@@ -545,7 +545,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     if (data) setTabyRounds(data)
   }
   const fetchTabyScores = async () => {
-    const { data } = await supabase.from('taby_scores').select('*')
+    const { data } = await supabase.from('taby_scores').select('*').range(0, 99999)
     if (data) setTabyScores(data)
   }
   const fetchTabyEvents = async () => {
@@ -574,7 +574,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       // Load rounds + scores
       const { data: rounds } = await supabase.from('taby_rounds').select('*').order('date', { ascending: false })
       if (rounds) setTabyRounds(rounds)
-      const { data: scores } = await supabase.from('taby_scores').select('*')
+      const { data: scores } = await supabase.from('taby_scores').select('*').range(0, 99999)
       if (scores) setTabyScores(scores)
       // Load events
       const { data: events } = await supabase.from('taby_events').select('*').order('date')
@@ -1376,7 +1376,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       const [players, rounds, scores, events, h2h, bets, chat] = await Promise.all([
         supabase.from('inv_players').select('*').eq('taby_active', true).order('taby_hcp'),
         supabase.from('taby_rounds').select('*').order('date', { ascending: false }),
-        supabase.from('taby_scores').select('*'),
+        supabase.from('taby_scores').select('*').range(0, 99999),
         supabase.from('taby_events').select('*').order('date'),
         supabase.from('taby_h2h').select('*').order('created_at', { ascending: false }),
         supabase.from('taby_bets').select('*').order('created_at', { ascending: false }),
