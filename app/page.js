@@ -1090,13 +1090,22 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     const fmt = newRound.format || 'stableford'
     const stab = fmt === 'stroke' ? null : calcStab(strokes, par, extra)
 
-    const { data } = await supabase.from('taby_scores').upsert({
+    const { data, error } = await supabase.from('taby_scores').upsert({
       round_id: newRound.id,
       player_id: pid,
       hole,
       strokes,
       stableford: stab
     }, { onConflict: 'round_id,player_id,hole' }).select().single()
+
+    // FIX: throw explicit error si upsert misslyckas (natverk, RLS, etc)
+    // Utan detta rensar batch-save pending + hoppar till nasta hal aven om
+    // inget sparades i DB — vilket forklarar 'appen hoppar och det forsvinner'
+    if (error || !data) {
+      const msg = error?.message || 'okand orsak'
+      showTabyToast(`⚠️ Kunde inte spara hål ${hole} — ${msg}. Kolla natverket!`, 'zero')
+      throw new Error(`saveHoleScore failed: ${msg}`)
+    }
 
     if (data) {
       setTabyScores(prev => {
@@ -2882,7 +2891,15 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                       const saves = roundPlayers
                         .filter(rp => pendingScore[`${rp.id}_${h.h}`] !== undefined)
                         .map(rp => saveHoleScore(h.h, pendingScore[`${rp.id}_${h.h}`], rp.id))
-                      await Promise.all(saves)
+                      // FIX: try/catch runt Promise.all — om ett save felar
+                      // ska vi INTE rensa pending eller hoppa till nasta hal
+                      try {
+                        await Promise.all(saves)
+                      } catch (err) {
+                        showTabyToast(`⚠️ Ett eller flera hal sparades INTE. Forsok igen.`, 'zero')
+                        console.error('Batch-save failed:', err)
+                        return  // AVBRYT — behall pending, stanna kvar pa halet
+                      }
                       // Rensa pending för detta hål (alla spelare)
                       setPendingScore(prev => {
                         const n = { ...prev }
