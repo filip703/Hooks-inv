@@ -379,6 +379,10 @@ const Sparkline = ({ values, width = 60, height = 16, color = '#D4A017' }) => {
 
 function TaByApp({ onSwitchMode, tabyOnly }) {
   const [tabySplash, setTabySplash] = useState(() => {
+    // AVSTANGD sedan 2026-09-25 (Marcus/Filip): appen oppnar direkt pa leaderboarden.
+    // Satt TABY_SPLASH_ENABLED = true for att fa tillbaka "The Roster".
+    const TABY_SPLASH_ENABLED = false
+    if (!TABY_SPLASH_ENABLED) return false
     // Bypassa splash om appen öppnas via push-notis
     if (typeof window === 'undefined') return true
     try {
