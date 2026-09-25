@@ -44,7 +44,7 @@ export default function TabyFinal({ final, players, rounds, scores, events, user
   const tieFlags = []
   for (let i = 1; i < rows.length; i++) {
     const a = rows[i - 1], b = rows[i]
-    if (a.total === b.total && (a.merit_total ?? null) === (b.merit_total ?? null)) tieFlags.push(`${a.player?.nickname} & ${b.player?.nickname}: lika totalpoäng (${a.total}) och lika/ej jämförbar TOOM före finalen — beslut krävs.`)
+    if (a.total === b.total && (a.merit_total ?? null) === (b.merit_total ?? null)) tieFlags.push(`${a.player?.nickname} & ${b.player?.nickname}: lika totalpoäng (${a.total}) och lika TOOM före finalen — korthålsbanan avgör.`)
     else if (a.total === b.total && (a.merit_total == null || b.merit_total == null)) tieFlags.push(`${a.player?.nickname} & ${b.player?.nickname}: lika totalpoäng (${a.total}) men en av dem saknar TOOM-poäng före finalen — beslut krävs.`)
   }
   const anyStarted = rows.some(r => r.holes > 0)
@@ -122,11 +122,11 @@ export default function TabyFinal({ final, players, rounds, scores, events, user
             )
           })}
           <div style={{ ...mono, fontSize: 8, color: MUT, marginTop: 10, lineHeight: 1.6 }}>
-            Startpoäng = TOOM-poäng före finalen minus lägsta bland de sex ordinarie. Mårten startar på 0. Slutpoäng = start + finalrundans poängbogeypoäng. Ingen boost, alla hål ger vanliga poäng. Lika slutpoäng: högst TOOM före finalen vinner.
+            Startpoäng = TOOM-poäng före finalen minus lägsta bland de sex ordinarie. Mårten startar på 0. Slutpoäng = start + finalrundans poängbogeypoäng. Ingen boost, alla hål ger vanliga poäng. Lika slutpoäng: högst TOOM före finalen vinner. Är även den lika (Marcus/Matthis) avgör korthålsbanan.
           </div>
           {tieFlags.length > 0 && (
             <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: 'rgba(232,99,74,0.1)', border: '0.5px solid rgba(232,99,74,0.4)' }}>
-              <div style={{ ...lbl, color: CORAL }}>⚠️ BESLUT KRÄVS (FILIP)</div>
+              <div style={{ ...lbl, color: CORAL }}>⛳ SÄRSKILJNING</div>
               {tieFlags.map((t, i) => <div key={i} style={{ fontSize: 11, color: CREAM, lineHeight: 1.5 }}>{t}</div>)}
             </div>
           )}
@@ -181,7 +181,7 @@ export default function TabyFinal({ final, players, rounds, scores, events, user
         {/* HEAD TO HEAD */}
         <div style={card}>
           <div style={lbl}>HEAD TO HEAD · DE SEX ORDINARIE · FRÅN SCRATCH</div>
-          <div style={{ fontSize: 10, color: MUT, lineHeight: 1.5, marginBottom: 10 }}>Paras efter TOOM före finalen: 1v6, 2v5, 3v4. Avgörs på finalrundans råa poängbogeypoäng — inga startpoäng, inga fördelar. Lika → chip-off: 3 chippar på chipping-greenen, närmast vinner. Beloppet bestäms per par före start.</div>
+          <div style={{ fontSize: 10, color: MUT, lineHeight: 1.5, marginBottom: 10 }}>Paras efter TOOM före finalen: 1v6, 2v5, 3v4. Avgörs på finalrundans råa poängbogeypoäng — inga startpoäng, inga fördelar. Lika → korthålsbanan avgör. Beloppet bestäms per par före start.</div>
           {(final.h2h || []).map((m, idx) => {
             const a = byId[m.p1], b = byId[m.p2]
             const pa = played[m.p1] || { pts: 0, holes: 0 }, pb = played[m.p2] || { pts: 0, holes: 0 }
@@ -206,7 +206,7 @@ export default function TabyFinal({ final, players, rounds, scores, events, user
                     onBlur={e => { const v = parseInt(e.target.value); setH2H(idx, { stake: isNaN(v) ? null : v }) }}
                     style={{ width: 62, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.2)', borderRadius: 8, color: CREAM, padding: '6px 8px', fontSize: 11, ...mono, textAlign: 'right' }} />
                 </div>
-                {done && pa.pts === pb.pts && <div style={{ ...mono, fontSize: 9, color: CORAL, marginTop: 6 }}>⛳ Oavgjort — chip-off avgör (3 chippar, närmast vinner).</div>}
+                {done && pa.pts === pb.pts && <div style={{ ...mono, fontSize: 9, color: CORAL, marginTop: 6 }}>⛳ Oavgjort — korthålsbanan avgör.</div>}
                 {done && pa.pts !== pb.pts && <div style={{ ...mono, fontSize: 9, color: GREEN, marginTop: 6 }}>🏆 {byId[lead]?.nickname} vinner{m.stake ? ` ${m.stake} kr` : ''}.</div>}
               </div>
             )
