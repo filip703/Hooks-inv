@@ -942,6 +942,20 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     }
   }, [newRound?.id, tabyActiveHole])
 
+  // ===== TOOM-final: oppna finalvyn direkt vid app-start (en gang per session) =====
+  // Ligger FORE early returns (React #310). Hoppar over vid push-deeplink (pending_view).
+  useEffect(() => {
+    if (!tabyUser || !tabyFinal || tabyEvents.length === 0) return
+    const ev = tabyEvents.find(e => e.id === tabyFinal.event_id)
+    if (!ev || ev.status === 'completed') return
+    try {
+      if (sessionStorage.getItem('pending_view')) return
+      if (sessionStorage.getItem('taby_final_autoopened')) return
+      sessionStorage.setItem('taby_final_autoopened', '1')
+    } catch (e) {}
+    setTabyFinalOpen(true)
+  }, [tabyUser, tabyFinal, tabyEvents])
+
   // ===== PWA App Badge — Täby total stableford på app-ikonen =====
   // VIKTIGT: Måste ligga FÖRE early returns (tabySplash, tabyUser-check) för att undvika React #310.
   // Beräknar totalStab on-the-fly inuti callbacken så vi inte behöver flytta beräkningarna.
