@@ -71,16 +71,17 @@ export default function TabyFinal({ final, players, rounds, scores, events, user
   const leader = rows[0]
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1150, background: 'linear-gradient(180deg, #0C1830 0%, #14294A 100%)', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-      <div style={{ position: 'sticky', top: 0, zIndex: 2, background: 'rgba(12,24,48,0.92)', backdropFilter: 'blur(12px)', borderBottom: '0.5px solid rgba(212,160,23,0.3)', padding: '14px 16px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: LAKE, fontSize: 13, cursor: 'pointer', padding: 0 }}>← Tillbaka</button>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1150, background: 'linear-gradient(180deg, #0C1830 0%, #14294A 100%)', display: 'flex', flexDirection: 'column', overflow: 'hidden', touchAction: 'pan-y' }}>
+      <div style={{ flexShrink: 0, background: 'rgba(12,24,48,0.96)', borderBottom: '0.5px solid rgba(212,160,23,0.3)', padding: '12px 16px 10px', paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button onClick={onClose} style={{ background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.25)', borderRadius: 10, color: LAKE, fontSize: 14, cursor: 'pointer', padding: '8px 12px' }}>← Tillbaka</button>
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ ...mono, fontSize: 8, color: G, letterSpacing: 3 }}>🏁 TOOM-FINALEN {ev?.date ? '· ' + ev.date : ''}</div>
         </div>
         <div style={{ width: 70, textAlign: 'right', ...mono, fontSize: 9, color: anyStarted ? CORAL : MUT }}>{anyStarted ? '● LIVE' : 'EJ STARTAD'}</div>
       </div>
 
-      <div style={{ padding: '14px 16px 60px', maxWidth: 560, margin: '0 auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
+      <div style={{ padding: '14px 16px 40px', maxWidth: 560, margin: '0 auto' }}>
 
         {/* LEDARE */}
         {leader && (
@@ -237,6 +238,10 @@ export default function TabyFinal({ final, players, rounds, scores, events, user
         </div>
 
         {final.notes && <div style={{ ...mono, fontSize: 8, color: MUT, lineHeight: 1.5 }}>Anteckning: {final.notes}</div>}
+      </div>
+      </div>
+      <div style={{ flexShrink: 0, padding: '10px 16px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', background: 'rgba(12,24,48,0.96)', borderTop: '0.5px solid rgba(212,160,23,0.3)' }}>
+        <button onClick={onClose} style={{ width: '100%', padding: 14, borderRadius: 12, border: '1px solid rgba(212,160,23,0.5)', background: 'rgba(212,160,23,0.12)', color: G, fontSize: 14, fontWeight: 700, cursor: 'pointer', ...mono, letterSpacing: 1 }}>← STÄNG FINALVYN</button>
       </div>
     </div>
   )
