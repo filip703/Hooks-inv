@@ -849,14 +849,15 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       notes: JSON.stringify({ ldHole, npHole }),
       counts_for_oom: countsForOom,
       skins_stake: skinsStake,
-      h2h_pairs: h2hPairs
+      h2h_pairs: h2hPairs,
+      start_hole: roundSetup.startHole === 10 ? 10 : 1
     }).select().single()
     if (data) {
       setNewRound(data)
       setScoreInput({})
       setTabyRounds(prev => [data, ...prev])
       setTabyView('scoring')
-      setTabyActiveHole(1)
+      setTabyActiveHole(data.start_hole || 1)
 
       // Push-notiser till alla Täby-spelare som ÄR med i rundan (joinable) + de som inte är med (FYI)
       try {
@@ -892,12 +893,19 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     }
   }
 
+  // Hole order for a round: start_hole 10 -> 10..18,1..9 (Taby "vand slinga"). Default 1..18.
+  const tabyHoleOrder = (round) => {
+    const start = Number(round?.start_hole) || 1
+    return Array.from({ length: 18 }, (_, i) => ((start - 1 + i) % 18) + 1)
+  }
+
   // Resume active round → jump straight into fullscreen on next unplayed hole
   const resumeRound = (round) => {
     setNewRound(round)
     setTabyView('scoring')
     const played = tabyScores.filter(s => s.round_id === round.id && s.player_id === tabyUser?.id).map(s => s.hole)
-    const nextUnplayed = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].find(h => !played.includes(h)) || 1
+    const order = tabyHoleOrder(round)
+    const nextUnplayed = order.find(h => !played.includes(h)) || order[0]
     setTabyActiveHole(nextUnplayed)
   }
 
@@ -905,7 +913,8 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   useEffect(() => {
     if (tabyView === 'scoring' && newRound && tabyActiveHole == null) {
       const played = tabyScores.filter(s => s.round_id === newRound.id && s.player_id === tabyUser?.id).map(s => s.hole)
-      const nextUnplayed = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].find(h => !played.includes(h)) || 1
+      const order = tabyHoleOrder(newRound)
+      const nextUnplayed = order.find(h => !played.includes(h)) || order[0]
       setTabyActiveHole(nextUnplayed)
     }
   }, [tabyView, newRound?.id])
@@ -2546,8 +2555,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
         const currentVal = sc?.strokes || h.p
         const extra = getExtra(h.i, activePlayer?.taby_hcp || activePlayer?.hcp)
         const stab = sc?.stableford ?? null
-        const prevHole = h.h > 1 ? h.h - 1 : null
-        const nextH = h.h < 18 ? h.h + 1 : null
+        const holeOrder = tabyHoleOrder(newRound)
+        const orderIdx = holeOrder.indexOf(h.h)
+        const prevHole = orderIdx > 0 ? holeOrder[orderIdx - 1] : null
+        const nextH = orderIdx >= 0 && orderIdx < 17 ? holeOrder[orderIdx + 1] : null
         const fmtLabel = { stableford: '⭐ Stableford', stroke: '✏️ Slagspel', matchplay: '⚔️ Matchplay', skins: '🦈 Skins', lag: '🛡️ Lagspel' }[fmt] || fmt
         const roundPlayers = tabyPlayers.filter(p => newRound.player_ids?.includes(p.id))
 
@@ -2640,7 +2651,7 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
             {/* ── HOLE STRIP ── */}
             <div style={{ background: '#1B4332', paddingBottom: 8, paddingLeft: 8, paddingRight: 8, overflowX: 'auto', display: 'flex', gap: 4, flexShrink: 0, scrollbarWidth: 'none' }}>
-              {holes.map(hs => {
+              {[...holes].sort((a, b) => holeOrder.indexOf(a.h) - holeOrder.indexOf(b.h)).map(hs => {
                 const hsc = tabyScores.find(s => s.round_id === newRound.id && s.player_id === activePid && s.hole === hs.h)
                 const isActive = hs.h === h.h
                 return (
@@ -5102,6 +5113,16 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
                     })()}
                   </Section>
                 )}
+
+                {/* 2b. STARTHÅL */}
+                <Section icon="⛳" title="Starthål">
+                  <div style={{ fontSize: 13, color: 'rgba(147,197,253,0.6)', marginBottom: 12, lineHeight: 1.5 }}>Vänd slinga? Välj hål 10 så följer appen 10 → 18 → 1 → 9.</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {[1, 10].map(sh => (
+                      <button key={sh} onClick={() => setRoundSetup(s=>({...s,startHole:sh}))} style={{ flex: 1, padding: '10px 16px', borderRadius: 10, cursor: 'pointer', background: (roundSetup.startHole||1)===sh ? 'rgba(147,197,253,0.15)' : 'rgba(147,197,253,0.04)', border: (roundSetup.startHole||1)===sh ? '2px solid #93C5FD' : '1px solid rgba(147,197,253,0.12)', color: (roundSetup.startHole||1)===sh ? '#93C5FD' : 'rgba(240,244,255,0.5)', fontSize: 13, fontWeight: (roundSetup.startHole||1)===sh ? 700 : 400 }}>Hål {sh}</button>
+                    ))}
+                  </div>
+                </Section>
 
                 {/* 3. EVENT */}
                 {tabyEvents.filter(e => e.status==='upcoming').length > 0 && (
