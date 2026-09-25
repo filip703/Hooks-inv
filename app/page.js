@@ -9,6 +9,7 @@ import { soundBirdie, soundEagle, soundZero, soundChat, soundScore, initAudio, p
 import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFromPush, sendPush } from '../lib/push'
 import { AugustaBadge, LakeBadge, IconTrophy, IconFlag, IconLeaderboard, IconScorecard, IconMenu, IconSwords, IconChat, IconSmokeSignal, IconWallet, IconDice, IconCamera, IconInfo, IconUser, IconSettings, IconBell, IconSun, IconMoon, IconRefresh, IconLock, IconSwish, IconGreenJacket, IconGolfBall } from '../lib/icons'
 import QRCode from 'qrcode'
+import TabyFinal from '../lib/TabyFinal'
 
 const RC_DEFAULT = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Parkbanan', 4: 'Parkbanan' }
 const RL = { 1: 'R1 Fre', 2: 'R2 Lör FM', 3: 'R3 Lör EM', 4: 'R4 Sön' }
@@ -423,6 +424,8 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [tabyCaddieMsg, setTabyCaddieMsg] = useState(null)
   const [tabyCaddieLoading, setTabyCaddieLoading] = useState(false)
   const [tabyEvents, setTabyEvents] = useState([])
+  const [tabyFinal, setTabyFinal] = useState(null)       // TOOM-final add-on (taby_final singleton)
+  const [tabyFinalOpen, setTabyFinalOpen] = useState(false)
   const [tabyBets, setTabyBets] = useState([])
   const [tabyBetOptions, setTabyBetOptions] = useState([])
   const [tabyBetWagers, setTabyBetWagers] = useState([])
@@ -552,6 +555,13 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
     const { data } = await supabase.from('taby_events').select('*').order('date')
     if (data) setTabyEvents(data)
   }
+  // TOOM-final add-on: singleton-rad, fail-safe (null om tabellen saknas)
+  const fetchTabyFinal = async () => {
+    try {
+      const { data } = await supabase.from('taby_final').select('*').order('created_at', { ascending: false }).limit(1)
+      setTabyFinal(data?.[0] || null)
+    } catch { setTabyFinal(null) }
+  }
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'dark')
@@ -579,6 +589,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
       // Load events
       const { data: events } = await supabase.from('taby_events').select('*').order('date')
       if (events) setTabyEvents(events)
+      fetchTabyFinal()  // TOOM-final add-on (fire-and-forget)
       // Load betting data
       const { data: bets } = await supabase.from('taby_bets').select('*').order('created_at', { ascending: false })
       if (bets) setTabyBets(bets)
@@ -656,6 +667,10 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
         { event: '*', schema: 'public', table: 'taby_h2h' },
         () => loadData()
       ).subscribe(),
+      supabase.channel('taby_final_rt').on('postgres_changes',
+        { event: '*', schema: 'public', table: 'taby_final' },
+        () => fetchTabyFinal()
+      ).subscribe(),
       supabase.channel('taby_bets_rt').on('postgres_changes',
         { event: '*', schema: 'public', table: 'taby_bets' },
         () => loadData()
@@ -726,11 +741,14 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
 
   // Get playing HCP (slope adjusted)
   // Capar HCP till 0-36 (SGF max) - skydd mot data-bugs som typ "147" istället för "14.7"
-  const getPlayingHcp = (hcp) => Math.round(Math.min(36, Math.max(0, hcp || 0)) * 130 / 113)
+  // Cap -5..36: plus-hcp (t.ex. +2 = -2) tillatet sedan TOOM-finalen 2026 (Marten). 36 = SGF-max, sakerhetsnat efter 147-buggen.
+  const getPlayingHcp = (hcp) => Math.round(Math.min(36, Math.max(-5, hcp || 0)) * 130 / 113)
 
   // Get extra strokes for a specific hole
   const getExtra = (holeIdx, hcp) => {
     const phcp = getPlayingHcp(hcp)
+    // Plus-hcp: ger tillbaka slag pa de LATTASTE halen (index 18, 17, ...) -> extra = -1
+    if (phcp < 0) return holeIdx > 18 + phcp ? -1 : 0
     const base = Math.floor(phcp / 18)
     const rem = phcp % 18
     return base + (holeIdx <= rem ? 1 : 0)
@@ -1564,6 +1582,10 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       })()}
 
       {/* HISTORISK RUNDDETALJ — hela scorekortet för alla deltagare */}
+      {/* 🏁 TOOM-FINALEN overlay (add-on, isolerad i lib/TabyFinal.jsx) */}
+      {tabyFinalOpen && tabyFinal && (
+        <TabyFinal final={tabyFinal} players={tabyPlayers} rounds={tabyRounds} scores={tabyScores} events={tabyEvents} user={tabyUser} onClose={() => setTabyFinalOpen(false)} toast={showTabyToast} />
+      )}
       {tabyRoundDetail && (() => {
         const round = tabyRounds.find(r => r.id === tabyRoundDetail)
         if (!round) return null
@@ -1834,6 +1856,21 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {tabyView === 'leaderboard' && (
         <div style={{ padding: '0 16px' }}>
           {/* Events section */}
+          {/* 🏁 TOOM-FINALEN — add-on banner, visas bara nar taby_final finns och eventet inte ar avslutat */}
+          {tabyFinal && tabyEvents.find(e => e.id === tabyFinal.event_id)?.status !== 'completed' && (
+            <button onClick={() => setTabyFinalOpen(true)} style={{ width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 12, padding: '14px 16px', borderRadius: 16, position: 'relative', overflow: 'hidden',
+              background: 'linear-gradient(135deg, rgba(232,99,74,0.18), rgba(212,160,23,0.14), rgba(20,41,74,0.5))', border: '1px solid rgba(212,160,23,0.6)' }}>
+              <div style={{ position: 'absolute', top: -14, right: -6, fontSize: 80, opacity: 0.08, transform: 'rotate(-10deg)' }}>🏁</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: '#D4A017', letterSpacing: 3, marginBottom: 6 }}>🏁 TOOM-FINALEN · {tabyEvents.find(e => e.id === tabyFinal.event_id)?.date || ''}</div>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#FAF8F0', lineHeight: 1.05 }}>Livetabell, H2H, sidotävlingar & En Marcus</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)', marginTop: 6 }}>Startpoäng à la FedEx · 7 spelare · pott {((tabyFinal.pot_per_player || 200) * 7).toLocaleString('sv-SE')} kr</div>
+                </div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D4A017', letterSpacing: 1, padding: '8px 12px', borderRadius: 10, border: '1px solid rgba(212,160,23,0.5)' }}>ÖPPNA →</div>
+              </div>
+            </button>
+          )}
           {tabyEvents.length > 0 && (
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(212,175,55,0.5)', letterSpacing: 2, marginBottom: 8 }}>KOMMANDE EVENTS</div>
@@ -4091,12 +4128,12 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '0.5px solid rgba(147,197,253,0.06)' }}>
                 {p.image_url ? <img src={p.image_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(147,197,253,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#93C5FD' }}>{p.name?.charAt(0)}</div>}
                 <div style={{ flex: 1, fontSize: 13, color: '#F0F4FF' }}>{p.nickname} <span style={{ color: 'rgba(147,197,253,0.4)', fontSize: 10 }}>({p.name?.split(' ')[0]})</span></div>
-                <input type="number" step="0.1" min="0" max="36" defaultValue={p.taby_hcp ?? p.hcp} style={{ width: 60, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 6, color: '#F0F4FF', padding: '4px 6px', fontSize: 14, textAlign: 'center', fontFamily: 'var(--mono)' }}
+                <input type="number" step="0.1" min="-5" max="36" defaultValue={p.taby_hcp ?? p.hcp} style={{ width: 60, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.15)', borderRadius: 6, color: '#F0F4FF', padding: '4px 6px', fontSize: 14, textAlign: 'center', fontFamily: 'var(--mono)' }}
                   onBlur={async (e) => {
                     let v = parseFloat(e.target.value)
                     if (isNaN(v)) return
                     // Capa till SGF-max 0-36
-                    const capped = Math.min(36, Math.max(0, v))
+                    const capped = Math.min(36, Math.max(-5, v))
                     if (capped !== v) {
                       e.target.value = capped
                       showTabyToast(`HCP capad till ${capped} (max 36)`, 'zero')
