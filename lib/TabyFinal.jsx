@@ -181,13 +181,13 @@ export default function TabyFinal({ final, players, rounds, scores, events, user
 
         {/* HEAD TO HEAD */}
         <div style={card}>
-          <div style={lbl}>HEAD TO HEAD · DE SEX ORDINARIE · FRÅN SCRATCH</div>
-          <div style={{ fontSize: 10, color: MUT, lineHeight: 1.5, marginBottom: 10 }}>Paras efter TOOM före finalen: 1v6, 2v5, 3v4. Avgörs på finalrundans råa poängbogeypoäng — inga startpoäng, inga fördelar. Lika → korthålsbanan avgör. Beloppet bestäms per par före start.</div>
+          <div style={lbl}>HEAD TO HEAD · FRÅN SCRATCH</div>
+          <div style={{ fontSize: 10, color: MUT, lineHeight: 1.5, marginBottom: 10 }}>De sex ordinarie paras efter TOOM före finalen: 1v6, 2v5, 3v4. Gästen väljer fritt en motståndare — den som blir vald får finna sig i att bli slagen av ett proffs. Avgörs på finalrundans råa poängbogeypoäng — inga startpoäng, inga fördelar. Lika → korthålsbanan avgör. Beloppet bestäms per par före start.</div>
           {(final.h2h || []).map((m, idx) => {
             const a = byId[m.p1], b = byId[m.p2]
             const pa = played[m.p1] || { pts: 0, holes: 0 }, pb = played[m.p2] || { pts: 0, holes: 0 }
-            const done = pa.holes === 18 && pb.holes === 18
-            const lead = pa.pts === pb.pts ? null : pa.pts > pb.pts ? m.p1 : m.p2
+            const done = !!m.p2 && pa.holes === 18 && pb.holes === 18
+            const lead = !m.p2 || pa.pts === pb.pts ? null : pa.pts > pb.pts ? m.p1 : m.p2
             return (
               <div key={idx} style={{ padding: '10px 0', borderTop: '0.5px solid rgba(147,197,253,0.08)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -199,8 +199,16 @@ export default function TabyFinal({ final, players, rounds, scores, events, user
                     </div>
                     <div style={{ ...mono, fontSize: 9, color: MUT }}>vs</div>
                     <div>
-                      <div style={{ fontSize: 12, color: lead === m.p2 ? G : CREAM, fontWeight: lead === m.p2 ? 700 : 500 }}>{b?.nickname || '?'}</div>
-                      <div style={{ ...mono, fontSize: 9, color: MUT }}>{pb.pts}p · {pb.holes}h</div>
+                      {m.pick && !m.p2
+                        ? <select value="" disabled={busy} onChange={e => setH2H(idx, { p2: e.target.value || null })}
+                            style={{ background: 'rgba(212,160,23,0.1)', border: '1px solid rgba(212,160,23,0.4)', borderRadius: 8, color: G, padding: '6px 8px', fontSize: 11, maxWidth: 120 }}>
+                            <option value="">Välj offer…</option>
+                            {snap.filter(s => s.player_id !== m.p1).map(s => <option key={s.player_id} value={s.player_id}>{byId[s.player_id]?.nickname || s.key}</option>)}
+                          </select>
+                        : <>
+                            <div style={{ fontSize: 12, color: lead === m.p2 ? G : CREAM, fontWeight: lead === m.p2 ? 700 : 500 }}>{b?.nickname || '?'}{m.pick && <button onClick={() => setH2H(idx, { p2: null })} disabled={busy} style={{ marginLeft: 6, background: 'none', border: 'none', color: MUT, fontSize: 9, cursor: 'pointer', padding: 0 }}>ändra</button>}</div>
+                            <div style={{ ...mono, fontSize: 9, color: MUT }}>{pb.pts}p · {pb.holes}h</div>
+                          </>}
                     </div>
                   </div>
                   <input type="number" placeholder="kr" defaultValue={m.stake ?? ''} disabled={busy}
