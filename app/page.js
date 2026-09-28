@@ -10,6 +10,7 @@ import { isPushSupported, getSubscriptionStatus, subscribeToPush, unsubscribeFro
 import { AugustaBadge, LakeBadge, IconTrophy, IconFlag, IconLeaderboard, IconScorecard, IconMenu, IconSwords, IconChat, IconSmokeSignal, IconWallet, IconDice, IconCamera, IconInfo, IconUser, IconSettings, IconBell, IconSun, IconMoon, IconRefresh, IconLock, IconSwish, IconGreenJacket, IconGolfBall } from '../lib/icons'
 import QRCode from 'qrcode'
 import TabyFinal from '../lib/TabyFinal'
+import TabySeasonSummary from '../lib/TabySeasonSummary'
 
 const RC_DEFAULT = { 1: 'Skogsbanan', 2: 'Parkbanan', 3: 'Parkbanan', 4: 'Parkbanan' }
 const RL = { 1: 'R1 Fre', 2: 'R2 Lör FM', 3: 'R3 Lör EM', 4: 'R4 Sön' }
@@ -430,6 +431,7 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   const [tabyEvents, setTabyEvents] = useState([])
   const [tabyFinal, setTabyFinal] = useState(null)       // TOOM-final add-on (taby_final singleton)
   const [tabyFinalOpen, setTabyFinalOpen] = useState(false)
+  const [tabySeasonOpen, setTabySeasonOpen] = useState(false)  // sasongssummering (taby_final.season_closed)
   const [tabyBets, setTabyBets] = useState([])
   const [tabyBetOptions, setTabyBetOptions] = useState([])
   const [tabyBetWagers, setTabyBetWagers] = useState([])
@@ -956,6 +958,15 @@ function TaByApp({ onSwitchMode, tabyOnly }) {
   useEffect(() => {
     if (!tabyUser || !tabyFinal || tabyEvents.length === 0) return
     const ev = tabyEvents.find(e => e.id === tabyFinal.event_id)
+    if (tabyFinal.season_closed) {
+      try {
+        if (sessionStorage.getItem('pending_view')) return
+        if (sessionStorage.getItem('taby_season_autoopened')) return
+        sessionStorage.setItem('taby_season_autoopened', '1')
+      } catch (e) {}
+      setTabySeasonOpen(true)
+      return
+    }
     if (!ev || ev.status === 'completed') return
     try {
       if (sessionStorage.getItem('pending_view')) return
@@ -1610,6 +1621,9 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
 
       {/* HISTORISK RUNDDETALJ — hela scorekortet för alla deltagare */}
       {/* 🏁 TOOM-FINALEN overlay (add-on, isolerad i lib/TabyFinal.jsx) */}
+      {tabySeasonOpen && tabyFinal?.season_closed && (
+        <TabySeasonSummary final={tabyFinal} players={tabyPlayers} playerStats={playerStats} rounds={tabyRounds} scores={tabyScores} events={tabyEvents} user={tabyUser} onClose={() => setTabySeasonOpen(false)} />
+      )}
       {tabyFinalOpen && tabyFinal && (
         <TabyFinal final={tabyFinal} players={tabyPlayers} rounds={tabyRounds} scores={tabyScores} events={tabyEvents} user={tabyUser} onClose={() => setTabyFinalOpen(false)} toast={showTabyToast} />
       )}
@@ -1883,8 +1897,18 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {tabyView === 'leaderboard' && (
         <div style={{ padding: '0 16px' }}>
           {/* Events section */}
+          {/* 👑 SASONGEN KLAR — banner till summeringen */}
+          {tabyFinal?.season_closed && (
+            <button onClick={() => setTabySeasonOpen(true)} style={{ width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 12, padding: '14px 16px', borderRadius: 16, position: 'relative', overflow: 'hidden',
+              background: 'linear-gradient(135deg, rgba(212,160,23,0.22), rgba(20,41,74,0.5))', border: '1px solid rgba(212,160,23,0.6)' }}>
+              <div style={{ position: 'absolute', top: -14, right: -6, fontSize: 80, opacity: 0.1, transform: 'rotate(-10deg)' }}>👑</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: '#D4A017', letterSpacing: 3, marginBottom: 6 }}>SÄSONGEN {tabyFinal.season_year || 2026} ÄR AVGJORD</div>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#FAF8F0', lineHeight: 1.05 }}>Mästare: {tabyPlayers.find(p => p.id === tabyFinal.champion_id)?.nickname || '—'}</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.5)', marginTop: 6 }}>Slutställning, finalen, utmärkelser och säsongen i siffror →</div>
+            </button>
+          )}
           {/* 🏁 TOOM-FINALEN — add-on banner, visas bara nar taby_final finns och eventet inte ar avslutat */}
-          {tabyFinal && tabyEvents.find(e => e.id === tabyFinal.event_id)?.status !== 'completed' && (
+          {tabyFinal && !tabyFinal.season_closed && tabyEvents.find(e => e.id === tabyFinal.event_id)?.status !== 'completed' && (
             <button onClick={() => setTabyFinalOpen(true)} style={{ width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 12, padding: '14px 16px', borderRadius: 16, position: 'relative', overflow: 'hidden',
               background: 'linear-gradient(135deg, rgba(232,99,74,0.18), rgba(212,160,23,0.14), rgba(20,41,74,0.5))', border: '1px solid rgba(212,160,23,0.6)' }}>
               <div style={{ position: 'absolute', top: -14, right: -6, fontSize: 80, opacity: 0.08, transform: 'rotate(-10deg)' }}>🏁</div>
