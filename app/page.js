@@ -352,6 +352,15 @@ export default function Home() {
             <div style={{ fontSize: 12, color: 'rgba(240,244,255,0.5)', marginTop: 8 }}>April – Oktober</div>
           </div>
         </button>
+        <a href="/konopiste" style={{ display: 'block', textDecoration: 'none', padding: '28px 20px', borderRadius: 20, cursor: 'pointer', border: '0.5px solid rgba(212,175,55,0.45)', background: 'linear-gradient(135deg, rgba(212,175,55,0.14), rgba(27,67,50,0.12))', backdropFilter: 'blur(20px)', textAlign: 'left', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 50%)', pointerEvents: 'none', borderRadius: 20 }} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#D4AF37', letterSpacing: 2, marginBottom: 6 }}>NYTT · NÄSTA RESA</div>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: 24, color: '#FAF8F0', marginBottom: 4 }}>DIO 2027 · <i style={{ color: '#D4AF37' }}>Konopiště</i></div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'rgba(250,248,240,0.4)', letterSpacing: 1 }}>TJECKIEN · 6–9 MAJ 2027</div>
+            <div style={{ fontSize: 12, color: 'rgba(250,248,240,0.5)', marginTop: 8 }}>Program, format, flyg och läxa →</div>
+          </div>
+        </a>
       </div>
       <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'rgba(250,248,240,0.15)', letterSpacing: 2, marginTop: 12 }}>POWERED BY CHAOS</div>
     </div>
@@ -1897,6 +1906,14 @@ Max 2-3 meningar. Svenska. Använd spelarens nickname.`
       {tabyView === 'leaderboard' && (
         <div style={{ padding: '0 16px' }}>
           {/* Events section */}
+          {/* 🏰 DIO 2027 Konopiště — link to the trip subpage */}
+          <a href="/konopiste" style={{ display: 'block', textDecoration: 'none', marginBottom: 12, padding: '14px 16px', borderRadius: 16, position: 'relative', overflow: 'hidden',
+            background: 'linear-gradient(135deg, rgba(212,175,55,0.2), rgba(27,67,50,0.45))', border: '1px solid rgba(212,175,55,0.5)' }}>
+            <div style={{ position: 'absolute', top: -12, right: -4, fontSize: 72, opacity: 0.12, transform: 'rotate(-8deg)' }}>🏰</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: '#D4AF37', letterSpacing: 3, marginBottom: 6 }}>NÄSTA RESA · 6–9 MAJ 2027</div>
+            <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: '#FAF8F0', lineHeight: 1.05 }}>DIO 2027 · <i style={{ color: '#D4AF37' }}>Konopiště</i></div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'rgba(240,244,255,0.55)', marginTop: 6 }}>Program, format, flyg och läxa · boka flyg före 15 dec →</div>
+          </a>
           {/* 👑 SASONGEN KLAR — banner till summeringen */}
           {tabyFinal?.season_closed && (
             <button onClick={() => setTabySeasonOpen(true)} style={{ width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 12, padding: '14px 16px', borderRadius: 16, position: 'relative', overflow: 'hidden',
